@@ -69,11 +69,11 @@ async function run() {
   await until(() => w.PolicyCache.get(), 30000, "sign-in read");
   $("toolMdeRollout").click();
   await sleep(150);
-  $("mvBody").querySelector('[data-mrread="attach"]').click();
+  await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
   await until(() => $("mvBody").querySelector(".ep-rail"), 30000, "rail");
-  const idle = () => until(() => { const s = st(); return !s.running && !s.busy && !s.enriching; }, 30000, "idle");
+  const idle = () => until(() => { const s = st(); return !s.running && !s.busy && !s.enriching && !s.project.starting && !s.project.task && !s.project.timer && !s.reps.busy; }, 30000, "idle");
   await idle();
-  const node = (p) => D.querySelector(`[data-mrpane="${p}"]`);
+  const node = (p) => { w.MdeRolloutV2Tool._pane(p); return D.querySelector(`[data-mrpane="${p}"]`); };
   ok("the rail: 🔄 Country groups after 👥, ↩ Revert after ⊘", !!node("countrysync") && !!node("revert")
     && node("members").compareDocumentPosition(node("countrysync")) & 4 && node("exclusions").compareDocumentPosition(node("revert")) & 4);
   async function gates() {
@@ -145,8 +145,8 @@ async function run() {
 
   // ---------------------------------------------------------- ↩ revert --
   node("revert").click();
-  ok("↩ Revert opens and offers its read", st().pane === "revert" && !!$("mvRvRead"));
-  $("mvRvRead").click();
+  ok("↩ Revert opens and offers its read", st().pane === "revert" && (!!$("mvRvRead") || !!st().ex.base));
+  if ($("mvRvRead")) $("mvRvRead").click();
   ok("…the devices are read and the search is there", await until(() => st().ex.base && $("mvRvQ"), 15000, "rv read"));
   $("mvRvQ").value = "eva"; $("mvRvQ").dispatchEvent(new w.Event("input", { bubbles: true }));
   $("mvRvQ").dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
@@ -163,7 +163,7 @@ async function run() {
   ok("applied: six steps verified", rr.ok === 6 && rr.runKind === "revert" && rr.reason === "Finance LOB app blocked by ASR — ticket 4711");
   ok("the tenant: Eva in INT-SG-U-MDE-Revert, out of INT-SG-U-NLD; her laptop likewise", G("INT-SG-U-MDE-Revert")._users.includes(w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id)
     && !G("INT-SG-U-NLD")._users.includes(w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id) && G("INT-SG-D-MDE-Revert")._devices.length === 1 && !G("INT-SG-D-NLD")._devices.includes(G("INT-SG-D-MDE-Revert")._devices[0]));
-  ok("Reverted now lists them with the reason; the rail counts 1 · 1", await until(() => /Reverted now/.test($("mvRvNow").textContent) && /ticket 4711/.test($("mvRvNow").textContent), 5000, "rv now") && /1 · 1/.test(node("revert").textContent));
+  ok("Reverted now lists them with the reason; the rail counts 1 · 1", await until(() => /Reverted now/.test($("mvRvNow").textContent) && /ticket 4711/.test($("mvRvNow").textContent), 5000, "rv now") && st().cs.extra.revertUsers.size === 1 && st().cs.extra.revertDevices.size === 1);
 
   // ----------------------------------------------- the sync holds them back --
   node("countrysync").click();

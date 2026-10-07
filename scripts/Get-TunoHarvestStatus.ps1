@@ -1,4 +1,4 @@
-# Get-TunoHarvestStatus.ps1  v1.0.0  (TUNO build 10691)
+# Get-TunoHarvestStatus.ps1  v1.0.0  (TUNO build 10692)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -89,7 +89,7 @@ param(
 )
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10691
+$script:TunoBuild = 10692
 
 $ErrorActionPreference = 'Continue'
 if ($ProbeUpload) { $Probe = $true }

@@ -100,27 +100,13 @@ async function run() {
     const b = $("mvMemberBackup"), a = $("mvMemApply");
     if (b && a && a.disabled && !b.disabled) { b.click(); await until(() => !$("mvMemApply") || !$("mvMemApply").disabled, 10000, "group backup"); }
   }
-  ok("opening reads nothing: no model, no rail, no read started", !w.MdeRolloutV2Tool._state().model && !$("mvBody").querySelector(".ep-rail") && reads.refresh === 0 && reads.read === 0, JSON.stringify(reads));
-  ok("it offers the read instead: ↻ Read the tenant, and says reading writes nothing", !!offer() && !!offer().querySelector('[data-mrread="fresh"]') && /changes nothing/.test(offer().textContent));
-  const useHeld = offer() && offer().querySelector('[data-mrread="attach"]');
-  ok("with the sign-in read held, it also offers that read, with its time", !!useHeld && /sign-in read from \d/.test(useHeld.textContent) && useHeld.textContent.includes(w.PolicyCache.timeLabel()));
-  ok("10678: no ⊘ or 🎛 button in the header — the rail is where the adjustments live", !$("mvExclude") && !$("mvAsr"));
-  w.TunoScreenHooks["screen-mderollout"]();
-  await sleep(50);
-  ok("opening it again still only offers", !!offer() && !w.MdeRolloutV2Tool._state().model && reads.refresh === 0);
-
-  // A read renders, then keeps going (group kinds, setting names) and
-  // renders again. A check that holds an element across that second render
-  // clicks a detached node — so after every read the suite waits until the
-  // screen is idle (10649: TUNO's CI failed once while tuno-beta passed the
-  // same commit; this is the race that fits).
-  const idle = () => until(() => { const s = w.MdeRolloutV2Tool._state(); return !s.running && !s.busy && !s.enriching; }, 30000, "idle");
-  offer().querySelector('[data-mrread="attach"]').click();
-  ok("the read finishes and the rail renders", await until(() => $("mvBody").querySelector(".ep-rail"), 30000, "rail"));
+  const idle = () => until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && !s.running && !s.busy && !s.enriching && !s.project.starting && !s.project.task && !s.project.timer && !s.reps.busy; }, 30000, "idle");
+  await until(() => w.MdeRolloutV2Tool._state().project.attempted.size === 4, 30000, "automatic sources");
   await idle();
-  ok("using the sign-in read asks for no fresh read, and the offer is gone", reads.refresh === 0 && !offer() && /From the sign-in read at/.test($("mvBody").textContent), JSON.stringify(reads));
-  w.TunoScreenHooks["screen-mderollout"]();
-  ok("once read, opening the screen again keeps the read", !!$("mvBody").querySelector(".ep-rail") && !offer());
+  ok("opening attaches the sign-in read automatically", !!w.MdeRolloutV2Tool._state().model && reads.refresh === 0 && !offer(), JSON.stringify(reads));
+  ok("five project areas replace the flat rail", D.querySelectorAll(".mr-navigation > [data-mrpane]").length === 5);
+  w.TunoScreenHooks["screen-mderollout"](); await idle();
+  ok("reopening keeps the current read", reads.refresh === 0 && !!w.MdeRolloutV2Tool._state().model);
   w.PolicyCache.refresh = realRefresh; w.PolicyCache.read = realRead;
   // 10642 (Mihai: "should be default excluded with the option to include if
   // needed"): the demo's one-rule ASR policy is on the default leave-out
@@ -424,15 +410,11 @@ async function run() {
   // ------------------------------------------------ 📑 reports (10635) --
   // 10638 (option A off the mockup): the rail is back; the three reports
   // are its child nodes, each with its state; no second column, no tabs.
-  ok("one navigation: the rail, with the four reports as child nodes (📡 Landing check since 10689) and no top tabs", D.querySelectorAll(".ep-rail [data-mrreport]").length === 4
-    && !D.querySelector(".mr-tabs, .mr-subtabs, .mr-report-list") && /0 of 4/.test(D.querySelector('[data-mrpane="reports"]').textContent)
-    && [...D.querySelectorAll(".mr-rep-state")].every((x) => /not generated/.test(x.textContent)));
-  const railOrder = [...D.querySelectorAll(".ep-rail [data-mrpane], .ep-rail [data-mrreport]")].map((x) => x.dataset.mrpane || "·" + x.dataset.mrreport);
-  ok("…placed right under 📑 Reports", railOrder.indexOf("reports") >= 0 && railOrder.slice(railOrder.indexOf("reports") + 1, railOrder.indexOf("reports") + 4).join() === "·assign,·config,·conflicts");
-  ok("…and every pane keeps its count in view", /\d/.test(D.querySelector('[data-mrpane="new"]').textContent) && /\d/.test(D.querySelector('[data-mrpane="old"]').textContent) && /\d/.test(D.querySelector('[data-mrpane="out"]').textContent));
+  w.MdeRolloutV2Tool._pane("reports");
+  ok("four reports live in Journal's report selector", D.querySelectorAll(".t28-report-nav [data-mrreport]").length === 4 && D.querySelector('.mr-navigation [data-mrpane="journal"].active'));
   D.querySelector('[data-mrreport="config"]').dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
   ok("a report node opens its report from the keyboard, straight into the main column", st().pane === "reports" && st().reps.selected === "config" && !!$("mvRep_config")
-    && D.querySelector('[data-mrreport="config"]').classList.contains("active") && D.querySelector('[data-mrpane="reports"]').classList.contains("mr-open"));
+    && D.querySelector('[data-mrreport="config"]').classList.contains("active") && D.querySelector('[data-mrpane="reports"]').classList.contains("active"));
   D.querySelector('[data-mrreport="assign"]').click();
   w.MdeRolloutV2Tool._pane("reports");
   ok("reports offers four persistent choices and only one generator", D.querySelectorAll("[data-mrreport]").length === 4 && !!$("mvRep_assign") && !$("mvRep_config") && !$("mvRep_conflicts") && !$("mvRep_landing"));
@@ -461,10 +443,9 @@ async function run() {
   $("mvRep_conflicts").click();
   ok("the report selector remains available during a fresh check and prevents concurrent refresh", D.querySelectorAll("[data-mrreport]").length === 4 && $("mvRun").disabled);
   ok("the conflict check reads the tenant fresh and counts what needs action", await until(() => R().conflicts, 30000, "conflict check") && R().conflicts.summary.act > 0 && R().checks.length === 1 && /conflict check/i.test(R().conflicts.html) && st().pane === "reports");
-  ok("the rail says how many need action, on the conflict check's own node", /\d+ to act/.test(D.querySelector('[data-mrreport="conflicts"]').textContent)
-    && D.querySelector('[data-mrreport="conflicts"] .mr-rep-state').classList.contains("gap") && /[23] of 4/.test(D.querySelector('[data-mrpane="reports"]').textContent));
+  ok("the conflict report selector shows its action count", /\d+ to act/.test(D.querySelector('[data-mrreport="conflicts"]').textContent));
   D.querySelector('[data-mrreport="assign"]').click();
-  ok("…and the rail marks the older report for regenerating", /regenerate/.test(D.querySelector('[data-mrreport="assign"]').textContent));
+  ok("…and the rail marks the older report for regenerating", /Updating on opening/.test(D.querySelector('[data-mrreport="assign"]').textContent));
   ok("an older report is marked stale after a fresh check and retains its original data", /saved report predates/.test($("mvBody").textContent) && R().assign === savedAssign && R().assign.html === savedAssign.html);
   D.querySelector('[data-mrreport="conflicts"]').click();
   const before = R().conflicts.summary.act;
@@ -515,7 +496,7 @@ async function run() {
   w.MdeRolloutV2Tool._pane("waves");
   const amD = () => st().waveRows.find((x) => x.name === "INT-SG-D-WAVE-Americas");
   ok("the Americas device wave is found under its old name, offered for rename", amD().legacy && amD().legacy.name === "PVM-DG-MDE-WAVE-Americas" && /old name/.test($("mvBody").textContent) && !!D.querySelector('[data-mrrename="INT-SG-D-WAVE-Americas"]'));
-  ok("the rail says there are groups to rename (the Americas device wave and the user exclusion group)", /2 to rename/.test(D.querySelector('[data-mrpane="waves"]').textContent));
+  ok("both legacy groups can be selected for rename", D.querySelectorAll("[data-mrrename]").length === 2);
   const exU = () => st().waveRows.find((x) => x.name === "INT-SG-U-MDE-Exclusion");
   ok("the user exclusion group is found under its old name too", exU().legacy && exU().legacy.name === "PVM-UG-MDE-Exclusion" && !!D.querySelector('[data-mrrename="INT-SG-U-MDE-Exclusion"]'));
   const rnx = D.querySelector('[data-mrrename="INT-SG-U-MDE-Exclusion"]'); rnx.checked = true; rnx.dispatchEvent(new w.Event("change", { bubbles: true }));
@@ -536,12 +517,13 @@ async function run() {
   // added to the 2 exclusion groups". Layout A: the header button opens the
   // rail pane. The user exclusion group is still under its old name here
   // (renamed back above) and Nina is in it — her Windows laptop is not.
+  w.MdeRolloutV2Tool._pane("exceptionhome");
   ok("the rail node is there once the tenant is read (10678: no header button)", !!D.querySelector('[data-mrpane="exclusions"]') && !$("mvExclude"));
   D.querySelector('[data-mrpane="exclusions"]').click();
   await until(() => st().pane === "exclusions", 5000, "exclusions pane");
   if (!st().ex.base && !st().ex.loading) $("mvExRead").click();
   ok("it opens ⊘ Exclusions and reads the exclusion groups and devices", st().pane === "exclusions" && await until(() => st().ex.base, 10000, "exclusion base") && !!$("mvExQ"));
-  ok("the rail says one user is half-excluded", /1 half/.test(D.querySelector('[data-mrpane="exclusions"]').textContent) && D.querySelector('[data-mrpane="exclusions"] .ep-n').classList.contains("gap"));
+  ok("partial exclusions remain visible", /half/.test($("mvExNow").textContent));
   ok("Excluded now: Nina, half — her laptop still gets the - D - policies, with + add device", /Excluded now/.test($("mvExNow").textContent) && /Nina Nieuw/.test($("mvExNow").textContent)
     && /half: the - D - policies still reach WS-ENG-0308/.test($("mvExNow").textContent) && !!D.querySelector("[data-mrexfix]"));
   $("mvExQ").value = "eva"; $("mvExQ").dispatchEvent(new w.Event("input", { bubbles: true }));
@@ -900,9 +882,10 @@ async function run() {
   const obfMode = () => { const r = w.MdeAsr.findRule(obfPol._settings, OBFS); return r ? w.MdeAsr.modeOfValue(OBFS, r.choiceSettingValue.value) : null; };
   const oldPol = TT.CONFIG_POLICIES.find((p) => p.name === "PVM-DG-CORP-ENDSEC-WIN-ASR-PRD");
   const oldBefore = JSON.stringify(oldPol._settings);
+  w.MdeRolloutV2Tool._pane("new");
   ok("🎛 its rail node is there once the tenant is read (10678: no header button)", !!D.querySelector('[data-mrpane="asr"]') && !$("mvAsr"));
   D.querySelector('[data-mrpane="asr"]').click();
-  ok("🎛 it opens its own pane, on the rail", st().pane === "asr" && !!$("mvBody").querySelector('.mr-navigation [data-mrpane="asr"].active') && !!$("mvAsrCard"));
+  ok("🎛 it opens its own pane, on the rail", st().pane === "asr" && !!$("mvBody").querySelector('.t28-subnav [data-mrpane="asr"].active') && !!$("mvAsrCard"));
   const sel = () => $("mvBody").querySelector(`[data-mrasr$="|${OBFS}"]`);
   const obfGen = () => st().model.policies.find((p) => p.id === obfPol.id).generation;
   ok("🎛 the one-rule WIN-SEC policy is listed, Block now (➕ included earlier in this run, so not marked left out)", !!sel() && sel().value === "block" && obfGen() === "new" && !/➖/.test(sel().closest("tr").textContent));
@@ -940,21 +923,17 @@ async function run() {
   ok("🎛 a policy changed since the dry run is skipped as drifted, not written", await until(() => st().runs.filter((r) => r.kind === "settings").length === 3, 8000, "asr drift") && obfMode() === "off" && /drifted/.test(st().runs[st().runs.length - 1].lines.join()));
   w.MdeAsr.findRule(obfPol._settings, OBFS).choiceSettingValue.value = `${ASRD}_${OBFS}_block`;
 
-  // ------------------------------------------- the offer, cold (10644) --
+  // A cold project reads automatically; no permission means a visible connect step.
   const heldGet = w.PolicyCache.get, heldReading = w.PolicyCache.reading, rf = w.PolicyCache.refresh;
   let fresh = 0;
   w.PolicyCache.refresh = (...a) => { fresh++; return rf(...a); };
   w.PolicyCache.get = () => null; w.PolicyCache.reading = () => false;
   w.dispatchEvent(new w.Event("tuno:signout"));
   w.TunoScreenHooks["screen-mderollout"]();
-  ok("cold, with no read held: only ↻ Read the tenant is offered", !!offer() && !!offer().querySelector('[data-mrread="fresh"]') && !offer().querySelector('[data-mrread="attach"]') && fresh === 0);
-  w.PolicyCache.reading = () => true;
-  w.TunoScreenHooks["screen-mderollout"]();
-  ok("while the sign-in read still runs, it offers to wait for it", /Wait for the sign-in read/.test(offer().textContent) && fresh === 0);
-  w.PolicyCache.get = heldGet; w.PolicyCache.reading = heldReading;
-  offer().querySelector('[data-mrread="fresh"]').click();
-  ok("↻ Read the tenant in the offer reads the tenant fresh", await until(() => $("mvBody").querySelector(".ep-rail"), 30000, "fresh rail") && fresh === 1 && !offer());
-  w.PolicyCache.refresh = rf;
+  await until(() => st().project.attempted.size === 4, 30000, "cold sources"); await idle();
+  ok("cold open automatically reads policies once", !!st().model && fresh === 1);
+  w.PolicyCache.get = heldGet; w.PolicyCache.reading = heldReading; w.PolicyCache.refresh = rf;
+
 }
 
 run().then(() => {

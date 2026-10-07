@@ -1,4 +1,4 @@
-# Convert-TunoAppLockerToIntune.ps1  v1.4.1  (TUNO build 10691)
+# Convert-TunoAppLockerToIntune.ps1  v1.4.1  (TUNO build 10692)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -182,7 +182,7 @@ $ErrorActionPreference = 'Stop'
 # history, TunoBuild is the site build that served it, and a headless test holds
 # TunoBuild to js/version.js so they cannot drift.
 $script:ScriptVersion = '1.4.1'
-$script:TunoBuild = 10691
+$script:TunoBuild = 10692
 $script:GraphScope = 'DeviceManagementConfiguration.ReadWrite.All'
 $script:GraphUri = 'https://graph.microsoft.com/beta/deviceManagement/deviceConfigurations'
 

@@ -68,7 +68,7 @@ async function run() {
   const { w } = boot();
   const D = w.document, $ = (id) => D.getElementById(id);
   const tool = w.MdeRolloutV2Tool, st = () => tool._state();
-  const idle = () => until(() => !st().running && !st().busy && !st().enriching, 30000, "idle");
+  const idle = () => until(() => !st().running && !st().busy && !st().enriching && !st().project.starting && !st().project.task && !st().project.timer && !st().reps.busy, 30000, "idle");
 
   // ------------------------------------------------------ the engine --
   const T = w.MdeRollout.pilotTiers(PVM);
@@ -86,9 +86,7 @@ async function run() {
   await until(() => w.PolicyCache.get(), 30000, "sign-in read");
   $("toolMdeRollout").click();
   await sleep(150);
-  const offer = $("mvBody").querySelector('[data-mrread="attach"]');
-  ok("T28 offers the held read", !!offer);
-  offer.click();
+  await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
   ok("the read finishes and the rail renders", await until(() => $("mvBody").querySelector(".ep-rail"), 30000, "rail"));
   await idle();
   ok("the ⚙️ pilot names are the four PVM groups by default", st().cfg.pilotGroups.join("|") === PVM.join("|"), st().cfg.pilotGroups.join("|"));

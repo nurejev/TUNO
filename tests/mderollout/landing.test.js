@@ -158,16 +158,15 @@ async function run() {
   await until(() => w.PolicyCache.get(), 30000, "sign-in read");
   $("toolMdeRollout").click();
   await sleep(150);
-  $("mvBody").querySelector('[data-mrread="attach"]').click();
+  await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
   await until(() => $("mvBody").querySelector(".ep-rail"), 30000, "rail");
   const st = () => w.MdeRolloutV2Tool._state();
-  await until(() => !st().running && !st().busy && !st().enriching, 30000, "idle");
+  await until(() => !st().running && !st().busy && !st().enriching && !st().project.starting && !st().project.task && !st().project.timer && !st().reps.busy, 30000, "idle");
   const body = () => $("mvBody").textContent;
-  ok("the rail has 📡 Landing under Check & recover, without a count before a read", !!D.querySelector('.mr-navigation [data-mrpane="landing"]') && !D.querySelector('.mr-navigation [data-mrpane="landing"] .ep-n'));
-  D.querySelector('.mr-navigation [data-mrpane="landing"]').click();
-  ok("the pane opens with the read button and nothing read", st().pane === "landing" && !!D.querySelector("[data-mrldread]") && /Nothing read yet/.test(body()));
-  D.querySelector("[data-mrldread]").click();
-  ok("📡 Read the status reads", await until(() => st().ld.model && !st().ld.busy, 30000, "landing read"));
+  D.querySelector('.mr-navigation [data-mrpane="wavehome"]').click();
+  ok("Verification is available under Waves", !!D.querySelector('.t28-subnav [data-mrpane="landing"]'));
+  D.querySelector('.t28-subnav [data-mrpane="landing"]').click();
+  ok("status is already loaded when opening Verification", st().pane === "landing" && !!st().ld.model && !!D.querySelector("[data-mrldread]"));
   const LM = st().ld.model;
   const byName = (re) => LM.policies.find((p) => re.test(p.name));
   const av = byName(/Defender Antivirus - D - AV Configuration/), audit = byName(/Audit and Event Logging/), edge = byName(/Microsoft Edge - D - Security/);
@@ -181,7 +180,7 @@ async function run() {
   const vAlex = w.MdeLanding.verdict(alex, LM).text;
   ok("Alex's verdict names the conflict with the old policy and the audit policy with no status", /⚔ .*AV Configuration.*also in conflict on \(TO-BE-REMOVED\)PVM-DG-CORP-ENDSEC-WIN-AV-PRD/.test(vAlex) && /◌ .*Audit and Event Logging.* — no status/.test(vAlex));
   ok("Eva's names the conflict and the error", /⚔ .*AV Configuration/.test(w.MdeLanding.verdict(eva, LM).text) && /✕ .*Audit and Event Logging/.test(w.MdeLanding.verdict(eva, LM).text));
-  ok("the rail counts what is to look at", /4 to look at/.test(D.querySelector('.mr-navigation [data-mrpane="landing"]').textContent));
+  ok("the rail counts what is to look at", /4to look at/.test(D.querySelector('[data-mrldfilter="problems"]').textContent));
   ok("the pane: tiles, the matrix with the Euro column, 0 / 2 with ⚔ 2 for antivirus, ✕ 1 and ◌ 1 for audit", D.querySelectorAll("[data-mrldfilter].mr-tile").length >= 7 && /🌊 Euro/.test(body()) && /0<\/b> \/ 2/.test($("mvBody").innerHTML) && /⚔ 2/.test(body()) && /✕ 1/.test(body()) && /◌ 1/.test(body()));
   ok("…the member table lists both devices, problems first, with a verdict", /WS-ENG-0221/.test(body()) && /WS-FIN-0142/.test(body()) && /also in conflict on/.test(body()));
   const fold = D.querySelector('[data-mrfold^="ld|"]');
@@ -203,7 +202,7 @@ async function run() {
   ok("📑 Save as report lands in Reports with the landing check selected", await until(() => st().reps.landing && !st().reps.busy, 20000, "report") && st().pane === "reports" && st().reps.selected === "landing");
   const html = st().reps.landing.html;
   ok("its page: the tiles, the matrix, 'To look at (2 members)', the extra and how to read it", /MDE rollout — landing check/.test(html) && /To look at \(2 members\)/.test(html) && /Reported, but not a wave member \(1\)/.test(html) && /How to read it/.test(html) && /WS-ENG-0308/.test(html) && /<th>🌊 Euro<\/th>/.test(html));
-  ok("…and the CSV travels with it; the rail lists 4 reports", st().reps.landing.csv === w.MdeLanding.csv(LM) && /4 of 4|of 4/.test(D.querySelector('.mr-navigation [data-mrpane="reports"]').textContent) && !!D.querySelector('[data-mrreport="landing"]'));
+  ok("…and the CSV travels with it; the rail lists 4 reports", st().reps.landing.csv === w.MdeLanding.csv(LM) && D.querySelectorAll(".t28-report-nav [data-mrreport]").length === 4 && !!D.querySelector('[data-mrreport="landing"]'));
   ok("the metadata names when the status was read", /Status read/.test(body()));
 
   // a fix lands: Alex's laptop now reports the audit policy; the reports
@@ -214,7 +213,7 @@ async function run() {
   await sleep(5);
   $("mvRep_landing").click();
   ok("Read again & generate re-reads and regenerates", await until(() => st().reps.landing && st().reps.landing.at !== before && !st().reps.busy && !st().ld.busy, 30000, "second read") && st().ld.model.summary.none === 0 && st().ld.model.summary.landed === 1);
-  ok("…and the rail now says 3 to look at", /3 to look at/.test(D.querySelector('.mr-navigation [data-mrpane="landing"]').textContent));
+  ok("refreshed landing evidence has three results to review", st().ld.model.summary.problems === 3);
 
   // a failed report is said, never counted as 0
   w.TUNO_DEMO_GRAPH.DENIED.push(/getCachedReport/);

@@ -68,11 +68,11 @@ async function run() {
   await until(() => w.PolicyCache.get(), 30000, "sign-in read");
   $("toolMdeRollout").click();
   await sleep(150);
-  $("mvBody").querySelector('[data-mrread="attach"]').click();
+  await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
   await until(() => $("mvBody").querySelector(".ep-rail"), 30000, "rail");
-  const idle = () => until(() => { const s = st(); return !s.running && !s.busy && !s.enriching; }, 30000, "idle");
+  const idle = () => until(() => { const s = st(); return !s.running && !s.busy && !s.enriching && !s.project.starting && !s.project.task && !s.project.timer && !s.reps.busy; }, 30000, "idle");
   await idle();
-  const node = (p) => D.querySelector(`[data-mrpane="${p}"]`);
+  const node = (p) => { w.MdeRolloutV2Tool._pane(p); return D.querySelector(`[data-mrpane="${p}"]`); };
   async function gates(opts) {
     const o = opts || {};
     const t = $("mvConfirmText"); if (t) { t.value = "REMOVE"; t.dispatchEvent(new w.Event("input", { bubbles: true })); }
@@ -111,7 +111,7 @@ async function run() {
 
   // ---------------------------------------------------- ↩ the list --
   node("revert").click();
-  $("mvRvRead").click();
+  if ($("mvRvRead")) $("mvRvRead").click();
   ok("↩ Revert reads, and offers 🔎 One at a time and 📋 The list", await until(() => st().ex.base && $("mvRvQ"), 15000, "rv read") && !!D.querySelector('[data-mrrvmode="list"]') && st().rv.mode === "one");
   // ＋ Add from a card
   type($("mvRvQ"), "milan");

@@ -5,15 +5,9 @@
 // MdeRollout in js/mderollout.js (the V2 file carried a byte-identical
 // copy of it as MdeRolloutV2 until 10661). See docs/T28-V2.md.
 
-// ======================================================================
-// T28 — the screen: a rail, one pane per job (10632, layout B), and the
-// report workspace (10637) — one saved report preview, picked from the
-// rail's report nodes since 10638. The GATES live here, the T11 way: a plan is cut from a
-// FRESH read of the policies it touches, the backup is taken before Apply
-// unlocks, removals are typed, additions ticked, and every write goes
-// through AssignEdit.applyPlan (drift check → write → verify) on the run
-// ledger. The engine above refuses nothing about sequence; this does.
-// ======================================================================
+// Project cockpit (10692): automatic reads and five project areas wrap the
+// existing operation panes. One reviewed plan, one backup, explicit consent,
+// drift check, verified write and run ledger remain the write contract.
 const MdeRolloutV2Tool = (() => {
   "use strict";
   const M = MdeRollout;
@@ -103,6 +97,190 @@ const MdeRolloutV2Tool = (() => {
   const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
   const tenantName = () => { const n = $("tenantName"); return (n && n.textContent) || ""; };
 
+  // Project cockpit (10692). Existing operation panes and their write gates
+  // remain the only writers. This layer owns navigation and read scheduling.
+  const project = { active: false, starting: false, epoch: 0, task: "", timer: null, sources: {}, attempted: new Set(),
+    country: null, waveTab: "members", details: false, reportToken: "", history: [], historyError: "", savedRuns: 0 };
+  const PROJECT_AREAS = [
+    { id: "overview", label: "Overview", icon: "◉", panes: ["overview", "attention"] },
+    { id: "wavehome", label: "Waves", icon: "🌊", panes: ["wavehome", "members", "countrysync", "waves", "landing"] },
+    { id: "new", label: "Policies", icon: "🎯", panes: ["new", "old", "conflicts", "asr", "edgeext", "retire", "out"] },
+    { id: "exceptionhome", label: "Exceptions", icon: "⊘", panes: ["exceptionhome", "exclusions", "revert"] },
+    { id: "journal", label: "Journal", icon: "📜", panes: ["journal", "changes", "reports", "recovery"] }
+  ];
+  const PROJECT_PANES = {
+    overview: "Project overview", attention: "Needs attention", wavehome: "Country workspace", members: "Membership & pilots",
+    countrysync: "Country sync", waves: "Wave groups & tests", landing: "Verification", new: "New policies", old: "Old policies",
+    conflicts: "Conflicts", asr: "ASR settings", edgeext: "Edge extensions", retire: "Retirement", out: "Out of scope",
+    exceptionhome: "Holds & returns", exclusions: "Exclude from new", revert: "Return / resume", journal: "Project history",
+    changes: "Session changes & undo", reports: "Reports", recovery: "Run files & recovery", rules: "Project setup", how: "How it works"
+  };
+  const projectArea = () => PROJECT_AREAS.find((a) => a.panes.includes(pane));
+  const projectReadBusy = () => project.starting || running || mem.loading || ex.loading || ld.busy || dv.busy || !!reps.busy || !!project.task;
+  const memberReadScopes = () => [...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory, ...(mcfg().useDefenderLogons ? Graph.SCOPES.hunting : [])])];
+  const projectValid = (epoch) => epoch === project.epoch;
+  function projectSource(key, state, error) {
+    project.sources[key] = { state, error: error || "", at: Date.now(), runs: runs.length };
+  }
+  function projectStatus(key) {
+    const s = project.sources[key];
+    if (!s) return "Queued";
+    if (s.state === "ready" && s.runs !== runs.length) return "Changed since read";
+    return ({ ready: "Read", reading: "Reading…", partial: "Partial", failed: "Unavailable", consent: "Permission needed", queued: "Queued" })[s.state] || s.state;
+  }
+  function projectRelease() {
+    busy = false;
+    if ($("mvRun")) $("mvRun").disabled = projectReadBusy();
+    projectQueue();
+  }
+  function projectQueue() {
+    if (!project.active || project.timer || project.task || !model) return;
+    project.timer = setTimeout(() => { project.timer = null; projectReadNext(); }, 0);
+  }
+  async function projectReadNext() {
+    if (!project.active || project.starting || project.task || !model || (project.sources.policies && /failed|consent/.test(project.sources.policies.state)) || running || busy || plan || mem.loading || ex.loading || ld.busy || dv.busy || reps.busy) return;
+    const jobs = [
+      ["members", memberReadScopes, memRead], ["exclusions", MdeExclude.scopes, exRead],
+      ["landing", () => [...Graph.SCOPES.config, ...Graph.SCOPES.devices, ...Graph.SCOPES.groups], readLanding],
+      ["devices", () => [...Graph.SCOPES.config, ...Graph.SCOPES.devices], readDevices]
+    ];
+    const job = jobs.find((j) => !project.attempted.has(j[0]));
+    if (!job) { projectReport(); return; }
+    const [key, scopes, read] = job, epoch = project.epoch;
+    project.attempted.add(key); project.task = key; projectSource(key, "reading"); render();
+    try {
+      if (!await Graph.silentScopes([...new Set(scopes())])) { if (projectValid(epoch)) projectSource(key, "consent", "Use Connect data to grant this read's permissions."); return; }
+      if (!projectValid(epoch)) return;
+      await read();
+    } catch (e) { if (projectValid(epoch)) projectSource(key, "failed", GroupUse.shortErr(e, 240)); }
+    finally { if (projectValid(epoch)) { project.task = ""; render(); projectQueue(); } }
+  }
+  async function projectStart(interactive) {
+    if (project.starting || running || busy || project.task || mem.loading || ex.loading || ld.busy || dv.busy || reps.busy) return;
+    project.active = true; project.starting = true;
+    const epoch = project.epoch;
+    projectSource("policies", "reading"); render();
+    const scopes = [...new Set([...PolicyCache.scopesNeeded(), ...Graph.SCOPES.groups])];
+    try {
+      if (!interactive && !await Graph.silentScopes(scopes)) { if (projectValid(epoch)) { projectSource("policies", "consent", "Connect data once to authorise the project reads."); render(); } return; }
+      if (!projectValid(epoch)) return;
+      if (interactive) await Graph.ensureScopes([...new Set([...scopes, ...memberReadScopes(), ...MdeExclude.scopes(), ...Graph.SCOPES.config, ...Graph.SCOPES.devices])]);
+      if (!projectValid(epoch)) return;
+      project.attempted.clear(); project.reportToken = "";
+      await run(!interactive && !!(PolicyCache.get() || PolicyCache.reading()));
+    } catch (e) { if (projectValid(epoch)) { projectSource("policies", "failed", GroupUse.shortErr(e, 240)); render(); } }
+    finally { if (projectValid(epoch)) { project.starting = false; render(); projectQueue(); } }
+  }
+  function projectSources() {
+    const labels = { policies: "Policies & wave groups", members: "Country members & return holds", exclusions: "Exclusions & device inventory", landing: "Policy check-in status", devices: "Device conflicts" };
+    const list = Object.keys(labels), blocked = list.some((k) => project.sources[k] && /failed|partial|consent/.test(project.sources[k].state));
+    const pending = list.some((k) => !project.sources[k] || project.sources[k].state === "reading");
+    const changed = list.some((k) => project.sources[k] && project.sources[k].runs !== runs.length);
+    const title = blocked ? "Some evidence needs attention" : projectReadBusy() || pending ? "Loading project data" : changed ? "Changes made since the last read" : "Project data loaded";
+    return `<div class="t28-data" role="status"><span><b>${title}</b> · ${project.task ? esc(labels[project.task] || project.task) : "Reads are automatic; changes require a reviewed plan"}</span><button class="btn" data-project-details aria-expanded="${project.details}">Data details</button></div>
+      <div class="t28-sources"${project.details ? "" : " hidden"}>${list.map((k) => { const s = project.sources[k]; return `<div><b>${labels[k]}</b><span>${projectStatus(k)}${s && s.state !== "reading" ? ` · ${esc(shortTime(s.at))}` : ""}</span>${s && s.error ? `<small>${esc(s.error)}</small>` : ""}</div>`; }).join("")}<p class="mini">A read time is not a device check-in time. Missing evidence stays unknown. Refresh reads again; it never applies a change.</p></div>`;
+  }
+  function projectNav() {
+    const area = projectArea();
+    return `<div class="t28-nav-title">MDE project</div>${PROJECT_AREAS.map((a) => `<button type="button" class="ep-node${area === a ? " active" : ""}" data-mrpane="${a.id}"${area === a ? ' aria-current="page"' : ""}>${a.icon} ${a.label}</button>`).join("")}
+      <div class="t28-nav-foot"><button class="ep-node${pane === "rules" ? " active" : ""}" data-mrpane="rules">⚙️ Project setup</button><button class="ep-node${pane === "how" ? " active" : ""}" data-mrpane="how">❓ Help</button></div>`;
+  }
+  function projectTabs() {
+    const area = projectArea(), ids = area ? area.panes : ["rules", "how"];
+    return `<nav class="t28-subnav" aria-label="${area ? area.label : "Project setup"}">${ids.map((id) => `<button type="button" data-mrpane="${id}" class="${pane === id ? "active" : ""}"${pane === id ? ' aria-current="page"' : ""}>${PROJECT_PANES[id]}</button>`).join("")}</nav>`;
+  }
+  function projectFindings() {
+    const items = [];
+    for (const [key, s] of Object.entries(project.sources)) if (/failed|partial|consent/.test(s.state)) items.push({ id: `source-${key}`, title: `${projectStatus(key)}: ${key}`, detail: s.error || "Some results are unavailable. Do not infer readiness from missing rows.", to: "overview", source: true });
+    if (ld.model) {
+      const n = ld.model.summary.error + ld.model.summary.conflict;
+      if (n) items.push({ id: "device-results", title: `${n} policy results report error or conflict`, detail: "These are member × policy results, not a unique-device count. Inspect the reported setting before changing coverage.", to: "landing" });
+      const waiting = ld.model.summary.none + ld.model.summary.pending + ld.model.summary.unreadable;
+      if (waiting) items.push({ id: "waiting", title: `${waiting} policy results still need evidence`, detail: "Pending, no status and unreadable are separate states. A missing report is not proof of failure.", to: "landing" });
+    }
+    if (model) {
+      const collisions = pairs.filter(M.needsAction).length;
+      if (collisions) items.push({ id: "collisions", title: `${collisions} old / new policy pairs need review`, detail: "Compare settings, assignment routes and actual device conflict evidence together.", to: "conflicts" });
+      const gaps = retire.filter((r) => r.verdict !== "covered" || r.reach !== "can").length;
+      if (gaps) items.push({ id: "retirement", title: `${gaps} old policies need a retirement decision`, detail: "Replacement settings and assignment reach must be reviewed before old coverage is removed.", to: "retire" });
+    }
+    if (mem.model) {
+      const drift = mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false)).length;
+      if (drift) items.push({ id: "membership", title: `${drift} countries need membership review`, detail: "Review proposed additions, removals, held members and routes into the wave.", to: "members" });
+      if (mem.model.unmapped.length) items.push({ id: "unmapped", title: `${mem.model.unmapped.length} source groups have no wave mapping`, detail: "Confirm the mapping or leave them out of scope. Names alone do not authorise placement.", to: "members", unmapped: true });
+    }
+    return items;
+  }
+  function projectAttention(compact) {
+    const items = projectFindings(), shown = compact ? items.slice(0, 3) : items;
+    return `<section class="t28-panel"><div class="t28-panel-head"><h3>Needs attention</h3>${compact ? '<button class="btn" data-mrpane="attention">All decisions →</button>' : ""}</div>${shown.length ? shown.map((x) => `<button type="button" class="t28-decision" data-project-finding="${esc(x.id)}"><b>${esc(x.title)}</b><span>${esc(x.detail)}</span><small>Review →</small></button>`).join("") : `<p class="mini">${projectReadBusy() || !ld.model || !mem.model ? "Findings appear as each source loads. Readiness is not established yet." : "No outstanding findings in the available evidence."}</p>`}</section>`;
+  }
+  function projectCountryRows() { return mem.model ? mem.model.rows : MdeMembers.countryRows(mcfg()); }
+  function projectCountryEvidence(row) {
+    if (!ld.model || !mem.model) return null;
+    const users = new Set([...(row.uHave || []), ...(row.uWant || [])].map(lc));
+    const devices = new Set([...(row.have || []), ...(row.want || []), ...(row.devices || []).map((d) => d.objId)].filter(Boolean).map(lc));
+    return ld.model.members.filter((e) => e.kind === "device" ? devices.has(lc(e.objectId)) : users.has(lc(e.userId)));
+  }
+  function projectCountryState(row) {
+    if (!mem.model) return project.sources.members && /failed|consent/.test(project.sources.members.state) ? "Membership unavailable" : "Loading membership";
+    if (!row.ug) return "Source group missing";
+    if (!row.ugNested && !row.dgNested) return "Preparing";
+    const evidence = projectCountryEvidence(row);
+    if (!evidence) return "Awaiting status read";
+    if (evidence.some((e) => e.worst === "error" || e.worst === "conflict")) return "Needs attention";
+    if (evidence.some((e) => /pending|none|unreadable/.test(e.worst))) return "Awaiting evidence";
+    return evidence.length ? "Review reported results" : "No wave status matched";
+  }
+  function projectCountryTable() {
+    const rows = projectCountryRows();
+    return `<section class="t28-panel"><div class="t28-panel-head"><h3>Countries & waves</h3><button class="btn" data-mrpane="wavehome">Open workspace →</button></div><div class="t28-table-wrap"><table class="cg-table"><thead><tr><th>Country</th><th>Wave</th><th>Users / devices in static groups</th><th>Evidence</th></tr></thead><tbody>${rows.map((r) => `<tr><td><button class="t28-link" data-project-country="${esc(r.key)}">${esc(r.country)}</button>${r.pilot ? '<span class="mini"> · pilot</span>' : ""}</td><td>${esc(r.region)}</td><td>${mem.model ? `${r.uRead ? r.uHave.size : "?"} / ${r.dg ? r.have.size : "—"}` : "—"}</td><td>${esc(projectCountryState(r))}</td></tr>`).join("")}</tbody></table></div><p class="mini muted">Group membership, policy assignment and reported application are separate checks. Shared members can appear in more than one country.</p></section>`;
+  }
+  function projectOverview() {
+    const s = ld.model && ld.model.summary;
+    return `<div class="v2-overview"><div class="t28-title"><div><p class="t28-eyebrow">${esc(tenantName() || "MDE rollout project")}</p><h3>Your rollout, in one place.</h3><p class="mini muted">Review scope, policy changes and device evidence before the next rollout step.</p></div></div>
+      <div class="t28-metrics"><div><strong>${projectCountryRows().length}</strong><span>country / pilot entries</span></div><div><strong>${model ? model.newP.length : "—"}</strong><span>new policies</span></div><div><strong>${s ? s.devices : "—"}</strong><span>devices in verification scope</span></div><div><strong>${s ? s.error + s.conflict : "—"}</strong><span>error / conflict results</span></div></div>
+      <div class="t28-overview-grid">${projectCountryTable()}${projectAttention(true)}</div></div>`;
+  }
+  function projectWave() {
+    const rows = projectCountryRows(), row = rows.find((r) => r.key === project.country) || rows[0];
+    if (!row) return '<div class="t28-panel">No countries configured. Open Project setup to define your rollout.</div>';
+    project.country = row.key;
+    const tabs = { members: "Members", policies: "Policies", verification: "Verification", exceptions: "Exceptions", evidence: "Evidence" };
+    let content = "";
+    if (!mem.model) content = `<p>${project.sources.members && /failed|consent/.test(project.sources.members.state) ? "Country membership is unavailable." : "Country members are loading automatically."} Data details shows any permission or read problem.</p>`;
+    else if (project.waveTab === "members") content = `<div class="t28-panel-head"><h4>People, devices & placement</h4><button class="btn" data-project-members="${esc(row.key)}">Review membership & pilots →</button></div><p class="mini">${row.users} source users · ${row.devices.length} Windows devices found · ${esc(row.userGroupStatic || "Static user group not mapped")} / ${esc(row.deviceGroupName || "Static device group not mapped")}</p><div class="t28-table-wrap"><table class="cg-table"><tbody>${memDetail(row)}</tbody></table></div>`;
+    else if (project.waveTab === "policies") {
+      const waveIds = new Set(waveRows.filter((w) => w.region === row.region && w.id).map((w) => lc(w.id)));
+      const pols = model.newP.filter((p) => [...p.reach.inc].some((id) => waveIds.has(lc(id))));
+      content = `<h4>New policies assigned to ${esc(row.region)}</h4><p class="mini">These assignments target the whole wave. A country selection does not narrow a policy change; review its full scope in Policies.</p>${pols.length ? `<table class="cg-table"><thead><tr><th>Policy</th><th>Assignments</th></tr></thead><tbody>${pols.map((p) => `<tr><td>${polLink(p)}</td><td>${assignChips(p)}</td></tr>`).join("")}</tbody></table>` : '<p>No new policy includes the mapped wave groups in this snapshot.</p>'}<button class="btn" data-mrpane="new">Review policy assignments →</button>`;
+    } else if (project.waveTab === "verification") {
+      const entries = projectCountryEvidence(row);
+      content = `<div class="t28-panel-head"><h4>What this country's members report</h4><button class="btn" data-project-landing="${esc(row.region)}">Full wave verification →</button></div><p class="mini">Matched by member IDs in the country groups and proposed scope. A device's report time and a data-read time are different.</p>${entries ? entries.length ? `<div class="t28-table-wrap"><table class="cg-table"><thead><tr><th>Member</th><th>Type</th><th>Reported result</th><th>Last check-in</th></tr></thead><tbody>${entries.slice(0, 150).map((e) => `<tr><td>${esc(e.name)}</td><td>${esc(e.kind)}</td><td>${ldChip(e.worst)}</td><td>${e.lastSync ? esc(reportTime(e.lastSync)) : "—"}</td></tr>`).join("")}</tbody></table></div><p class="mini">${entries.length} matched members${entries.length > 150 ? " · first 150 shown; full wave verification and CSV include all" : ""}.</p>` : '<p>No wave status matched this country yet. Check membership, nesting and policy assignments.</p>' : '<p>Device reports are loading automatically. Missing results remain unknown.</p>'}`;
+    } else if (project.waveTab === "exceptions") content = `<h4>Keep out, return or resume</h4><p>Review the exact person or device and every assignment route. The Exceptions workspace covers the whole project; country selection never silently changes its scope.</p><div class="tb-actions"><button class="btn" data-mrpane="exclusions">Exclude from new policies</button><button class="btn" data-mrpane="revert">Return to old / resume rollout</button></div>`;
+    else content = `<h4>Evidence for ${esc(row.country)}</h4><p class="mini">Membership read: ${mem.model ? esc(reportTime(mem.model.readAt)) : "pending"} · check-in status read: ${ld.at ? esc(reportTime(ld.at)) : "pending"}.</p><p>Open the project reports for the assignment matrix, deployment configuration, conflict comparison and landing evidence. Each export carries its own source timestamps.</p><div class="tb-actions">${REPORTS.map((r) => `<button class="btn" data-mrreport="${r.id}">${esc(r.title)}</button>`).join("")}</div>`;
+    return `<div class="t28-wave-workspace"><nav class="t28-countries" aria-label="Choose country">${rows.map((r) => `<button data-project-country="${esc(r.key)}" class="${r.key === row.key ? "active" : ""}"><b>${esc(r.country)}</b><small>${esc(r.region)} · ${esc(projectCountryState(r))}</small></button>`).join("")}</nav><section class="t28-country-main"><p class="t28-eyebrow">${esc(row.region)} / country workspace</p><h3>${esc(row.country)}</h3><nav class="t28-subnav" aria-label="Country details">${Object.entries(tabs).map(([id, label]) => `<button data-project-wtab="${id}" class="${project.waveTab === id ? "active" : ""}">${label}</button>`).join("")}</nav><div class="t28-panel">${content}</div></section></div>`;
+  }
+  function projectExceptions() {
+    const n = exNow(), sm = csModel();
+    return `<h3>Every exception has a purpose.</h3><p>Choose the intended outcome, review who it affects, then follow the existing dry run, backup and apply steps.</p><div class="t28-intents"><section class="t28-panel"><h4>Exclude from new policies</h4><p>Keep a person or device out of the new set. Review whether to keep old-policy targeting; exclusion alone does not prove old protection.</p><p class="mini">${n ? `${n.users} users · ${n.devices} devices currently excluded${n.half ? ` · ${n.half} partial pairs` : ""}` : "Exclusions loading / unavailable — see Data details"}</p><button class="btn primary" data-mrpane="exclusions">Review an exclusion</button><p class="mini">One at a time · pasted list · CSV · remove exclusion</p></section><section class="t28-panel"><h4>Return to old policies / resume rollout</h4><p>A return adds a hold and removes mapped country memberships. Check old coverage and other routes first. Resuming is a separate reviewed change.</p><p class="mini">${sm ? `${sm.revertUsers.size} users · ${sm.revertDevices.size} devices in return holds` : "Return holds loading / unavailable — see Data details"}</p><button class="btn primary" data-mrpane="revert">Review a return or resume</button><p class="mini">One at a time · list / CSV · group members · reason · bulk confirmation</p></section></div><p class="t28-callout">Completion has three parts: group change verified → device report received → outcome reviewed. An assignment change alone does not establish protection.</p>`;
+  }
+  const projectHistoryKey = () => `tuno.t28.project.history.${tenantKey()}`;
+  function projectLoadHistory() {
+    const saved = readJson(projectHistoryKey());
+    project.history = Array.isArray(saved) ? saved.filter((r) => r && typeof r.title === "string").slice(-100).map((r) => Object.assign({}, r, { lines: Array.isArray(r.lines) ? r.lines.filter((l) => typeof l === "string") : [] })) : [];
+  }
+  function projectSaveHistory() {
+    if (!project.active || project.savedRuns === runs.length) return;
+    for (const r of runs.slice(project.savedRuns)) project.history.push({ at: r.at, title: r.title, kind: r.kind, ok: r.ok, bad: r.bad, stopped: !!r.stopped, lines: r.lines || [] });
+    project.history = project.history.slice(-100); project.savedRuns = runs.length;
+    try { window.localStorage.setItem(projectHistoryKey(), JSON.stringify(project.history)); project.historyError = ""; }
+    catch { project.historyError = "Browser history could not be saved. Download run files before leaving."; }
+  }
+  function projectJournal() {
+    return `<h3>The project remembers.</h3><p class="mini">Last 100 run summaries in this browser, for this tenant. Summaries survive reopening; full backups and executable undo remain in Session changes or exported run files.</p><div class="tb-actions"><button class="btn" data-mrpane="changes">Session changes & undo</button><button class="btn" data-mrpane="recovery">Run files & recovery</button><button class="btn" data-mrpane="reports">Open current reports</button></div>${project.historyError ? `<p role="alert">${esc(project.historyError)}</p>` : ""}<div class="t28-panel">${project.history.length ? project.history.slice().reverse().map((r) => `<details class="t28-history"><summary><b>${esc(r.title)}</b> · ${esc(reportTime(r.at))}</summary><p class="mini">${Number(r.ok) || 0} verified · ${Number(r.bad) || 0} require review${r.stopped ? " · stopped" : ""}</p>${(r.lines || []).map((l) => `<p class="mini">${esc(l)}</p>`).join("")}</details>`).join("") : '<p>No changes recorded in this browser yet. Automatic reads do not create change records.</p>'}</div>`;
+  }
+
 
   function v2Context() { return { tenantId: TunoTenant.tenantId() || "demo", config: JSON.stringify(cfg), allowLeftOut: v2AllowLeftOut }; }
   function v2Bind() {
@@ -165,21 +343,7 @@ const MdeRolloutV2Tool = (() => {
       });
     }
   }
-  function v2Overview() {
-    const missing = waveRows.filter((w) => w.lookedUp && !w.exists && !w.legacy).length;
-    const unknown = !found || model.missing.length > 0;
-    const gaps = retire.filter((r) => r.verdict !== "covered" || r.reach !== "can").length;
-    const todo = mem.model ? mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false)).length : null;
-    const cards = [
-      ["waves", "1 · Prepare groups", unknown ? "Unknown / partial read" : missing ? `${missing} missing` : "Groups found", "Check names, group kinds and regions before adding members."],
-      ["members", "2 · Review members", todo === null ? "Not read" : `${todo} countries to review`, "Review device mapping evidence, stale devices and pilot transitions."],
-      ["new", "3 · Assign the new set", `${model.newP.length} policies`, "Create a fresh assignment plan for the selected scope."],
-      ["retire", "4 · Review old coverage", `${gaps} require review`, "Coverage of settings and assignment reach are separate checks."],
-      ["conflicts", "5 · Exclude old policies", `${pairs.filter(M.needsAction).length} conflicts`, "Unproven retirement coverage requires a recorded risk decision."],
-      ["reports", "6 · Check evidence", "Device application unverified", "Generate reports and verify device outcomes in Intune / Defender."]
-    ];
-    return `<div class="v2-overview"><div class="v2-hero"><span class="tag new">T28 · BETA</span><h3>Prepare → roll out → verify</h3><p>Tenant: <b>${esc(tenantName() || v2Context().tenantId)}</b>. This is a live Graph workflow: every write goes through the gates of its pane.</p><p class="mini">${unknown ? "Read is incomplete: do not infer readiness from missing rows." : "Policy and group data loaded."} Device compliance and applied protection remain unverified until checked separately.</p></div><div class="v2-grid">${cards.map(([id,title,status,help]) => `<button class="v2-card" data-mrpane="${id}"><span>${esc(title)}</span><strong>${esc(status)}</strong><small>${esc(help)}</small><span class="v2-card-link">Open →</span></button>`).join("")}</div><div class="list-card"><h4>Working alongside the existing version</h4><p class="mini">Both versions write to the same tenant. V2 has separate naming rules and session state. Re-read after switching or after another admin changes the tenant. Switching versions clears pending plans.</p><button class="btn" data-mrpane="rules">Review V2 naming rules</button> <button class="btn" data-mrpane="recovery">Download run files</button></div></div>`;
-  }
+  function v2Overview() { return projectOverview(); }
   function v2Export() {
     const data = { schema: "tuno.t28.v2.run-bundle/1", build: APP_BUILD.build, exportedAt: new Date().toISOString(), tenantId: v2Context().tenantId, tenantName: tenantName(), rules: cfg, runs };
     download(`t28-v2-runs-${stamp()}.json`, JSON.stringify(data, null, 2), "application/json");
@@ -264,41 +428,52 @@ const MdeRolloutV2Tool = (() => {
 
   // -------------------------------------------------------------- run --
   async function run(attach) {
-    if (running || busy || mem.loading) return;
+    if (running || busy || mem.loading) return false;
+    const epoch = project.epoch;
     running = true; $("mvRun").disabled = true;
-    reps.error = "";
+    projectSource("policies", "reading"); reps.error = "";
     try {
       loadCfg();
-      if (!attach) { if (pane !== "reports") $("mvBody").innerHTML = ""; clearPlan(); }
-      else { const o = $("mvBody").querySelector(":scope > .mr-offer"); if (o) o.remove(); }
-      if (attach && PolicyCache.reading()) res = await PolicyCache.read(prog);
-      else if (attach && PolicyCache.get()) res = PolicyCache.get();
+      if (!attach) clearPlan();
+      render();
+      let next;
+      if (attach && PolicyCache.reading()) next = await PolicyCache.read(prog);
+      else if (attach && PolicyCache.get()) next = PolicyCache.get();
       else {
         await Graph.ensureScopes([...new Set([...PolicyCache.scopesNeeded(), ...Graph.SCOPES.groups])]);
-        res = await PolicyCache.refresh(prog);
+        if (!projectValid(epoch)) return false;
+        next = await PolicyCache.refresh(prog);
       }
+      if (!projectValid(epoch)) return false;
+      if (!next) throw new Error("The shared policy read was invalidated. Refresh the project again.");
+      res = next;
       prog("Reading the legacy endpoint security templates…");
-      try { templates = await M.readTemplates(); } catch { templates = new Map(); }
+      let nextTemplates = new Map(), templateError = "";
+      try { nextTemplates = await M.readTemplates(); } catch (e) { templateError = GroupUse.shortErr(e, 120); }
+      if (!projectValid(epoch)) return false;
+      templates = nextTemplates;
       prog("Looking up the wave groups…");
-      try { const f = await M.findGroups(cfg.lookup, prog); found = f.found; dupes = f.dupes; } catch { found = null; dupes = []; }
-      derive();
-      prog("");
-      render();
-      showExports(true);
-      // Kinds and setting names follow the first paint: the lists are
-      // useful at once, and the proposals sharpen when the kinds land.
+      let groupError = "";
+      try { const f = await M.findGroups(cfg.lookup, prog); if (!projectValid(epoch)) return false; found = f.found; dupes = f.dupes; }
+      catch (e) { if (!projectValid(epoch)) return false; found = null; dupes = []; groupError = GroupUse.shortErr(e, 120); }
+      derive(); prog("");
+      const errors = [templateError, groupError, ...model.missing.map((m) => m.id)].filter(Boolean);
+      projectSource("policies", errors.length ? "partial" : "ready", errors.join("; "));
+      render(); showExports(true);
       await enrich();
-      return true;
+      return projectValid(epoch);
     } catch (e) {
+      if (!projectValid(epoch)) return false;
       prog("");
+      projectSource("policies", "failed", GroupUse.shortErr(e, 300));
       if (pane === "reports") reps.error = `Tenant read failed: ${GroupUse.shortErr(e, 250)}`;
-      $("mvBody").innerHTML = `<div class="list-card"><div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div></div>`;
       return false;
-    } finally { running = false; $("mvRun").disabled = false; if (pane === "reports" && model) render(); }
+    } finally { if (projectValid(epoch)) { running = false; $("mvRun").disabled = false; render(); projectQueue(); } }
   }
 
   async function enrich() {
     if (!model) return;
+    const epoch = project.epoch;
     const act = pairs.filter(M.needsAction);
     const ids = new Set();
     model.newP.forEach((N) => N.reach.inc.forEach((g) => ids.add(g)));
@@ -306,13 +481,18 @@ const MdeRolloutV2Tool = (() => {
     if (found) for (const g of found.values()) if (g && g.id) ids.add(lc(g.id));
     try {
       enriching = "reading group kinds…"; renderStatus();
-      kinds = await M.readKinds([...ids], (m) => { enriching = m; renderStatus(); }, kinds);
+      const next = await M.readKinds([...ids], (m) => { if (projectValid(epoch)) { enriching = m; renderStatus(); } }, kinds);
+      if (!projectValid(epoch)) return;
+      kinds = next;
     } catch { /* kinds stay unknown and the proposals say so */ }
     const polIds = [...new Set(act.flatMap((pr) => [pr.N, pr.O]).filter((P) => P.sectionId === "settingsCatalog").map((P) => P.id))];
     try {
       enriching = "reading setting names…"; renderStatus();
-      labels = await M.readLabels(polIds, (m) => { enriching = m; renderStatus(); }, labels);
+      const next = await M.readLabels(polIds, (m) => { if (projectValid(epoch)) { enriching = m; renderStatus(); } }, labels);
+      if (!projectValid(epoch)) return;
+      labels = next;
     } catch { /* ids stay ids */ }
+    if (!projectValid(epoch)) return;
     enriching = "";
     derive();
     render();
@@ -320,31 +500,17 @@ const MdeRolloutV2Tool = (() => {
   function renderStatus() { const el = $("mvEnrich"); if (el) el.textContent = enriching ? `⏳ ${enriching}` : ""; }
 
   function showExports(on) { ["mvMd", "mvCsv"].forEach((id) => { const b = $(id); if (b) b.style.display = on ? "" : "none"; }); $("mvGlobalExport").hidden = !on || pane === "reports"; }
-  // 10644 (Mihai: "clicking the tool should offer to read the tenant, and
-  // not start automatically"). Opening T28 reads nothing. The screen offers
-  // the read: a fresh one, or the sign-in read when TUNO already holds it.
-  // Either way the tenant is only read on the click.
+  // The approved project redesign supersedes the old click-to-read rule.
   function onShow() {
-    if (model || running) return;
-    offerRead();
-  }
-  function offerRead() {
-    const body = $("mvBody");
-    if (!body) return;
-    const held = PolicyCache.get(), busy = PolicyCache.reading();
-    const t = held ? PolicyCache.timeLabel() : "";
-    const alt = held
-      ? `<button class="btn" data-mrread="attach">Use the ${PolicyCache.fromSignIn() ? "sign-in" : "shared"} read from ${esc(t)}</button>`
-      : busy ? `<button class="btn" data-mrread="attach">Wait for the sign-in read</button>` : "";
-    body.innerHTML = `<div class="list-card mr-offer">
-      <h3>Nothing is read yet</h3>
-      <p class="mini">Reading takes the policies and their assignments, the legacy security templates and the wave groups. It changes nothing: T28 writes only when you apply a plan.</p>
-      <div class="mr-offer-acts"><button class="btn primary" data-mrread="fresh">↻ Read the tenant</button>${alt}</div>
-      ${held ? `<p class="mini muted">The ${PolicyCache.fromSignIn() ? "sign-in" : "shared"} read is the tenant as it was at ${esc(t)}. ↻ Read the tenant reads it now.</p>`
-        : busy ? `<p class="mini muted">TUNO is still reading the tenant from the sign-in. Waiting for it saves a second read.</p>` : ""}
-    </div>`;
+    if (!project.active) { project.active = true; projectLoadHistory(); }
+    if (model || project.starting || running || project.task) { render(); projectQueue(); return; }
+    projectStart(false);
   }
   function reset() {
+    project.epoch++; project.active = false; project.starting = false; project.task = "";
+    if (project.timer) clearTimeout(project.timer);
+    Object.assign(project, { timer: null, sources: {}, country: null, waveTab: "members", reportToken: "", history: [], savedRuns: 0, historyError: "" });
+    project.attempted.clear(); running = false; busy = false; enriching = "";
     v2Imported = null; v2AllowLeftOut = false; pane = "overview";
     res = null; model = null; pairs = []; retire = []; waveRows = []; found = null; dupes = [];
     kinds = new Map(); labels = new Map(); names.clear(); sel.clear(); selPairs.clear(); selWaves.clear(); selRename.clear(); open.clear();
@@ -357,9 +523,11 @@ const MdeRolloutV2Tool = (() => {
     Object.assign(dv, { busy: false, status: "", at: null, idx: null, prev: null, prevAt: null, error: "" });
     Object.assign(tm, { region: null, loading: false, error: "", text: "", note: "", busy: false, list: [], misses: [] }); tm.test.clear(); tm.ticks.clear(); tm.rem.clear();
     Object.assign(ex, { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "" });
-    ex.ticks.clear(); ex.sel.clear(); planAnchor = null;
+    ex.ticks.clear(); ex.sel.clear(); ex.lticks.clear();
+    Object.assign(ex, { mode: "one", listText: "", list: null, listBusy: false, listNote: "", listErr: "", keepOld: true }); planAnchor = null;
     Object.assign(cs, { extra: null, error: "", scope: "all", ticks: null, sig: "", confirm: "", mapOk: "" }); csCache = null;
     Object.assign(rv, { q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "", reason: "", error: "" }); rv.ticks.clear(); rv.sel.clear();
+    Object.assign(rv, { mode: "one", list: [], src: "paste", listText: "", group: "", listBusy: false, listNote: "", listErr: "", misses: [] });
     asr.edits.clear(); asr.filter = "all";
     ext.edits.clear(); ext.names.clear(); ext.list = null; ext.policyKey = null; ext.filter = "all"; ext.q = ""; ext.hits = null; ext.note = ""; ext.err = ""; ext.looking = ""; ext.routeMsg = "";
     if ($("mvBody")) $("mvBody").innerHTML = "";
@@ -378,56 +546,8 @@ const MdeRolloutV2Tool = (() => {
   const polLink = (P) => `<a href="#" data-mropen="${esc(P.key)}" title="Open the policy — settings and assignments">${esc(P.name)}</a>`;
 
   // ------------------------------------------------------------- rail --
-  // Layout B restored at 10638 (Mihai: "the other layout was better, but
-  // only the reports layout needed adjustment" — option A off the mockup):
-  // the rail, one level, every count in view; 📑 Reports opens into its
-  // three reports, each with its state, and the preview takes the main column.
-  function railHtml() {
-    const act = pairs.filter(M.needsAction);
-    const gaps = retire.filter((r) => r.verdict === "gap").length;
-    const missing = waveRows.filter((w) => w.lookedUp && !w.exists && !w.legacy).length;
-    const toRename = waveRows.filter((w) => w.legacy && !w.exists).length;
-    const node = (id, icon, label, n, bad) => `<div class="ep-node${pane === id && id !== "reports" ? " active" : ""}${id === "reports" && pane === "reports" ? " mr-open" : ""}" data-mrpane="${id}" role="button" tabindex="0">
-      <span>${icon} ${esc(label)}</span>${n !== null && n !== undefined ? `<span class="ep-n${bad ? " gap" : ""}">${esc(n)}</span>` : ""}</div>`;
-    const made = REPORTS.filter((x) => reps[x.id]).length;
-    const repNode = (x) => {
-      const r = reps[x.id];
-      const st = reps.busy === x.id ? "running…" : !r ? "not generated" : reportStale(x.id) ? "regenerate" : x.id === "conflicts" && r.summary ? `${r.summary.act} to act · ${shortTime(r.at)}` : `generated ${shortTime(r.at)}`;
-      const bad = r && (reportStale(x.id) || (x.id === "conflicts" && r.summary && r.summary.act > 0));
-      return `<div class="ep-node mr-rep-node${pane === "reports" && reps.selected === x.id ? " active" : ""}" data-mrreport="${x.id}" role="button" tabindex="0">
-        <span>${x.icon} ${esc(x.title)}</span><span class="mr-rep-state${bad ? " gap" : ""}">${esc(st)}</span></div>`;
-    };
-    return [
-      node("overview", "◉", "Rollout overview", null),
-      `<div class="v2-rail-label">PREPARE</div>`,
-      node("new", "🎯", "New policies", model.newP.length),
-      node("conflicts", "⚔️", "Conflicts with old", act.length, act.length > 0),
-      (() => { const rows = MdeAsr.matrix(model); const diff = rows.filter((r) => r.P && MdeAsr.verdict(r.now, r.baseline) === "differs").length; return node("asr", "🎛", "Adjust settings", asr.edits.size ? `${asr.edits.size} ✎` : diff ? `${diff} ≠ baseline` : "✓", diff > 0 && !asr.edits.size); })(),
-      // 🧩 (10678): the Edge extensions policy's two lists — its own node, nothing in the header
-      (() => { const P = extPolicy(); if (!P) return node("edgeext", "🧩", "Edge extensions", "none", false); const now = extNow(P); const bad = extIdsOf(now).filter((id) => extNameOf(id).status === "404").length; return node("edgeext", "🧩", "Edge extensions", ext.edits.size ? `${ext.edits.size} ✎` : bad ? `${bad} ⚠` : `${now.force.length} · ${now.allow.length}`, bad > 0 && !ext.edits.size); })(),
-      node("old", "🗄", "Old policies", model.oldP.length),
-      node("retire", "🧹", "Retirement check", gaps ? `${gaps} gap${gaps === 1 ? "" : "s"}` : "✓", gaps > 0),
-      `<div class="v2-rail-label">ROLLOUT</div>`,
-      node("waves", "🌊", "Wave groups", toRename ? `${toRename} to rename` : missing ? `${missing} missing` : waveRows.length, missing > 0 || toRename > 0),
-      (() => { const st = memStale(); return node("members", "👥", "Wave members", st ? st.label : null, st ? st.bad : false); })(),
-      // 🔄 / ↩ (10679): the static country groups and the way back to the old set
-      (() => { const sm = csModel(); return node("countrysync", "🔄", "Country groups", sm ? (sm.drift ? `${sm.drift} drift` : "✓") : null, !!(sm && sm.stale)); })(),
-      (() => { const n = exNow(); return node("exclusions", "⊘", "Exclusions", n ? (n.half ? `${n.half} half` : `${n.users} · ${n.devices}`) : null, !!(n && n.half)); })(),
-      (() => { const sm = csModel(); return node("revert", "↩", "Revert", sm ? `${sm.revertUsers.size} · ${sm.revertDevices.size}` : null, false); })(),
-      "<hr>",
-      `<div class="v2-rail-label">CHECK & RECOVER</div>`,
-      node("recovery", "⭳", "Run files", runs.length),
-      // 📡 (10689): did the new set land — Intune's check-in status joined to the wave members
-      (() => { const s = ld.model && ld.model.summary; return node("landing", "📡", "Landing", ld.busy ? "reading…" : s ? (s.problems ? `${s.problems} to look at` : "✓") : null, !!(s && s.problems)); })(),
-      node("reports", "📑", "Reports", `${made} of ${REPORTS.length}`),
-      REPORTS.map(repNode).join(""),
-      node("changes", "📜", "Changes this session", runs.length),
-      node("rules", "⚙️", "Naming rules", null),
-      node("how", "❓", "How it works", null),
-      "<hr>",
-      node("out", "🚫", "Out of scope", model.outP.length),
-    ].join("");
-  }
+  // Five project areas; operation panes live in their area's context tabs.
+  function railHtml() { return projectNav(); }
 
   // -------------------------------------------------------- toolbars --
   const fchip = (attr, val, label, n, active) => `<button class="fchip${active ? " active" : ""}" type="button" ${attr}="${esc(val)}">${esc(label)}${n !== undefined ? ` (${n})` : ""}</button>`;
@@ -540,10 +660,13 @@ const MdeRolloutV2Tool = (() => {
   let devNow = null;
   async function readDevices() {
     if (dv.busy || !model) return false;
+    const epoch = project.epoch;
+    projectSource("devices", "reading");
     dv.busy = true; dv.error = ""; dv.status = "Reading Intune's device reports…"; render();
     try {
       const scopes = [...new Set([...Graph.SCOPES.config, ...Graph.SCOPES.devices])];
       await Graph.ensureScopes(scopes);
+      if (!projectValid(epoch)) return false;
       const only = [];
       const seen = new Set();
       for (const pr of pairs) {
@@ -552,12 +675,14 @@ const MdeRolloutV2Tool = (() => {
       }
       const read = await ConflictDevices.read({ collectRes: res, only, settings: false, scopes,
         onStatus: (m) => { dv.status = m; const el = $("mvDevStatus"); if (el) el.textContent = m; } });
+      if (!projectValid(epoch)) return false;
       if (dv.idx) { dv.prev = M.deviceCounts(pairs, dv.idx); dv.prevAt = dv.at; }
       dv.idx = M.deviceIndex(read);
       dv.at = Date.now();
+      projectSource("devices", dv.idx.failed.size || dv.idx.summaryError ? "partial" : "ready", dv.idx.failed.size ? `${dv.idx.failed.size} policy reports unreadable; those results remain unknown.` : dv.idx.summaryError || "");
       return true;
-    } catch (e) { dv.error = GroupUse.shortErr(e, 250); return false; }
-    finally { dv.busy = false; dv.status = ""; render(); }
+    } catch (e) { if (!projectValid(epoch)) return false; dv.error = GroupUse.shortErr(e, 250); projectSource("devices", "failed", dv.error); return false; }
+    finally { if (projectValid(epoch)) { dv.busy = false; dv.status = ""; render(); } }
   }
   function devCellHtml(pr) {
     const c = devNow && devNow.get(pr.id);
@@ -954,7 +1079,7 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. A device with no primary user takes its Entra owner's country, else the ISO3 its name starts with. A primary user in no country group of the table (10659) — often a DELETED user, whose UPN Entra renamed to <code>&lt;object id&gt;&lt;old UPN&gt;</code> — is looked up: a deleted one by the old UPN (the live account), a live one by id. The device then takes the live account's country group when it is in one, else the ISO3 its name starts with (BGD…, IDN…, PHL…), else the user's usage location; what none of those places is listed under 🕳 with the reason.</p>
       <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). The Windows devices the waves do not reach — the count — and, listed but not counted, a country's users with no Windows device by Intune primary user: they are in the user wave through their country group (the list says so, or that the group is not nested yet), the card says which other devices Intune has for them, and a Windows device they get later joins the country device group at the next 👥 read → Apply. <b>🔎 Find their logons in Defender</b> asks Defender advanced hunting (<code>DeviceLogonEvents</code>, 30 days, one query per 200 users; matched by on-premises SID or account name) which devices they logged on to, and says what each is: in Intune under another primary user (it follows that person's country), in Entra but not Intune (no wave reaches it), or Defender only (no Entra object). Read-only; it needs <code>ThreatHunting.Read.All</code> and Security Reader, and ⧉ Copy the KQL gives the same query for the Defender portal. The devices counted: a country's devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
       <p style="margin:0 0 8px"><b>Pilot members</b> (👥 → 🧪). One row per person in the pilot groups (⚙️): a pilot user, or the Intune primary user of a pilot device, with every Windows device of theirs and the country and wave they belong to. <b>Ready for the wave</b>: tick a person whose country is known and the plan takes them and their devices out of every pilot group and puts each device in its country device group (created first when missing; a device leaves its pilot group only once its add read back clean; a ⊘ excluded device is taken out of the pilot but never added). Until the country is nested in its wave they are ordinary members of it — the old policies reach them again — and then they move with everybody else. <b>⚠ Before their waves go live</b> lists the policies that cover a pilot group but not the wave: fix those before nesting the country. Members with no person to follow (no primary user, not in Intune, a nested group) are listed and never planned.</p>
-      <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, on the rail). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves the wave, the old policies reach it again, and 👥 keeps it out. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
+      <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, on the rail). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves that country route and 👥 keeps it out. Review other routes and old-policy coverage; verify the device outcome afterwards. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
       <p style="margin:0 0 8px"><b>🔄 Country groups</b> (10679). The waves nest <b>static</b> groups only: per country a user group <code>INT-SG-U-&lt;ISO3&gt;</code> beside the device group <code>INT-SG-D-&lt;ISO3&gt;</code>, the code being the device group's own (the ⚙️ table). Both static groups are <b>created, filled and nested in 👥 Wave members</b>, side by side (10680) — 🔄 creates nothing. <b>⇄ Swap</b>, per wave, for a country an earlier build nested through its dynamic <code>PVM-UG-CORP-MEM-USERS-*</code> group: tops the static user group up, nests it, reads back that every user of the dynamic group is in it, and only then takes the dynamic group out of the wave — no policy moves. <b>Sync</b> keeps both pairs from the sources (users: transitive members; devices: 👥's primary-user rule): adds ticked, leavers never ticked, and whoever is in the Revert groups held back — a re-include takes a tick per row and a confirm line naming the count and the wave. A member of Revert that no source holds any more is offered for the Revert clean-up. The head shows the drift (read now) and the last sync (this browser), in the warning colour after 14 days.</p>
       <p style="margin:0 0 8px"><b>↩ Revert</b> (10679). A user, a device or the pair (the default) leaves its wave: into <code>INT-SG-U-MDE-Revert</code> / <code>INT-SG-D-MDE-Revert</code> first, then — only once that read back — out of its static country group, with a reason kept with the run. The dry run shows per policy which new ones drop off and which old ones take over, and warns on neither (a gap) or both (a conflict). A user still reached through a dynamic group is refused until their wave is swapped. The Revert groups are assigned to nothing: they are the held-back list, in the tenant. <b>📋 The list</b> (10685) does many at once: ＋ Add on a search card, a pasted list or .csv, or a group's members — each entry the pair, one reason, one dry run with the per-policy view counted, and a confirm line naming the counts and the waves before ④ Apply. <b>Reverted now</b> puts members back (into their country group, then out of Revert). An excluded member (⊘) stays in the wave and skips the new policies; a reverted one is out of the wave.</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
@@ -962,8 +1087,8 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>🧪 Pilots</b> (the tick in ⚔️ and ⚡, the names under ⚙️). When a plan completes the swap — every wave of the kind in the new policy and out of the old one — the pilot groups come off both: the new policy's pilot includes and the old policy's pilot exclusions, in the same plan. A pilot member in a wave keeps the new policy through the wave; one outside a wave is back on the old policy until their wave has them. A side that cannot go yet stays, with the reason: a new policy keeps a pilot while an old policy it collides with still excludes it (else neither), and an old policy keeps a pilot exclusion while a new policy it collides with still includes it (else both). <b>🧪 Pilots in the policies' bar</b> (10675): with a policy ticked, the bar's 🧪 Pilots target puts the pilot groups on it or takes them off, like the waves — a - D - policy takes the device names, a - U - one the user names, by tier (the ticks in the bar: Pilot, Pre-Pilot); the dry run shows what each group counts and what is left out, and nothing else on the policy is touched.</p>
       <p style="margin:0 0 8px"><b>What is refused.</b> Intune does not support excluding user groups from a policy assigned to device groups, or the reverse — "Intune doesn't evaluate user-to-device group relationships" (<a href="https://learn.microsoft.com/intune/device-configuration/assign-device-profile#exclude-groups-from-a-policy-assignment" target="_blank" rel="noopener">Microsoft Learn: Assign policies — support matrix</a>). Such a step is shown with its reason and never written. Devices managed by <b>MDE security settings management</b> (not enrolled in Intune) take assignments by device group only, and assignment filters do not apply to them (<a href="https://learn.microsoft.com/defender-endpoint/endpoint-security-policies-configure" target="_blank" rel="noopener">Learn</a>) — flagged as 🛰.</p>
       <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes this session with its backup and an undo. Settings are never changed by these plans — only assignments.</p>
-      <p style="margin:0 0 8px"><b>🎛 Adjust settings</b> (on the rail). One row per ASR rule and new-set policy carrying it, with its mode now and 🦠 T15's MDE baseline beside it. Change a mode (or <b>Set shown to baseline</b>), ② Dry run: each policy is read fresh and a rule whose mode moved since the read is left out as drifted. ③ the backup (the policies and all their settings, as read), confirm, ④ Apply: each policy is re-read, skipped if it changed since the dry run, written as a whole with only the chosen modes changed (the settings catalog takes a policy's settings only as a whole-policy PUT), and read back. Only the new set's settings-catalog policies, only a rule the policy already carries — a rule no new policy carries is listed, never created. Old and out-of-scope policies (AVD among them) are never edited here. Warn is not offered for the two rules that do not support it (LSASS, Office code injection). The run and its undo land in 📜.</p>
-      <p style="margin:0 0 8px"><b>🧩 Edge extensions</b> (on the rail, 10678). The new set's settings-catalog policy that carries Edge's <b>Installed silently</b> list (the force list: on every user the policy reaches, not removable by them, and it wins over the block list) or its <b>Exempt from the block list</b> list (users may install those themselves). Each row is named by the Edge Add-ons store from its ID, through a lookup route set on the pane — the store sends no CORS headers, so a page here cannot call it: a self-hosted instance forwards a path, or a relay URL is set (its host must also be in the page's connect-src). Without a route the pane runs in paste mode: an ID, an Edge store link or a Chrome Web Store link (which gets the Chrome update URL behind the ID) is always accepted, with the name as typed or as the list gave it, marked unverified. The two Edge Copilot components OIB ships in the force list are 🔒 built-in and kept; an ID the store answers 404 to is ⚠ a finding, never a guess. 📋 the approved list (TSV / CSV with a header, or one name per line; kept per tenant in this browser) is matched to the store by name — a unique hit names a row, several hits ask for a pick, none asks for the ID — and added in one go as exempt or silent, rows moved one by one. ② Dry run reads the policy fresh, lists every change with what the reached users get, the likely impact and the way back; ③ the backup (the policy and all its settings), confirm, ④ Apply: re-read and skipped as drifted when it changed, written as a whole with only the two collections changed, read back; the run and its undo in 📜. Taking a live silent install away is a recorded risk: Edge uninstalls it from every reached user.</p>
+      <p style="margin:0 0 8px"><b>🎛 Adjust settings</b> (under Policies). One row per ASR rule and new-set policy carrying it, with its mode now and 🦠 T15's MDE baseline beside it. Change a mode (or <b>Set shown to baseline</b>), ② Dry run: each policy is read fresh and a rule whose mode moved since the read is left out as drifted. ③ the backup (the policies and all their settings, as read), confirm, ④ Apply: each policy is re-read, skipped if it changed since the dry run, written as a whole with only the chosen modes changed (the settings catalog takes a policy's settings only as a whole-policy PUT), and read back. Only the new set's settings-catalog policies, only a rule the policy already carries — a rule no new policy carries is listed, never created. Old and out-of-scope policies (AVD among them) are never edited here. Warn is not offered for the two rules that do not support it (LSASS, Office code injection). The run and its undo land in 📜.</p>
+      <p style="margin:0 0 8px"><b>🧩 Edge extensions</b> (under Policies). The new set's settings-catalog policy that carries Edge's <b>Installed silently</b> list (the force list: on every user the policy reaches, not removable by them, and it wins over the block list) or its <b>Exempt from the block list</b> list (users may install those themselves). Each row is named by the Edge Add-ons store from its ID, through a lookup route set on the pane — the store sends no CORS headers, so a page here cannot call it: a self-hosted instance forwards a path, or a relay URL is set (its host must also be in the page's connect-src). Without a route the pane runs in paste mode: an ID, an Edge store link or a Chrome Web Store link (which gets the Chrome update URL behind the ID) is always accepted, with the name as typed or as the list gave it, marked unverified. The two Edge Copilot components OIB ships in the force list are 🔒 built-in and kept; an ID the store answers 404 to is ⚠ a finding, never a guess. 📋 the approved list (TSV / CSV with a header, or one name per line; kept per tenant in this browser) is matched to the store by name — a unique hit names a row, several hits ask for a pick, none asks for the ID — and added in one go as exempt or silent, rows moved one by one. ② Dry run reads the policy fresh, lists every change with what the reached users get, the likely impact and the way back; ③ the backup (the policy and all its settings), confirm, ④ Apply: re-read and skipped as drifted when it changed, written as a whole with only the two collections changed, read back; the run and its undo in 📜. Taking a live silent install away is a recorded risk: Edge uninstalls it from every reached user.</p>
       <p style="margin:0 0 8px"><b>📡 Landing</b> (under Check &amp; recover, 10689). Did the new set land: Intune's own check-in status per new policy — the report behind the portal's <i>View report</i>, one cached report per policy — joined to the waves' members, so every member of a wave a policy includes is expected to report it (minus the policy's excluded groups). Per policy and per wave: landed / expected with the conflicts, errors, pending and <b>no status</b> counted; per member a chip per policy and a verdict. A conflict is explained by T12's setting-level read (the setting) and the ⚔️ pairs (the old policy the device is also in conflict on). <i>Pending</i> and <i>no status</i> are things to watch, not failures: Intune's status lags the device, and a fresh wave can take a day to fill in. Reads only; 📑 Landing check saves it as a report with a CSV.</p>
       <p style="margin:0"><b>Temporary.</b> Built for one rollout, beta only, never promoted — listed under Help's "Staying on this channel".</p>
     </div></div>`;
@@ -971,13 +1096,24 @@ const MdeRolloutV2Tool = (() => {
 
   // ------------------------------------------------------------ render --
   function render() {
-    if (!model) return;
-    $("mvRun").disabled = running || !!reps.busy || mem.loading;
+    if (!$("mvBody")) return;
+    projectSaveHistory();
+    $("mvRun").disabled = projectReadBusy() || busy;
+    $("mvRun").textContent = Object.values(project.sources).some((s) => s.state === "consent") ? "Connect data" : "↻ Refresh project";
+    if (!model) {
+      const source = project.sources.policies;
+      $("mvBody").innerHTML = `<div class="ep-wrap t28-project"><nav class="ep-rail mr-navigation" aria-label="Project">${railHtml()}</nav><main class="ep-main">${projectSources()}<div class="t28-panel"><h3>Your rollout, in one place.</h3><p>${source && /failed|consent/.test(source.state) ? esc(source.error) : "Loading policies and wave groups automatically. Members and device reports follow."}</p>${source && /failed|consent/.test(source.state) ? '<button class="btn primary" data-project-connect>Connect / retry data</button>' : ""}</div></main></div>`;
+      return;
+    }
     const missing = model.missing.length ? `<div class="list-card" style="margin-top:0;margin-bottom:12px"><p class="mini" style="margin:0;color:var(--report)">⚠ Not in this read: ${model.missing.map((m) => `${esc(m.id)} (${esc(m.error)})`).join("; ")} — policies there are not listed or compared.</p></div>` : "";
     const src = PolicyCache.get() === res ? `From ${PolicyCache.fromSignIn() ? "the sign-in read" : "the shared read"} at ${esc(PolicyCache.timeLabel())}. ` : "";
     const head = `<p class="mini muted" style="margin:0 0 10px">${src}${model.newP.length} new · ${model.oldP.length} old · ${model.outP.length} out of scope. An assignment is a target, not proof a device applied the setting.</p>`;
     let main;
     if (pane === "overview") main = v2Overview();
+    else if (pane === "attention") main = projectAttention(false);
+    else if (pane === "wavehome") main = projectWave();
+    else if (pane === "exceptionhome") main = projectExceptions();
+    else if (pane === "journal") main = projectJournal();
     else if (pane === "recovery") main = v2Recovery();
     else if (pane === "new") main = policyPane(model.newP, "new");
     else if (pane === "old") main = policyPane(model.oldP, "old");
@@ -1003,9 +1139,10 @@ const MdeRolloutV2Tool = (() => {
     const pl = planEl();
     if (pl) pl.remove();
     $("mvGlobalExport").hidden = pane === "reports";
-    $("mvBody").innerHTML = `<div class="ep-wrap"><div class="ep-rail mr-navigation">${railHtml()}</div><div class="ep-main">${missing}${pane === "reports" ? "" : head}${main}<div id="mvPlanSeat"></div></div></div>`;
+    $("mvBody").innerHTML = `<div class="ep-wrap t28-project"><nav class="ep-rail mr-navigation" aria-label="Project">${railHtml()}</nav><main class="ep-main">${projectSources()}${projectTabs()}${missing}${["overview", "attention", "wavehome", "exceptionhome", "journal", "reports"].includes(pane) ? "" : head}${main}<div id="mvPlanSeat"></div></main></div>`;
     if (pl) seatPlan(pl);
     syncSelbar();
+    projectQueue();
   }
 
   // ------------------------------------------------------------ selbar --
@@ -1065,6 +1202,7 @@ const MdeRolloutV2Tool = (() => {
   // another pane it is hidden, not dropped — it is back on return.
   let planPane = null;
   function clearPlan() {
+    projectQueue();
     v2Binding = null; v2MemberBackup = null; v2Risk = null; plan = null; backupTaken = false; planPane = pane; if (planEl()) planEl().innerHTML = ""; }
   function planError(msg) { planEl().innerHTML = `<div class="list-card" style="margin-top:12px;padding:16px 18px"><div class="gu-fail"><b>${esc(msg)}</b></div></div>`; }
   // Seat the plan node under the card that made it (planAnchor) when that
@@ -1099,7 +1237,7 @@ const MdeRolloutV2Tool = (() => {
       if (mode === "fixes") await dryRunFixes();
       else if (mode === "policies") await dryRunPolicies();
     } catch (e) { planError(GroupUse.shortErr(e, 300)); }
-    finally { busy = false; }
+    finally { projectRelease(); }
   }
 
   async function dryRunPolicies() {
@@ -1419,7 +1557,7 @@ const MdeRolloutV2Tool = (() => {
     showPlan();
   }
   function gateOk() {
-    if (!plan || !backupTaken || !v2Gate()) return false;
+    if (!plan || projectReadBusy() || !backupTaken || !v2Gate()) return false;
     // ↩ the list (10685): the line naming the counts and the waves, always
     if (plan.confirmLine) { const b = $("mvBulkConfirm"); if (!b || !b.checked) return false; }
     const t = $("mvConfirmText"), k = $("mvConfirmTick");
@@ -1465,7 +1603,7 @@ const MdeRolloutV2Tool = (() => {
     } catch (e) {
       const el = document.createElement("div"); el.className = "gu-fail"; el.innerHTML = `<b>${esc(GroupUse.shortErr(e, 300))}</b>`;
       $("mvLedger").appendChild(el);
-    } finally { busy = false; }
+    } finally { projectRelease(); }
   }
 
   async function undoRun(idx) {
@@ -1483,7 +1621,7 @@ const MdeRolloutV2Tool = (() => {
       plan = Object.assign(p, { title: `Undo: ${r.title}`, head: { tool: "TUNO T28 MDE rollout", action: "undo", of: r.title }, memberLine: "", unread: pols.filter((x) => !fresh.has(`${x.surface}|${lc(x.id)}`)).map((x) => x.name), skipped: [] });
       renderPlan();
     } catch (e) { planError(GroupUse.shortErr(e, 300)); }
-    finally { busy = false; }
+    finally { projectRelease(); }
   }
 
 
@@ -1577,7 +1715,7 @@ const MdeRolloutV2Tool = (() => {
       plan = { kind: "asr", title: title || `Adjust ${plural(items.reduce((a, x) => a + x.changes.length, 0), "ASR rule mode")}`, items, unread, drifted, undo: /^Undo:/.test(title || "") };
       renderAsrPlan();
     } catch (e) { planError(GroupUse.shortErr(e, 300)); }
-    finally { busy = false; }
+    finally { projectRelease(); }
   }
   function asrDryRunEdits() {
     const pend = MdeAsr.planOf(MdeAsr.matrix(model), asr.edits);
@@ -1669,7 +1807,7 @@ const MdeRolloutV2Tool = (() => {
     } catch (e) {
       const el = document.createElement("div"); el.className = "gu-fail"; el.innerHTML = `<b>${esc(GroupUse.shortErr(e, 300))}</b>`;
       $("mvLedger").appendChild(el);
-    } finally { busy = false; }
+    } finally { projectRelease(); }
   }
   function asrSetBaseline() {
     const { shown } = asrRows();
@@ -2086,7 +2224,7 @@ const MdeRolloutV2Tool = (() => {
       plan = { kind: "edgeext", title: title || `Adjust the Edge extension lists · ${P.name}`, items, unread: [], drifted, undo: /^Undo:/.test(title || "") };
       renderExtPlan();
     } catch (e) { planError(GroupUse.shortErr(e, 300)); }
-    finally { busy = false; }
+    finally { projectRelease(); }
   }
   const extChangeLine = (c) => { const n = extNameOf(c.entry.id); return `${c.op === "add" ? "+" : "−"} ${n.name || c.entry.id} (${EXTL[c.list].word})`; };
   function renderExtPlan() {
@@ -2188,7 +2326,7 @@ const MdeRolloutV2Tool = (() => {
     } catch (e) {
       const el = document.createElement("div"); el.className = "gu-fail"; el.innerHTML = `<b>${esc(GroupUse.shortErr(e, 300))}</b>`;
       $("mvLedger").appendChild(el);
-    } finally { busy = false; }
+    } finally { projectRelease(); }
   }
   function openEdgeExt() {
     pane = "edgeext"; view.cat = null; view.state = null; view.q = "";
@@ -2224,7 +2362,7 @@ const MdeRolloutV2Tool = (() => {
       });
       renderPlan();
     } catch (e) { planError(GroupUse.shortErr(e, 300)); }
-    finally { busy = false; }
+    finally { projectRelease(); }
   }
   function rolloutCard() {
     const regions = [...new Set(model.cfg.groups.filter((g) => g.role === "wave").map((g) => g.region))];
@@ -2290,27 +2428,38 @@ const MdeRolloutV2Tool = (() => {
   }
   async function memRead() {
     if (mem.loading) return;
-    mem.loading = true; clearPlan(); render();
+    const epoch = project.epoch;
+    mem.loading = true; mem.error = ""; projectSource("members", "reading"); clearPlan(); render();
     try {
       await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory, ...(mcfg().useDefenderLogons ? Graph.SCOPES.hunting : [])])]);
       const waves = [...memWaves().values()].flatMap((w) => [w.user, w.device]).filter(Boolean);
-      mem.input = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; }, new Set(cfg.lookup.map(lc)), exGroups().device, cfg.pilotGroups);
+      if (!projectValid(epoch)) return;
+      const nextInput = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; }, new Set(cfg.lookup.map(lc)), exGroups().device, cfg.pilotGroups);
+      if (!projectValid(epoch)) return;
+      mem.input = nextInput;
       // 🔄 / ↩ (10679): the static user groups and the Revert pair, read
       // with the country groups — a reverted device is held like an excluded one
       try {
-        cs.extra = await MdeRevert.readExtra(mcfg(), MdeMembers.countryRows(mcfg()), (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; });
+        const nextExtra = await MdeRevert.readExtra(mcfg(), MdeMembers.countryRows(mcfg()), (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; });
+        if (!projectValid(epoch)) return;
+        cs.extra = nextExtra;
         mem.input.reverted = new Set(cs.extra.revertDevices.keys());
         // 👥 plans the static user groups too (10680) — the same maps, shared,
         // so a run's patch moves both panes
         Object.assign(mem.input, { userGroups: cs.extra.userGroups, userMembers: cs.extra.userMembers, revertUsers: cs.extra.revertUsers });
         cs.error = "";
-      } catch (e) { cs.extra = null; cs.error = `The static country groups and the Revert groups could not be read: ${GroupUse.shortErr(e, 240)}`; }
+      } catch (e) { if (!projectValid(epoch)) return; cs.extra = null; cs.error = `The static country groups and the Revert groups could not be read: ${GroupUse.shortErr(e, 240)}`; }
+      if (!projectValid(epoch)) return;
       memCompute();
+      const errors = [...(mem.model.failed || []), ...(cs.extra ? cs.extra.failed || [] : []), cs.error].filter(Boolean);
+      projectSource("members", errors.length ? "partial" : "ready", errors.join("; "));
       if (!mem.region && mem.model.regions.length) mem.region = mem.model.regions[0].region;
     } catch (e) {
+      if (!projectValid(epoch)) return;
+      projectSource("members", "failed", GroupUse.shortErr(e, 300));
       mem.model = null; mem.input = null; cs.extra = null;
       mem.error = GroupUse.shortErr(e, 300);
-    } finally { mem.loading = false; render(); }
+    } finally { if (projectValid(epoch)) { mem.loading = false; render(); } }
   }
   const memRowSel = (r) => mem.sel.has(r.key);
   function memCell(r) {
@@ -2941,7 +3090,7 @@ const MdeRolloutV2Tool = (() => {
     } catch (e) {
       const el = document.createElement("div"); el.className = "gu-fail"; el.innerHTML = `<b>${esc(GroupUse.shortErr(e, 300))}</b>`;
       $("mvLedger").appendChild(el);
-    } finally { busy = false; }
+    } finally { projectRelease(); }
   }
 
   // ------------------------------------------- 🔄 country groups (10679) --
@@ -3256,7 +3405,7 @@ const MdeRolloutV2Tool = (() => {
       <p class="mini muted" style="margin:6px 0 0">T28's reach model: an exclusion wins over an include of its kind; assignment filters are not evaluated.</p>` : "";
     const table = rv.list.length ? `<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;margin-top:14px"><h4 style="margin:0">The list · ${plural(rv.list.length, "entry", "entries")}</h4><button class="btn" id="mvRvListClear">Clear the list</button></div>
       <div style="overflow-x:auto;margin-top:6px"><table class="cg-table mr-exlist-t"><colgroup><col style="width:30px"><col><col style="width:26%"><col style="width:12%"><col style="width:44px"></colgroup><thead><tr><th></th><th>Member</th><th>Static country group</th><th>Now</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
-      <p class="mini muted" style="margin:6px 0 0">Each entry comes as the pair — a user with their Windows devices that synced in the last ${exOpt().staleDays} days, a device with its primary user. Untick one side and the dry run warns about the mix.</p>
+      <p class="mini muted" style="margin:6px 0 0">A device entry selects that device only. Its primary user stays unticked unless you explicitly include them. A user entry includes their recent Windows devices (${exOpt().staleDays} days). Review the policy impact for each selected side.</p>
       ${pol}
       <label class="wi-f" style="margin-top:10px"><span>Reason — one for the whole list, kept with the run and shown in the 🔄 sync preview</span><input id="mvRvReason" value="${esc(rv.reason)}" placeholder="e.g. LOB app blocked by the new ASR rules — ticket 4711" autocomplete="off"></label>
       <div class="mr-mbar" id="mvRvListBar"><span>${n.users || n.devices ? `<b>${[n.users ? plural(n.users, "user") : "", n.devices ? plural(n.devices, "device") : ""].filter(Boolean).join(" · ")}</b> → ${esc(C.revertUser)} / ${esc(C.revertDevice)}, out of their country group${p0.waves.length ? ` · ${esc(p0.waves.join(", "))}` : ""}` : "tick a user or a device"}</span><button class="btn primary" id="mvRvListDry"${n.users || n.devices ? "" : " disabled"}>② Dry run the list</button></div>`
@@ -3321,7 +3470,7 @@ const MdeRolloutV2Tool = (() => {
   }
   function revertPane() {
     const C = mcfg();
-    const intro = `<p class="mini muted" style="margin:0 0 10px">Take a user and/or device out of their wave so the <b>old</b> MDE policies reach them again: out of their static country group (<code>${esc(C.userGroupPrefix)}&lt;ISO3&gt;</code> / <code>${esc(C.deviceGroupPrefix)}&lt;ISO3&gt;</code>) and into <code>${esc(C.revertUser)}</code> / <code>${esc(C.revertDevice)}</code>, in one run, with a reason. The Revert groups are assigned to nothing; they are the list 🔄 holds back, in the tenant, so another admin's sync holds them back too. <b>⊘ Exclude</b> is different: an excluded member stays in the wave and skips the new policies.</p>`;
+    const intro = `<p class="mini muted" style="margin:0 0 10px">Return a user and/or device by changing their country memberships and recording a hold. Review old-policy coverage and every other route into the new set first: out of their static country group (<code>${esc(C.userGroupPrefix)}&lt;ISO3&gt;</code> / <code>${esc(C.deviceGroupPrefix)}&lt;ISO3&gt;</code>) and into <code>${esc(C.revertUser)}</code> / <code>${esc(C.revertDevice)}</code>, in one run, with a reason. The Revert groups are assigned to nothing; they are the list 🔄 holds back, in the tenant, so another admin's sync holds them back too. <b>⊘ Exclude</b> uses policy exclusion groups and can also remove device country membership when keep-old is selected. Neither action alone proves protection. <b>Device search selects only that device by default</b>; its primary user is an explicit opt-in.</p>`;
     if (!mem.model || !cs.extra || !ex.base) return `<div class="list-card" style="margin-top:0">${intro}
       ${rv.error ? `<div class="gu-fail" style="margin-bottom:10px"><b>${esc(rv.error)}</b></div>` : ""}
       ${mem.loading || ex.loading ? `<p class="mini" id="mvMemProg" style="margin:0">Reading…</p><p class="mini muted" id="mvExProg" style="margin:0"></p>` : `<div class="tb-actions"><button class="btn primary" id="mvRvRead">↩ Read the country groups, Revert and the devices</button></div><p class="mini muted" style="margin:8px 0 0">The 🔄 read plus the Windows devices in Intune (their primary users). Read-only.</p>`}</div>`;
@@ -3397,12 +3546,16 @@ const MdeRolloutV2Tool = (() => {
   };
   async function exRead() {
     if (ex.loading) return;
-    ex.loading = true; ex.error = ""; render();
+    const epoch = project.epoch;
+    ex.loading = true; ex.error = ""; projectSource("exclusions", "reading"); render();
     try {
       await Graph.ensureScopes(MdeExclude.scopes());
-      ex.base = await MdeExclude.readBase(exGroups(), (m) => { const el = $("mvExProg"); if (el) el.textContent = m; });
-    } catch (e) { ex.base = null; ex.error = GroupUse.shortErr(e, 300); }
-    finally { ex.loading = false; render(); }
+      const next = await MdeExclude.readBase(exGroups(), (m) => { const el = $("mvExProg"); if (el) el.textContent = m; });
+      if (!projectValid(epoch)) return;
+      ex.base = next;
+      projectSource("exclusions", (next.failed || []).length ? "partial" : "ready", (next.failed || []).join("; "));
+    } catch (e) { if (!projectValid(epoch)) return; ex.base = null; ex.error = GroupUse.shortErr(e, 300); projectSource("exclusions", "failed", ex.error); }
+    finally { if (projectValid(epoch)) { ex.loading = false; render(); } }
   }
   async function exSearch() {
     const input = $("mvExQ");
@@ -3670,7 +3823,7 @@ const MdeRolloutV2Tool = (() => {
   }
   function exclusionsPane() {
     const G = exGroups();
-    const groupsLine = `Users go to <code>${esc(G.user ? G.user.displayName : cfg.exclusionUser)}</code> (the <code>- U -</code> policies), devices to <code>${esc(G.device ? G.device.displayName : cfg.exclusionDevice)}</code> (the <code>- D -</code> ones). An excluded device also leaves its country device group, so it stays on the old set.`;
+    const groupsLine = `Users go to <code>${esc(G.user ? G.user.displayName : cfg.exclusionUser)}</code> (the <code>- U -</code> policies), devices to <code>${esc(G.device ? G.device.displayName : cfg.exclusionDevice)}</code> (the <code>- D -</code> ones). When keep-old is selected, an excluded device also leaves its country device group. Review old-policy targeting and then verify the device outcome.`;
     const intro = ex.mode === "list" && ex.base
       ? `<p class="mini muted" style="margin:0 0 10px">Paste UPNs, e-mail addresses or device names — one per line, or separated by commas or semicolons — or drop a .csv or .txt file. <b>Look them up</b> matches each line exactly: a UPN or e-mail to a user, a name to a device. ${groupsLine}</p>`
       : `<p class="mini muted" style="margin:0 0 10px">Search a user (name, UPN, e-mail) or a device (name). A user comes with their Windows devices, a device with its primary user, and each with what reaches it. ${groupsLine}</p>`;
@@ -3720,15 +3873,20 @@ const MdeRolloutV2Tool = (() => {
   const ldShort = (name) => String(name || "").replace(/^Win\s*-\s*OIB\s*-\s*[A-Z]{2,3}\s*-\s*/i, "").replace(/\s*-\s*v\d[\w.]*$/i, "");
   async function readLanding() {
     if (ld.busy || !model || running) return false;
-    ld.busy = true; ld.error = ""; ld.status = "Reading…"; render();
-    const say = (m) => { ld.status = m; const el = $("mvLdStatus"); if (el) el.textContent = m; };
+    const epoch = project.epoch;
+    ld.busy = true; ld.error = ""; ld.status = "Reading…"; projectSource("landing", "reading"); render();
+    const say = (m) => { if (!projectValid(epoch)) return; ld.status = m; const el = $("mvLdStatus"); if (el) el.textContent = m; };
     try {
       const reportScopes = [...new Set([...Graph.SCOPES.config, ...Graph.SCOPES.devices])];
       await Graph.ensureScopes([...new Set([...reportScopes, ...Graph.SCOPES.groups])]);
+      if (!projectValid(epoch)) return false;
       const sc = MdeLanding.scope(model.newP, waveRows);
       const members = await MdeLanding.readMembers(sc, { onStatus: say });
+      if (!projectValid(epoch)) return false;
       const managed = await MdeLanding.readManaged({ managed: mem.input ? (mem.input.managedAll || mem.input.managed || null) : null, onStatus: say });
+      if (!projectValid(epoch)) return false;
       const status = await MdeLanding.readStatus(sc.policies, { scopes: reportScopes, onStatus: say });
+      if (!projectValid(epoch)) return false;
       let m = MdeLanding.join(sc, members, managed, status);
       if (m.summary.conflict > 0) {
         try {
@@ -3739,11 +3897,14 @@ const MdeRolloutV2Tool = (() => {
           m = MdeLanding.explainConflicts(m, read, pairs);
         } catch (e) { m.explainError = GroupUse.shortErr(e, 200); }
       }
+      if (!projectValid(epoch)) return false;
       ld.model = m; ld.at = Date.now();
+      const errors = [...m.failed.map((f) => f.error), ...m.memberErrors, m.explainError].filter(Boolean);
+      projectSource("landing", errors.length ? "partial" : "ready", errors.join("; "));
       if (!ld.region || !m.regions.includes(ld.region)) ld.region = m.regions.find((r) => m.members.some((e) => e.regions.has(r))) || m.regions[0] || null;
       return true;
-    } catch (e) { ld.error = GroupUse.shortErr(e, 250); return false; }
-    finally { ld.busy = false; ld.status = ""; render(); }
+    } catch (e) { if (!projectValid(epoch)) return false; ld.error = GroupUse.shortErr(e, 250); projectSource("landing", "failed", ld.error); return false; }
+    finally { if (projectValid(epoch)) { ld.busy = false; ld.status = ""; render(); } }
   }
   function landingPane() {
     const m = ld.model;
@@ -3809,18 +3970,18 @@ const MdeRolloutV2Tool = (() => {
   // The 📑 report: from the model in hand, or after a fresh read.
   async function runLandingReport(fresh) {
     if (reps.busy || running || busy || ld.busy) return;
+    const epoch = project.epoch;
     reps.error = "";
     reps.busy = "landing"; render();
     try {
       if (fresh || !ld.model) {
-        const back = pane;
         const ok = await readLanding();
-        pane = back;
+        if (!projectValid(epoch)) return;
         if (!ok || !ld.model) { reps.error = `Landing check failed${ld.error ? `: ${ld.error}` : "."}`; return; }
       }
       reps.landing = { at: Date.now(), html: MdeReports.landingHtml(ld.model, repCtx(), repMeta()), csv: MdeLanding.csv(ld.model), statusAt: ld.at, summary: ld.model.summary, ...reportSnapshot() };
-    } catch (e) { reps.error = `Landing check failed: ${GroupUse.shortErr(e, 250)}`; }
-    finally { reps.busy = ""; pane = "reports"; reps.selected = "landing"; render(); }
+    } catch (e) { if (!projectValid(epoch)) return; reps.error = `Landing check failed: ${GroupUse.shortErr(e, 250)}`; }
+    finally { if (projectValid(epoch)) { reps.busy = ""; render(); } }
   }
 
   // ---------------------------------------------------------- 📑 reports --
@@ -3837,31 +3998,35 @@ const MdeRolloutV2Tool = (() => {
   }
   async function runConfigReport() {
     if (reps.busy || running || busy || mem.loading) return;
+    const epoch = project.epoch;
     reps.error = "";
     reps.busy = "config"; render();
     try {
       if (!mem.model) {
-        const back = pane;
         await memRead();
-        pane = back;
+        if (!projectValid(epoch)) return;
       }
-      let owners = new Map();
+      let owners = new Map(), ownersAt = Date.now();
       try { owners = await MdeReports.readOwners(waveRows.filter((w) => w.exists).map((w) => w.group)); } catch { owners = new Map(); }
+      if (!projectValid(epoch)) return;
       const ctx = Object.assign(repCtx(), { owners });
-      reps.config = { at: Date.now(), html: MdeReports.configHtml(model, ctx, repMeta()), csv: MdeReports.configCsv(model, ctx), members: !!mem.model, membersAt: mem.model && mem.model.readAt, ownersAt: Date.now(), ...reportSnapshot() };
-    } catch (e) { reps.error = `Configuration report failed: ${GroupUse.shortErr(e, 250)}`; }
-    finally { reps.busy = ""; render(); }
+      reps.config = { at: Date.now(), html: MdeReports.configHtml(model, ctx, repMeta()), csv: MdeReports.configCsv(model, ctx), members: !!mem.model, membersAt: mem.model && mem.model.readAt, ownersAt, ...reportSnapshot() };
+    } catch (e) { if (!projectValid(epoch)) return; reps.error = `Configuration report failed: ${GroupUse.shortErr(e, 250)}`; }
+    finally { if (projectValid(epoch)) { reps.busy = ""; render(); } }
   }
   async function runConflictCheck() {
     if (reps.busy || running || busy) return;
+    const epoch = project.epoch;
     reps.error = "";
     reps.busy = "conflicts"; render();
     try {
       const refreshed = await run(false); // a fresh read, never relabel an old model as fresh
+      if (!projectValid(epoch)) return;
       if (!refreshed || !model) { reps.error = "Fresh read failed. The previous report, if any, is retained; no new check was saved."; return; }
       // 🖥 (10687): the check reads the devices too; a refusal there costs
       // the column, never the check
       await readDevices();
+      if (!projectValid(epoch)) return;
       const counts = devCounts();
       const summary = MdeReports.conflictSummary(pairs, M.needsAction);
       const prev = reps.checks.length ? reps.checks[reps.checks.length - 1] : null;
@@ -3870,13 +4035,13 @@ const MdeRolloutV2Tool = (() => {
       const ctx = { labels, labelName: M.labelName, labelValue: M.labelValue, VERDICT: M.VERDICT, TYPE: M.TYPE, needsAction: M.needsAction, summary, diff,
         dev: counts ? { counts, idx: dv.idx, prev: dv.prev, at: dv.at } : null };
       reps.conflicts = { at: Date.now(), html: MdeReports.conflictsHtml(pairs, ctx, repMeta()), csv: M.csv(pairs, counts), summary, diff, ...reportSnapshot() };
-    } catch (e) { reps.error = `Conflict check failed: ${GroupUse.shortErr(e, 250)}`; }
-    finally { reps.busy = ""; pane = "reports"; render(); }
+    } catch (e) { if (!projectValid(epoch)) return; reps.error = `Conflict check failed: ${GroupUse.shortErr(e, 250)}`; }
+    finally { if (projectValid(epoch)) { reps.busy = ""; render(); } }
   }
   const REPORTS = [
     { id: "assign", icon: "📋", title: "Assignments", source: "Current policy snapshot", description: "Coverage by wave, plus every assignment with its target, group kind, members, filter and rollout role." },
     { id: "config", icon: "🧾", title: "Deployment configuration", source: "Policies, members & owners", description: "Naming rules, wave groups, members, policy settings, retirement evidence and changes this session." },
-    { id: "conflicts", icon: "⚔️", title: "Conflict check", source: "Fresh tenant read", description: "Compare the new and old settings, their reach and proposed fixes. Each check shows what changed since the previous check this session." },
+    { id: "conflicts", icon: "⚔️", title: "Conflict check", source: "Current project read; refresh available", description: "Compare the new and old settings, their reach and proposed fixes. Each check shows what changed since the previous check this session." },
     { id: "landing", icon: "📡", title: "Landing check", source: "Intune's check-in status, read fresh", description: "Did the new set land: per policy and per wave, how many members report Succeeded, Pending, Error, Conflict, Not applicable — and who has no status at all; every member with something to look at, named." },
   ];
   const reportTime = (at) => at ? new Date(at).toLocaleString() : "Not read";
@@ -3884,10 +4049,44 @@ const MdeRolloutV2Tool = (() => {
   // A saved report predates the current read, rules, member read or writes.
   function reportStale(id) {
     const r = reps[id];
-    return !!r && (r.source !== res || r.rules !== JSON.stringify(cfg) || r.runCount !== runs.length || (id !== "conflicts" && r.memberSource !== mem.model));
+    return !!r && (r.source !== res || r.rules !== JSON.stringify(cfg) || r.runCount !== runs.length || (id !== "conflicts" && r.memberSource !== mem.model) || (id === "landing" && r.landingAt !== ld.at) || (id === "conflicts" && r.deviceAt !== dv.at));
   }
-  const reportSnapshot = () => ({ readAt: res && res.readAt, source: res, memberSource: mem.model, rules: JSON.stringify(cfg), runCount: runs.length,
+  const reportSnapshot = () => ({ landingAt: ld.at, deviceAt: dv.at, readAt: res && res.readAt, source: res, memberSource: mem.model, rules: JSON.stringify(cfg), runCount: runs.length,
     missing: (model.missing || []).map((x) => x.id) });
+  async function projectReport() {
+    if (pane !== "reports" || !model || projectReadBusy() || busy || plan) return;
+    const id = reps.selected, token = [id, res.readAt, mem.model && mem.model.readAt, ld.at, dv.at, runs.length, JSON.stringify(cfg)].join("|");
+    if (reps[id] && !reportStale(id) || project.reportToken === token) return;
+    project.reportToken = token;
+    if (id === "assign") { runAssignReport(); return; }
+    if (id === "config") {
+      // The source read already tried members; a refused source stays a gap,
+      // not a new interactive permission prompt hidden in report generation.
+      const epoch = project.epoch;
+      reps.busy = "config"; reps.error = ""; render();
+      try {
+        let owners = new Map(), ownersAt = null;
+        if (await Graph.silentScopes(Graph.SCOPES.groups)) { owners = await MdeReports.readOwners(waveRows.filter((w) => w.exists).map((w) => w.group)); ownersAt = Date.now(); }
+        if (!projectValid(epoch)) return;
+        const ctx = Object.assign(repCtx(), { owners });
+        reps.config = { at: Date.now(), html: MdeReports.configHtml(model, ctx, repMeta()), csv: MdeReports.configCsv(model, ctx), members: !!mem.model, membersAt: mem.model && mem.model.readAt, ownersAt, ...reportSnapshot() };
+      } catch (e) { if (projectValid(epoch)) reps.error = `Configuration report failed: ${GroupUse.shortErr(e, 240)}`; }
+      finally { if (projectValid(epoch)) { reps.busy = ""; render(); } }
+      return;
+    }
+    if (id === "landing") {
+      if (ld.model) await runLandingReport(false);
+      else { reps.error = "Check-in status is unavailable. Data details explains the missing source; Refresh project retries it."; render(); }
+      return;
+    }
+    const summary = MdeReports.conflictSummary(pairs, M.needsAction), counts = devCounts();
+    const prev = reps.checks.length ? reps.checks[reps.checks.length - 1] : null;
+    const diff = MdeReports.conflictDiff(prev, summary);
+    const ctx = { labels, labelName: M.labelName, labelValue: M.labelValue, VERDICT: M.VERDICT, TYPE: M.TYPE, needsAction: M.needsAction, summary, diff,
+      dev: counts ? { counts, idx: dv.idx, prev: dv.prev, at: dv.at } : null };
+    reps.conflicts = { at: Date.now(), html: MdeReports.conflictsHtml(pairs, ctx, repMeta()), csv: M.csv(pairs, counts), summary, diff, ...reportSnapshot() };
+    render();
+  }
   // Preview the exact saved export, not the current mutable policy model.
   // The HTML is generated by MdeReports, which escapes every tenant value.
   function reportPreview(report, id) {
@@ -3952,13 +4151,14 @@ const MdeRolloutV2Tool = (() => {
     const def = REPORTS.find((r) => r.id === reps.selected) || REPORTS[0];
     const r = reps[def.id];
     const stale = reportStale(def.id);
-    const exports = r ? `<details class="mr-export"><summary class="btn">Export ▾</summary><div class="mr-export-menu"><button class="btn" data-mrrepopen="${def.id}">Open report in new tab</button><button class="btn" data-mrrep="${def.id}" data-mrrepfmt="html">HTML report</button><button class="btn" data-mrrep="${def.id}" data-mrrepfmt="csv">${def.id === "config" ? "Policy settings CSV" : def.id === "conflicts" ? "Collisions CSV" : "Assignments CSV"}</button></div></details>` : "";
+    const exports = r ? `<details class="mr-export"><summary class="btn">Export ▾</summary><div class="mr-export-menu"><button class="btn" data-mrrepopen="${def.id}">Open report in new tab</button><button class="btn" data-mrrep="${def.id}" data-mrrepfmt="html">HTML report</button><button class="btn" data-mrrep="${def.id}" data-mrrepfmt="csv">${def.id === "config" ? "Policy settings CSV" : def.id === "conflicts" ? "Collisions CSV" : def.id === "landing" ? "Landing evidence CSV" : "Assignments CSV"}</button></div></details>` : "";
     const metadata = r ? `<div class="mr-report-meta"><span><b>Policy data</b> ${esc(reportTime(r.readAt))}</span><span><b>Generated</b> ${esc(reportTime(r.at))}</span>${r.membersAt ? `<span><b>Members</b> ${esc(reportTime(r.membersAt))}</span>` : ""}${r.statusAt ? `<span><b>Status read</b> ${esc(reportTime(r.statusAt))}</span>` : ""}${r.ownersAt ? `<span><b>Owners attempted</b> ${esc(reportTime(r.ownersAt))}</span>` : ""}</div>` : "";
-    const warning = stale ? `<p class="mr-report-notice">This saved report predates the current policy/member read, rules or session changes. Generate it again to update the preview and exports.</p>` : "";
+    const warning = stale ? `<p class="mr-report-notice">This saved report predates the current policy/member read, rules or session changes. Its replacement is prepared automatically when the source reads finish; exports still use the dated snapshot shown here.</p>` : "";
     const missing = r && r.missing.length ? `<p class="mr-report-notice">Incomplete policy read: ${r.missing.map(esc).join(", ")}. These surfaces are not included in this report.</p>` : "";
     const memberWarning = r && def.id === "config" && !r.members ? `<p class="mr-report-notice">Wave members could not be read; that report section is incomplete.</p>` : "";
     const jump = r && def.id === "conflicts" ? `<p class="mini mr-report-jump"><a href="#" data-mrpane="conflicts">Open Conflicts to review proposed changes →</a></p>` : "";
-    return `<section id="mvReportPanel" class="mr-report-panel" aria-label="${esc(def.title)}"><div class="mr-report-heading"><div><h3>${def.icon} ${esc(def.title)}</h3><p class="mini">${esc(def.description)} <span class="muted">· ${esc(def.source)} · the latest of each report is kept for this session</span></p></div><div class="tb-actions"><button class="btn primary" id="mvRep_${def.id}"${reps.busy || running || busy || mem.loading ? " disabled" : ""}>${reps.busy === def.id ? "Running…" : def.id === "conflicts" ? "Run fresh check" : def.id === "landing" ? (r ? "↻ Read again & generate" : "Read & generate") : r ? "↻ Generate again" : "Generate report"}</button>${exports}</div></div>${metadata}${warning}${missing}${memberWarning}${reps.error ? `<p class="mr-report-notice" role="alert">${esc(reps.error)}</p>` : ""}${jump}${r ? reportPreview(r, def.id) : `<div class="mr-report-empty"><h4>No report generated yet</h4><p>${esc(def.id === "conflicts" ? "Run a fresh read to check conflicts. This does not apply changes." : def.id === "landing" ? "Read Intune's check-in status for every new policy and the waves' members. Reads only — nothing is changed." : def.id === "config" ? "Generate from the current policy snapshot. Wave members are read if needed, and owners are requested when you generate." : "Generate from the current policy snapshot. Refresh the tenant first if you need newer data.")}</p></div>`}</section>`;
+    const reportNav = `<nav class="t28-subnav t28-report-nav" aria-label="Choose report">${REPORTS.map((x) => { const saved = reps[x.id]; return `<button class="${def.id === x.id ? "active" : ""}" data-mrreport="${x.id}"><span>${esc(x.title)}</span><small>${reps.busy === x.id ? "Preparing…" : saved ? reportStale(x.id) ? "Updating on opening…" : x.id === "conflicts" ? `${saved.summary.act} to act · ${shortTime(saved.at)}` : `Updated ${shortTime(saved.at)}` : "Loads on opening"}</small></button>`; }).join("")}</nav>`;
+    return `${reportNav}<section id="mvReportPanel" class="mr-report-panel" aria-label="${esc(def.title)}"><div class="mr-report-heading"><div><h3>${def.icon} ${esc(def.title)}</h3><p class="mini">${esc(def.description)} <span class="muted">· ${esc(def.source)} · the latest of each report is kept for this session</span></p></div><div class="tb-actions"><button class="btn primary" id="mvRep_${def.id}"${reps.busy || running || busy || mem.loading ? " disabled" : ""}>${reps.busy === def.id ? "Running…" : def.id === "conflicts" ? "Run fresh check" : def.id === "landing" ? (r ? "↻ Read again & generate" : "Read & generate") : r ? "↻ Generate again" : "Refresh preview"}</button>${exports}</div></div>${metadata}${warning}${missing}${memberWarning}${reps.error ? `<p class="mr-report-notice" role="alert">${esc(reps.error)}</p>` : ""}${jump}${r ? reportPreview(r, def.id) : `<div class="mr-report-empty"><h4>Preparing the report automatically</h4><p>${esc(def.id === "conflicts" ? "Run a fresh read to check conflicts. This does not apply changes." : def.id === "landing" ? "Read Intune's check-in status for every new policy and the waves' members. Reads only — nothing is changed." : def.id === "config" ? "Generate from the current policy snapshot. Wave members are read if needed, and owners are requested when you generate." : "Generate from the current policy snapshot. Refresh the tenant first if you need newer data.")}</p></div>`}</section>`;
   }
   function openReport(id) {
     const r = reps[id];
@@ -4004,7 +4204,7 @@ const MdeRolloutV2Tool = (() => {
       if ($("mvWaveLedger")) $("mvWaveLedger").innerHTML = ledger;
     } catch (e) {
       const el = $("mvWaveLedger"); if (el) el.innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
-    } finally { busy = false; }
+    } finally { projectRelease(); }
   }
 
   // ----------------------------------------------------- create waves --
@@ -4048,7 +4248,7 @@ const MdeRolloutV2Tool = (() => {
       if ($("mvWaveLedger")) $("mvWaveLedger").innerHTML = ledger;
     } catch (e) {
       const el = $("mvWaveLedger"); if (el) el.innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
-    } finally { busy = false; }
+    } finally { projectRelease(); }
   }
 
   // ------------------------------------------------------------ popout --
@@ -4082,16 +4282,17 @@ const MdeRolloutV2Tool = (() => {
   function init() {
     const workspace = document.getElementById("t28Workspace2");
     if (workspace) for (const event of ["click", "input", "change"]) workspace.addEventListener(event, (e) => {
-      if ((busy || running || mem.loading || reps.busy) && !e.target.closest(".stop")) { e.preventDefault(); e.stopImmediatePropagation(); }
+      const browse = e.target.closest("[data-mrpane], [data-mrreport], [data-project-country], [data-project-wtab], [data-project-details], [data-project-finding], [data-project-members], [data-project-landing], [data-mropen], summary");
+      if ((busy || (projectReadBusy() && !browse)) && !e.target.closest(".stop")) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
     if (!$("mvRun")) return;
     planEl();
-    $("mvRun").addEventListener("click", () => run(false));
+    $("mvRun").addEventListener("click", () => projectStart(true));
     $("mvMd").addEventListener("click", () => exportAs("md"));
     $("mvCsv").addEventListener("click", () => exportAs("csv"));
     const body = $("mvBody");
     const focusOn = (sel) => { const el = body.querySelector(sel); if (el) el.focus(); };
-    const go = (p) => { if (p === "edgeext") { openEdgeExt(); focusOn(`.mr-navigation [data-mrpane="${p}"]`); return; } pane = p; view.cat = null; view.state = null; view.q = ""; render(); focusOn(`.mr-navigation [data-mrpane="${p}"]`); };
+    const go = (p) => { if (p === "edgeext") { openEdgeExt(); focusOn(`[data-mrpane="${p}"]`); return; } pane = p; view.cat = null; view.state = null; view.q = ""; render(); focusOn(`[data-mrpane="${p}"]`); };
     body.addEventListener("change", (e) => { if (e.target.id === "mvLeftOutOpt") { v2AllowLeftOut = e.target.checked; asr.edits.clear(); clearPlan(); render(); } if (e.target.id === "mvImportRuns") v2Import(e.target.files[0]); });
     body.addEventListener("click", (e) => {
       // 10683 (Mihai: "button not working" — ⭳ CSV): flat-icons wraps a
@@ -4099,6 +4300,18 @@ const MdeRolloutV2Tool = (() => {
       // that span as its target and every t.id check missed. A click inside
       // an icon run is the button's.
       const t = (e.target.closest && e.target.closest(".fi-run, .enca-icon-slot") && e.target.closest("button, a, [role=button]")) || e.target;
+      if (t.closest("[data-project-connect]")) { projectStart(true); return; }
+      if (t.closest("[data-project-details]")) { project.details = !project.details; render(); return; }
+      const countryButton = t.closest("[data-project-country]");
+      if (countryButton) { project.country = countryButton.dataset.projectCountry; pane = "wavehome"; render(); return; }
+      const countryTab = t.closest("[data-project-wtab]");
+      if (countryTab) { project.waveTab = countryTab.dataset.projectWtab; render(); return; }
+      const membersButton = t.closest("[data-project-members]");
+      if (membersButton) { const row = mem.model && mem.model.rows.find((r) => r.key === membersButton.dataset.projectMembers); if (row) { mem.region = row.region; mem.unmapped = false; mem.left = false; mem.pil = false; mem.open.add(row.key); } go("members"); return; }
+      const landingButton = t.closest("[data-project-landing]");
+      if (landingButton) { ld.region = landingButton.dataset.projectLanding; go("landing"); return; }
+      const finding = t.closest("[data-project-finding]");
+      if (finding) { const item = projectFindings().find((x) => x.id === finding.dataset.projectFinding); if (item) { if (item.source) project.details = true; if (item.unmapped) { mem.unmapped = true; mem.pil = false; } go(item.to); } return; }
       if (t.closest("[data-v2-export]")) { v2Export(); return; }
       const rdb = t.closest("[data-mrread]"); if (rdb) { run(rdb.dataset.mrread === "attach"); return; }
       const reportChoice = t.closest("[data-mrreport]");
@@ -4196,7 +4409,7 @@ const MdeRolloutV2Tool = (() => {
       const ldr = t.closest("[data-mrldregion]"); if (ldr) { e.preventDefault(); ld.region = ldr.dataset.mrldregion || null; render(); return; }
       const ldf = t.closest("[data-mrldfilter]"); if (ldf) { e.preventDefault(); ld.filter = ldf.dataset.mrldfilter || "all"; render(); return; }
       if (t.id === "mvLdCsv") { if (ld.model) download(`MDE-rollout-landing-${stamp()}.csv`, MdeLanding.csv(ld.model), "text/csv"); return; }
-      if (t.id === "mvLdReport") { runLandingReport(false); return; }
+      if (t.id === "mvLdReport") { pane = "reports"; reps.selected = "landing"; runLandingReport(false); return; }
       const ro = t.closest("[data-mrrepopen]"); if (ro) { openReport(ro.dataset.mrrepopen); return; }
       const rd = t.closest("[data-mrrep]"); if (rd) {
         const r = reps[rd.dataset.mrrep]; if (!r) return;
@@ -4539,7 +4752,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, project, projectFindings }),
     _pane: (p) => { pane = p; render(); },
   };
 })();

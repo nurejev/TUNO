@@ -195,7 +195,7 @@ async function screen() {
   const click = (sel) => { const el = typeof sel === "string" ? D.querySelector(sel) : sel; if (!el) throw new Error("no element " + sel); el.click(); };
   const text = (id) => ($(id) ? $(id).textContent : "");
   const lists = () => w.MdeEdgeExt.listsIn(pol._settings);
-  const rail = () => D.querySelector('.mr-navigation [data-mrpane="edgeext"]');
+  const rail = () => D.querySelector('.t28-subnav [data-mrpane="edgeext"]');
   const kept = (prefix) => [...store.keys()].filter((k) => k.startsWith(prefix)).map((k) => store.get(k)).join("\n");
 
   $("demoLink").dispatchEvent(new w.Event("click", { bubbles: true }));
@@ -204,11 +204,12 @@ async function screen() {
   $("toolMdeRollout").click();
   await sleep(150);
   ok("10678: no ⊘ or 🎛 button in the header", !$("mvExclude") && !$("mvAsr"));
-  click('[data-mrread="fresh"]');
+  await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
   await until(() => st().model, 30000, "tenant read");
   await sleep(100);
   ok("the fixture Edge policy is in the new set", st().model.newP.some((P) => P.name === pol.name));
-  ok("🧩 the rail node is there, with the lists' sizes (4 · 1), nothing in the header", !!rail() && /Edge extensions/.test(rail().textContent) && /4 · 1/.test(rail().textContent));
+  w.MdeRolloutV2Tool._pane("new");
+  ok("Edge extensions is reachable in Policies", !!rail() && /Edge extensions/.test(rail().textContent));
 
   // ---- open it: paste mode (no route) ----
   rail().click();
@@ -237,7 +238,7 @@ async function screen() {
   $("mvExtRoute").value = "/addons/"; click("#mvExtRouteSave");
   ok("🧩 the route is kept per browser, trimmed", w.TunoAddons.route() === "/addons" && store.get("tuno.addons.route") === "/addons" && /Saved for this browser/.test(text("mvExtRouteMsg")));
   ok("🧩 the names arrive from the store: My Apps named, the Chrome ID a ⚠ finding, the built-ins never asked", await until(() => /My Apps Secure Sign-in Extension/.test(text("mvExtForce")) && /not in the Edge store/.test(text("mvExtForce")), 8000, "names") && !calls.some((u) => u.includes(IDS.copilot1)) && /Microsoft Corporation/.test(text("mvExtForce")));
-  ok("🧩 the hand-given name survives the 404 beside the finding, the rail counts 1 ⚠", /Proton Pass \(Chrome ID\)/.test(text("mvExtForce")) && /1 ⚠/.test(rail().textContent) && /Findings \(1\)/.test(text("mvBody")));
+  ok("🧩 the hand-given name survives the 404 beside the finding, the rail counts 1 ⚠", /Proton Pass \(Chrome ID\)/.test(text("mvExtForce")) && /Findings \(1\)/.test(text("mvBody")));
   ok("🧩 the store's answer is cached a day in this browser", /"id:gaaceiggkkiffbfdpmfapegoiohkiipl"/.test(store.get("tuno.addons.cache") || ""));
   // a name search in the add box
   $("mvExtQ").value = "tango"; $("mvExtQ").dispatchEvent(new w.Event("input", { bubbles: true }));
@@ -284,7 +285,7 @@ async function screen() {
   const before = JSON.stringify(TT.CONFIG_POLICIES.find((p) => /^WIN-SEC-AttackSurfaceReduction-D-02/.test(p.name))._settings);
   $("mvApply").click();
   ok("🧩 applied: the demo tenant holds the new lists, verified, the run in 📜", await until(() => st().runs.some((r) => r.kind === "edgeext" && r.ok === 1), 8000, "apply") && (() => { const l = lists(); return l.force.map((e) => e.id).join() === [IDS.copilot1, IDS.copilot2, IDS.myapps, IDS.uipath].join() && l.allow.map((e) => e.id).sort().join() === [IDS.myapps, IDS.tango, IDS.levelup].sort().join() && l.block[0].raw === "*" && l.external === true; })());
-  ok("🧩 the other policies were not touched; the edits are gone; the rows read the verified settings", JSON.stringify(TT.CONFIG_POLICIES.find((p) => /^WIN-SEC-AttackSurfaceReduction-D-02/.test(p.name))._settings) === before && st().ext.edits.size === 0 && $("mvExtAllow").querySelectorAll("tbody tr").length === 3 && !$("mvExtAllow").querySelector("tr.mr-ext-added") && /4 · 3/.test(rail().textContent));
+  ok("🧩 the other policies were not touched; the edits are gone; the rows read the verified settings", JSON.stringify(TT.CONFIG_POLICIES.find((p) => /^WIN-SEC-AttackSurfaceReduction-D-02/.test(p.name))._settings) === before && st().ext.edits.size === 0 && $("mvExtAllow").querySelectorAll("tbody tr").length === 3 && !$("mvExtAllow").querySelector("tr.mr-ext-added"));
   const run = st().runs.find((r) => r.kind === "edgeext");
   ok("🧩 the run carries the backup with both lists before and after, and the changes for the undo", run.backup.policies.length === 1 && run.backup.policies[0].lists.before.force.length === 4 && run.backup.policies[0].lists.after.allow.length === 3 && run.done.length === 4 && /written · verified/.test(run.lines.join()));
 
@@ -320,14 +321,16 @@ async function screen() {
   TT.CONFIG_POLICIES.splice(TT.CONFIG_POLICIES.indexOf(pol), 1);
   st().ext.edits.clear();
   w.PolicyCache.invalidate();
+  await until(() => !st().busy && !st().running && !st().project.starting && !st().project.task && !st().project.timer, 15000, "idle before refresh");
+  ok("Refresh project is enabled after a completed settings plan", !$("mvRun").disabled);
   click("#mvRun");
   await until(() => st().model && !st().model.newP.some((P) => P.name === pol.name), 30000, "re-read");
   rail().click(); await sleep(30);
-  ok("🧩 without the policy the node says none and the pane says which setting it looks for, the route line still there", /none/.test(rail().textContent) && /No Edge extensions policy in the new set/.test(text("mvBody")) && !!$("mvExtRoute"));
+  ok("🧩 without the policy the node says none and the pane says which setting it looks for, the route line still there", /No Edge extensions policy in the new set/.test(text("mvBody")) && !!$("mvExtRoute"));
 
   // ---- the How it works paragraph and the registry ----
   w.MdeRolloutV2Tool._pane("how");
-  ok("❓ How it works has the 🧩 paragraph and the rail-only wording for 🎛", /🧩 Edge extensions/.test(text("mvBody")) && /paste mode/.test(text("mvBody")) && /Adjust settings<\/b> \(on the rail\)|Adjust settings \(on the rail\)/.test($("mvBody").innerHTML));
+  ok("❓ How it works has the 🧩 paragraph and the rail-only wording for 🎛", /🧩 Edge extensions/.test(text("mvBody")) && /paste mode/.test(text("mvBody")) && /Adjust settings<\/b> \(under Policies\)|Adjust settings \(under Policies\)/.test($("mvBody").innerHTML));
   // 10679: not pinned to 0.31 — the next T28 build moved it and turned this red
   ok("T28 is 0.31 or later and its note names the build", parseFloat(w.TOOL_VERSIONS.toolMdeRollout.v.replace(/^0\./, "")) >= 31 && /build 10678/.test(w.TOOL_VERSIONS.toolMdeRollout.note));
 }

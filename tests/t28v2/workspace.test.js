@@ -61,7 +61,7 @@ function boot() {
 async function run() {
   const { w, store } = boot(), D = w.document, $ = (id) => D.getElementById(id);
   const tool = w.MdeRolloutV2Tool, st = () => tool._state();
-  const idle = () => until(() => !st().running && !st().busy && !st().enriching, 15000, "V2 idle");
+  const idle = () => until(() => !st().running && !st().busy && !st().enriching && !st().project.starting && !st().project.task && !st().project.timer && !st().reps.busy, 15000, "V2 idle");
   const change = (el, value) => { if (el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new w.Event(el.type === "checkbox" ? "change" : "input", { bubbles: true })); };
   const originalUrl = w.location.href;
   // Since 10674 T28 lives in workspace 02 Projects, and the shell says so in
@@ -77,12 +77,12 @@ async function run() {
   $("toolMdeRollout").click();
   ok("the tile opens the V2 screen without changing URL", sansWs(w.location.href) === originalUrl && $("screen-mderollout").classList.contains("active") && !$("t28Workspace2").hidden);
   ok("the screen hook is V2's own", typeof w.TunoScreenHooks["screen-mderollout"] === "function" && !w.TunoScreenHooks["screen-mderollout-v2"]);
-  ok("opening has no implicit tenant read", !st().model && !!$("mvBody").querySelector(".mr-offer"));
-  $("mvBody").querySelector('[data-mrread="attach"]').click();
+  ok("opening starts automatic project reads", st().project.starting || st().running || !!st().model);
+  await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
   await until(() => st().model, 20000, "V2 model"); await idle();
   ok("V2 starts on the overview", st().pane === "overview" && !!$("mvBody").querySelector(".v2-overview"));
-  ok("overview does not invent applied protection", /Device compliance and applied protection remain unverified/.test($("mvBody").textContent));
-  ok("all six workflow steps are navigable", $("mvBody").querySelectorAll(".v2-card[data-mrpane]").length === 6);
+  ok("overview does not invent applied protection", /reported application are separate checks/.test($("mvBody").textContent));
+  ok("five primary project areas are navigable", $("mvBody").querySelectorAll(".mr-navigation > [data-mrpane]").length === 5);
   for (const p of ["new", "old", "retire", "waves", "members", "exclusions", "reports", "changes", "rules", "how", "out", "asr", "edgeext", "countrysync", "revert", "recovery"]) {
     tool._pane(p); ok(`V2 pane ${p} renders`, !!$("mvBody").textContent.trim());
   }
@@ -103,6 +103,8 @@ async function run() {
   ok("recorded reason and explicit acceptance unlock Apply", !$("mvApply").disabled);
   $("mvApply").click(); await until(() => st().runs.some((r) => r.kind === "settings"), 10000, "ASR apply");
   ok("real controller writes simulated Graph and records risk decision", st().runs[0].kind === "settings" && st().runs[0].ok === 1 && st().runs[0].risk.reason.includes("controlled audit"));
+  const history = [...store.entries()].find(([k]) => k.startsWith("tuno.t28.project.history."));
+  ok("verified run is saved to tenant browser history", !!history && JSON.parse(history[1]).length === 1 && JSON.parse(history[1])[0].ok === 1);
   // Include this policy using V2's naming rules; the original defaults stay intact.
   tool._pane("out"); $("mvBody").querySelector(`[data-mrinclude="${ASR}"]`).click();
   ok("V2 rule change stored under its own tenant key, the original key never written", [...store.keys()].some((k) => k.startsWith("tuno.t28.v2.rules.")) && ![...store.keys()].some((k) => k.startsWith("tuno.t28.rules.")) && !st().cfg.leaveOut.includes(ASR));
@@ -194,9 +196,9 @@ async function carryOver() {
     store.set("tuno.t28.rules." + tid, oldRaw);
     if (both) { const own = w.MdeRollout.normConfig(null); own.newPrefixes = own.newPrefixes.concat(["WIN-OWN"]); store.set("tuno.t28.v2.rules." + tid, JSON.stringify(own)); }
     $("toolMdeRollout").click();
-    $("mvBody").querySelector('[data-mrread="attach"]').click();
+    await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
     await until(() => st().model, 20000, "carry-over read");
-    await until(() => !st().running && !st().busy && !st().enriching, 15000, "carry-over idle");
+    await until(() => !st().running && !st().busy && !st().enriching && !st().project.starting && !st().project.task && !st().project.timer && !st().reps.busy, 15000, "carry-over idle");
     tool._pane("rules");
     if (!both) {
       ok("no V2 rules yet: the original screen's saved rules are carried over", st().cfg.newPrefixes.includes("WIN-CARRIED"));

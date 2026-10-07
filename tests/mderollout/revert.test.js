@@ -178,7 +178,7 @@ async function run() {
   ok("the pair by default: the user and their recent device, not the stale one", t.has("u:u1") && t.has("m:m1") && !t.has("m:m5"));
   const dcard = Object.assign({}, card, { pick: { type: "device", managedId: "m1" }, devices: card.devices.map((d, i) => Object.assign({}, d, { searched: i === 0 })) });
   const td = MR.defaultTicks(dcard);
-  ok("a device picked: the device and its primary user", td.has("u:u1") && td.has("m:m1") && td.size === 2);
+  ok("a device picked: only the device by default", !td.has("u:u1") && td.has("m:m1") && td.size === 1);
   const ctx = { ticks: t, rows: mm.rows, cfg, revert: { user: null, device: { id: "rv-d", displayName: "INT-SG-D-MDE-Revert" } }, revertUsers: new Map(), revertDevices: new Map(), reason: "LOB app blocked" };
   const pr = MR.planRevert(card, ctx);
   ok("revert: create the user Revert group, add, then out of INT-SG-U-NLD after the add", pr.runKind === "revert" && pr.ops.map((o) => o.type).join() === "create,add,remove,add,remove"
@@ -230,9 +230,14 @@ async function run() {
   MR.listAdd(L, bob, null, { line: "bob@x", source: "paste" });
   MR.listAdd(L, uma, null, { line: "USA9", source: "paste" });
   MR.listAdd(L, bob, new Set(["u:u2"]), { line: "bob@x", source: "paste" });
-  ok("the list: one entry per person, keyed by the user — added twice is replaced, not doubled", L.length === 3 && L.map((e) => e.key).join() === "u:u1,u:u2,u:u9" && L[1].ticks.size === 1);
+  ok("the list: one entry per person, keyed by the user — added twice is replaced, not doubled", L.length === 3 && L.map((e) => e.key).join() === "u:u1,u:u2,m:m9" && L[1].ticks.size === 1);
   MR.listAdd(L, bob, null, { line: "bob@x", source: "paste" });
-  ok("…each entry starts with the pair (a device line brings its primary user)", L[1].ticks.has("u:u2") && L[1].ticks.has("m:m2") && L[2].ticks.has("u:u9") && L[2].ticks.has("m:m9") && !L[0].ticks.has("m:m5"));
+  ok("a user entry includes recent devices; a device entry leaves its user unticked", L[1].ticks.has("u:u2") && L[1].ticks.has("m:m2") && !L[2].ticks.has("u:u9") && L[2].ticks.has("m:m9") && !L[0].ticks.has("m:m5"));
+  L[2].ticks.add("u:u9"); // explicit opt-in: retain the existing full pair-plan regressions
+  const sameOwner = [];
+  MR.listAdd(sameOwner, uma);
+  MR.listAdd(sameOwner, Object.assign({}, uma, { devices: [Object.assign({}, uma.devices[0], { key: "m:second", objId: "second" })] }));
+  ok("two selected devices with the same primary user remain two entries", sameOwner.length === 2 && sameOwner.every((e) => e.ticks.size === 1 && !e.ticks.has("u:u9")));
   const lctx = Object.assign({}, ctx, { reason: "  SAP GUI blocked — MDE_P-2719 " });
   const pl = MR.planRevertMany(L, lctx);
   const sig = pl.ops.map((o) => `${o.type}:${o.name || o.group.name}:${(o.ids || []).join("+")}${o.needsOk ? `@${o.needsOk.join("+")}` : ""}`).join(" ");
@@ -254,7 +259,7 @@ async function run() {
   const am = MR.assessMany([{ key: "u:u1", card, ticks: MR.defaultTicks(card) }, L[1]], pm, actx);
   const asr = am.policies.find((x) => x.P.name === "WIN-SEC ASR - D"), old = am.policies.find((x) => x.P.name === "Old ASR");
   ok("the dry run counted per policy: the new ASR drops off 2 devices, the old takes over 2; the gaps named", asr.drops.device === 2 && old.takes.device === 2 && am.gaps.map((g) => g.name).join() === "ann@x,bob@x" && am.members === 4);
-  ok("listDone: an entry whose ticked members are all in Revert now leaves the list", MR.listDone(L, { revertUsers: new Map([["u1", {}], ["u9", {}]]), revertDevices: new Map([["e1", {}], ["e9", {}]]) }).join() === "u:u1,u:u9");
+  ok("listDone: an entry whose ticked members are all in Revert now leaves the list", MR.listDone(L, { revertUsers: new Map([["u1", {}], ["u9", {}]]), revertDevices: new Map([["e1", {}], ["e9", {}]]) }).join() === "u:u1,m:m9");
   ok("listLines: what rebuilds it after a reload — the UPN, else the device", MR.listLines(L).join() === "ann@x,bob@x,uma@x" && MR.listLines([{ card: { user: null, devices: [{ name: "KIOSK-1" }] } }]).join() === "KIOSK-1");
   const realReadAll = w.Graph.readAll;
   w.Graph.readAll = async (p) => /\/groups\?\$filter/.test(p) ? [{ id: "G-FIN", displayName: "PVM-UG-Finance-Italy" }]

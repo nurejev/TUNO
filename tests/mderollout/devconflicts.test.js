@@ -87,14 +87,14 @@ async function run() {
   await until(() => w.PolicyCache.get(), 30000, "sign-in read");
   $("toolMdeRollout").click();
   await sleep(150);
-  $("mvBody").querySelector('[data-mrread="attach"]').click();
+  await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
   await until(() => $("mvBody").querySelector(".ep-rail"), 30000, "rail");
   const st = () => w.MdeRolloutV2Tool._state();
-  await until(() => !st().running && !st().busy && !st().enriching, 30000, "idle");
+  await until(() => !st().running && !st().busy && !st().enriching && !st().project.starting && !st().project.task && !st().project.timer && !st().reps.busy, 30000, "idle");
   w.MdeRolloutV2Tool._pane("conflicts");
   const av = () => st().pairs.find((p) => /AV Configuration - v3.3/.test(p.N.name) && /ENDSEC-WIN-AV-PRD/.test(p.O.name));
   ok("the demo's antivirus pair is a different-value collision", !!av() && av().type === "conflict");
-  ok("before a read: the column says 'not read', no 🖥 chip, the button offered", /🖥 On devices/.test($("mvBody").textContent) && /not read/.test($("mvBody").textContent) && !D.querySelector('[data-mrstatus="ondev"]') && !!D.querySelector("[data-mrdvread]"));
+  ok("device conflict reports load automatically", !!st().dv.idx && !!D.querySelector('[data-mrstatus="ondev"]') && !!D.querySelector("[data-mrdvread]"));
   D.querySelector("[data-mrdvread]").click();
   ok("🖥 Read device reports reads", await until(() => st().dv.idx && !st().dv.busy, 20000, "device read"));
   const c1 = st().devCounts().get(av().id);
@@ -122,7 +122,7 @@ async function run() {
 
   // the 📑 conflict check reads the devices too
   w.TUNO_DEMO_GRAPH.T.CONFLICT_REPORT[av().O.id].devices = [[av().O.id === "x" ? "" : "33333333-0000-4000-8000-000000000001", "Conflict"]];
-  D.querySelector('[data-mrpane="reports"]').click();
+  w.MdeRolloutV2Tool._pane("reports");
   D.querySelector('[data-mrreport="conflicts"]').click();
   $("mvRep_conflicts").click();
   ok("the conflict check finishes", await until(() => st().reps.conflicts && !st().reps.busy, 30000, "conflict check"));

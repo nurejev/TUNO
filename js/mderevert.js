@@ -349,11 +349,11 @@ const MdeRevert = (() => {
     }
     return card;
   }
-  // The pair (§3): a user with their Windows devices that synced lately, a
-  // device with its primary user.
+  // A user starts with recent Windows devices. A device starts alone;
+  // including its primary user is an explicit choice (project redesign).
   function defaultTicks(card) {
     const t = new Set();
-    if (card.user && !card.user.unread) t.add(`u:${card.user.id}`);
+    if (card.pick.type === "user" && card.user && !card.user.unread) t.add(`u:${card.user.id}`);
     if (card.pick.type === "user") card.devices.filter((d) => d.objId && !d.stale).forEach((d) => t.add(d.key));
     else { const d = card.devices.find((x) => x.searched) || card.devices[0]; if (d && d.objId) t.add(d.key); }
     return t;
@@ -436,7 +436,7 @@ const MdeRevert = (() => {
   // object ("u:<id>", else its first device's key) — an entry added twice is
   // replaced, never doubled.
   function entryKey(card) {
-    if (card.user) return `u:${lc(card.user.id)}`;
+    if (card.pick.type === "user" && card.user) return `u:${lc(card.user.id)}`;
     const d = card.devices.find((x) => x.searched) || card.devices[0];
     return d ? d.key : null;
   }
