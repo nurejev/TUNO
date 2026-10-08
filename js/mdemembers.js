@@ -1763,6 +1763,47 @@ const MdeMembers = (() => {
     return { results, done: doneOps, created };
   }
 
+  // ---------------------------------- ⚡ ⓪ the project's hold groups (10701) --
+  // Mihai: "create also a option bulk create all the revert groups" — every
+  // group T28 otherwise creates on first use, in one plan: the ↩ Revert
+  // pair, 📌 Pinned, ⊝ Skip, and the 🧪 test groups of the ticked regions
+  // (nested in their wave). The exclusion groups stay with 🌊.
+  // state: { revert: { user, device }, pinnedGroup, skipGroup,
+  //          tests: Map region → MdeTest.read's { user: { name, wave, group, nested, dupes, members }, device }, regions: Set | null }
+  function planHoldGroups(cfg, state) {
+    const c = cfg || DEFAULTS, S = state || {};
+    const ops = [], skipped = [], inPlace = [];
+    const one = (name, description, exists, who) => {
+      if (!name) return;
+      if (exists) inPlace.push(name);
+      else ops.push({ type: "create", key: "holdgroups", name, description, who });
+    };
+    one(c.revertUser, c.revertDescription, S.revert && S.revert.user, "↩ Revert");
+    one(c.revertDevice, c.revertDescription, S.revert && S.revert.device, "↩ Revert");
+    one(c.pinnedDevice, c.pinnedDescription, S.pinnedGroup, "📌 pins");
+    one(c.skipDevice, c.skipDescription, S.skipGroup, "⊝ skip");
+    for (const [region, t] of S.tests || new Map()) {
+      if (S.regions && !S.regions.has(region)) continue;
+      for (const a of ["user", "device"]) {
+        const side = t && t[a];
+        if (!side || !side.name) continue;
+        const who = `🧪 ${region}`;
+        if (!side.wave || !side.wave.exists || !side.wave.id) { skipped.push(`${side.name}: ${side.wave ? side.wave.name : `the ${a} wave`} does not exist yet — create it in 🌊 first`); continue; }
+        if (side.dupes) { skipped.push(`${side.name}: ${side.dupes} groups carry this name — rename or delete the extra in Entra first`); continue; }
+        if (side.group && side.nested) { inPlace.push(side.name); continue; }
+        let ref = side.group ? { id: lc(side.group.id), name: side.group.name } : null;
+        if (!ref) {
+          ops.push({ type: "create", key: "holdgroups", who, name: side.name, description: String((typeof MdeTest !== "undefined" && MdeTest.DESCRIPTION) || "MDE rollout test members of {wave} — nested in it.").replace("{wave}", side.wave.name) });
+          ref = { ref: side.name, name: side.name };
+        }
+        ops.push({ type: "nest", key: "holdgroups", who, parent: { id: lc(side.wave.id), name: side.wave.name }, child: ref, kind: a, size: side.group ? (side.members || []).length : 0 });
+      }
+    }
+    const nCreate = ops.filter((x) => x.type === "create").length, nNest = ops.filter((x) => x.type === "nest").length;
+    return { ops, skipped, warnings: [], inPlace, hasRemoval: false, runKind: "holdgroups",
+      title: `⚡ ⓪ The project's groups — ${[nCreate ? `create ${nCreate}` : "", nNest ? `nest ${nNest}` : ""].filter(Boolean).join(" · ") || "all in place"}`, counts: { create: nCreate, nest: nNest } };
+  }
+
   // What the verified run changed, folded into the input the pane holds —
   // so the rows move without a full re-read.
   function patchInput(input, done, createdGroups) {
@@ -1842,7 +1883,7 @@ const MdeMembers = (() => {
   }
 
   return {
-    DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides,
+    DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides, planHoldGroups,
     iso3Of, countryName, countryRows, realUpnOf, isAvdName, avdIdsOf, AVD_WHY, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
     addMembers, removeMembers, applyOps, patchInput, csv, VIA_TEXT, sidToObjectId, deviceLogonKql, planPin, planUnpin, planSkip, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
     _setWait: (fn) => { wait = fn; },

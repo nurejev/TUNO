@@ -1296,7 +1296,7 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>🔄 Country groups</b> (10679). The waves nest <b>static</b> groups only: per country a user group <code>INT-SG-U-&lt;ISO3&gt;</code> beside the device group <code>INT-SG-D-&lt;ISO3&gt;</code>, the code being the device group's own (the ⚙️ table). Both static groups are <b>created, filled and nested in 👥 Wave members</b>, side by side (10680) — 🔄 creates nothing. <b>⇄ Swap</b>, per wave, for a country an earlier build nested through its dynamic <code>PVM-UG-CORP-MEM-USERS-*</code> group: tops the static user group up, nests it, reads back that every user of the dynamic group is in it, and only then takes the dynamic group out of the wave — no policy moves. <b>Sync</b> keeps both pairs from the sources (users: transitive members; devices: 👥's primary-user rule): adds ticked, leavers never ticked, and whoever is in the Revert groups held back — a re-include takes a tick per row and a confirm line naming the count and the wave. A member of Revert that no source holds any more is offered for the Revert clean-up. The head shows the drift (read now) and the last sync (this browser), in the warning colour after 14 days.</p>
       <p style="margin:0 0 8px"><b>↩ Revert</b> (10679). A user, a device or the pair (the default) leaves its wave: into <code>INT-SG-U-MDE-Revert</code> / <code>INT-SG-D-MDE-Revert</code> first, then — only once that read back — out of its static country group, with a reason kept with the run. The dry run shows per policy which new ones drop off and which old ones take over, and warns on neither (a gap) or both (a conflict). A user still reached through a dynamic group is refused until their wave is swapped. The Revert groups are assigned to nothing: they are the held-back list, in the tenant. <b>📋 The list</b> (10685) does many at once: ＋ Add on a search card, a pasted list or .csv, or a group's members — each entry the pair, one reason, one dry run with the per-policy view counted, and a confirm line naming the counts and the waves before ④ Apply. <b>Reverted now</b> puts members back (into their country group, then out of Revert). An excluded member (⊘) stays in the wave and skips the new policies; a reverted one is out of the wave.</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
-      <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions.</p>
+      <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions. <b>⓪ Create the project's groups</b> (10701; Mihai: "bulk create all the revert groups"): every group T28 otherwise creates on first use — the ↩ Revert pair, 📌 Pinned, ⊝ Skip, and the 🧪 test pair of each ticked region, nested in its wave — in one plan: what exists is said as in place, a region whose wave does not exist yet is left out (🌊 first). Empty groups, assigned to nothing; the exclusion groups stay with 🌊.</p>
       <p style="margin:0 0 8px"><b>🧪 Pilots</b> (the tick in ⚔️ and ⚡, the names under ⚙️). When a plan completes the swap — every wave of the kind in the new policy and out of the old one — the pilot groups come off both: the new policy's pilot includes and the old policy's pilot exclusions, in the same plan. A pilot member in a wave keeps the new policy through the wave; one outside a wave is back on the old policy until their wave has them. A side that cannot go yet stays, with the reason: a new policy keeps a pilot while an old policy it collides with still excludes it (else neither), and an old policy keeps a pilot exclusion while a new policy it collides with still includes it (else both). <b>🧪 Pilots in the policies' bar</b> (10675): with a policy ticked, the bar's 🧪 Pilots target puts the pilot groups on it or takes them off, like the waves — a - D - policy takes the device names, a - U - one the user names, by tier (the ticks in the bar: Pilot, Pre-Pilot); the dry run shows what each group counts and what is left out, and nothing else on the policy is touched.</p>
       <p style="margin:0 0 8px"><b>What is refused.</b> Intune does not support excluding user groups from a policy assigned to device groups, or the reverse — "Intune doesn't evaluate user-to-device group relationships" (<a href="https://learn.microsoft.com/intune/device-configuration/assign-device-profile#exclude-groups-from-a-policy-assignment" target="_blank" rel="noopener">Microsoft Learn: Assign policies — support matrix</a>). Such a step is shown with its reason and never written. Devices managed by <b>MDE security settings management</b> (not enrolled in Intune) take assignments by device group only, and assignment filters do not apply to them (<a href="https://learn.microsoft.com/defender-endpoint/endpoint-security-policies-configure" target="_blank" rel="noopener">Learn</a>) — flagged as 🛰.</p>
       <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes this session with its backup and an undo. Settings are never changed by these plans — only assignments.</p>
@@ -2581,6 +2581,26 @@ const MdeRolloutV2Tool = (() => {
     } catch (e) { planError(GroupUse.shortErr(e, 300)); }
     finally { projectRelease(); }
   }
+  // ⚡ ⓪ the project's hold groups (10701; Mihai: "create also a option bulk
+  // create all the revert groups"): every group T28 otherwise creates on
+  // first use — ↩ Revert pair, 📌 Pinned, ⊝ Skip, the 🧪 test groups of the
+  // ticked regions nested in their wave — in one members-style plan.
+  function holdGroupsState() {
+    const C = mcfg();
+    return { revert: cs.extra ? cs.extra.revert : null, pinnedGroup: mem.input ? mem.input.pinnedGroup : null, skipGroup: mem.input ? mem.input.skipGroup : null,
+      tests: tm.test, regions: rollRegions ? new Set(rollRegions) : null, read: !!(mem.input && cs.extra), testsRead: tm.all, cfg: C };
+  }
+  function holdGroupsPlan() {
+    const S = holdGroupsState();
+    return MdeMembers.planHoldGroups(S.cfg, S);
+  }
+  function dryRunHoldGroups() {
+    if (busy || !model || !mem.input) return;
+    planAnchor = "mvRollCard"; clearPlan(); seatPlan();
+    const p = holdGroupsPlan();
+    plan = Object.assign(p, { members: true, holdGroups: true });
+    renderMemPlan();
+  }
   function rolloutCard() {
     const regions = [...new Set(model.cfg.groups.filter((g) => g.role === "wave").map((g) => g.region))];
     const on = (r) => !rollRegions || rollRegions.has(r);
@@ -2601,6 +2621,17 @@ const MdeRolloutV2Tool = (() => {
       <p class="mini muted" style="margin:0 0 8px">One plan per step, over every new or colliding old policy at once — each through the same dry run, backup, confirm and read-back as a single fix, and each undoable from 📜. The device waves go to the <code>- D -</code> policies, the user waves to the <code>- U -</code> ones.</p>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px"><span class="mini muted">Regions:</span>${chips}${pilotTick()}</div>
       <table class="cg-table"><colgroup><col style="width:30px"><col><col style="width:24%"><col style="width:110px"></colgroup><tbody>
+        ${(() => {
+          const S = holdGroupsState();
+          const C = S.cfg;
+          const hint = `The groups the project holds people in, created once instead of on first use: <code>${esc(C.revertUser)}</code> and <code>${esc(C.revertDevice)}</code> (↩), <code>${esc(C.pinnedDevice)}</code> (📌), <code>${esc(C.skipDevice)}</code> (⊝) and the 🧪 <code>…-WAVE-&lt;region&gt;${esc(MdeTest.SUFFIX)}</code> pair of each ticked region, nested in its wave. None is assigned to a policy. The exclusion groups are 🌊's.`;
+          if (!S.read) return `<tr><td style="width:30px"><b>⓪</b></td><td><b>Create the project's groups</b><div class="mini muted">${hint}</div></td><td class="mini"><span class="muted">${mem.loading ? "reading 👥…" : "needs the 👥 read"}</span></td><td style="text-align:right"><button class="btn" style="white-space:nowrap" data-mrrollgroups="1" disabled>Dry run →</button></td></tr>`;
+          const p = holdGroupsPlan();
+          const count = p.ops.length ? `<b>${[p.counts.create ? plural(p.counts.create, "group") + " to create" : "", p.counts.nest ? plural(p.counts.nest, "nest") : ""].filter(Boolean).join(" · ")}</b>${!S.testsRead ? `<div class="muted">🧪 test groups not read yet</div>` : ""}` : `<span class="muted">nothing to do — ${plural(p.inPlace.length, "group")} in place</span>`;
+          return `<tr><td style="width:30px"><b>⓪</b></td><td><b>Create the project's groups</b><div class="mini muted">${hint}</div></td>
+            <td class="mini">${count}${p.skipped.length ? `<div style="color:var(--report)" title="${esc(p.skipped.join("\n"))}">${plural(p.skipped.length, "left out", "left out")} <span style="cursor:help">ⓘ</span></div>` : ""}</td>
+            <td style="text-align:right"><button class="btn" style="white-space:nowrap" data-mrrollgroups="1"${p.ops.length ? "" : " disabled"}>Dry run →</button></td></tr>`;
+        })()}
         ${line("includeWaves", "①", "include", `Every existing wave of the ticked regions into each new policy of its kind. Membership decides who moves, so the groups can all be in place before a wave is filled.${cfg.pilotGroupsOff ? " 🧪 With every wave in a new policy and out of its old ones, the pilot groups come off both." : ""}`)}
         ${line("excludeExclusion", "②", "exclusion", `${esc(model.cfg.exclusionDevice || "—")} from the <code>- D -</code> policies, ${esc(model.cfg.exclusionUser || "—")} from the <code>- U -</code> ones — whoever stays on the old set.`)}
         ${line("excludeWaves", "③", "change", `The ⚔️ pane's proposals, waves only: a wave leaves an old policy only where a new policy that sets the same settings includes it (or its twin), never ahead of it.${cfg.pilotGroupsOff ? " 🧪 Where that completes the swap, the pilot groups come off both sides." : ""}${gaps ? ` <span style="color:var(--off)">${plural(gaps, "of these old policies has", "of these old policies have")} a 🧹 gap — settings the new set does not carry; wave members lose them.</span>` : ""}`)}
@@ -3267,14 +3298,14 @@ const MdeRolloutV2Tool = (() => {
   function renderMemPlan() {
     v2Bind();
     const p = plan;
-    const country = (x) => { if (x.who || p.exclusions || p.pilotsReady || p.pilotsUndo) return x.who || ""; const r = mem.model && mem.model.rows.find((y) => y.key === x.key); return r ? r.country : x.key; };
+    const country = (x) => { if (x.who || p.exclusions || p.pilotsReady || p.pilotsUndo || p.holdGroups) return x.who || ""; const r = mem.model && mem.model.rows.find((y) => y.key === x.key); return r ? r.country : x.key; };
     const rows = p.ops.map((x) => `<tr><td class="mini">${esc(country(x))}</td><td>${chip(x.type === "remove" || x.type === "unnest" ? "au-op delete" : x.type === "create" ? "gu-how priv" : "au-op create", opWord(x))}</td><td class="mini">${esc(opLabel(x))}${x.type === "nest" && x.size ? ` <span class="muted">(${plural(x.size, x.kind === "user" ? "user" : "device")})</span>` : ""}</td></tr>`).join("");
     planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px">
       <h4 style="margin:0 0 6px">② Plan — ${esc(p.title)}</h4>
       <p class="mini" style="margin:0 0 8px"><b>${plural(p.ops.length, "step")}</b>, run in this order and each read back.</p>
       ${p.warnings.length ? `<div class="gu-fail" style="margin-bottom:8px;border-color:var(--report)"><b>Large or lasting changes:</b><span class="why">${p.warnings.map(esc).join("<br>")}${p.warnings.some((w) => /at once/.test(w)) ? "<br>Microsoft Learn: “Don't make large group nesting changes all at once.” Intune re-evaluates every member." : ""}</span></div>` : ""}
       ${p.skipped.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Left out, with the reason:</b><span class="why">${p.skipped.map(esc).join("<br>")}</span></div>` : ""}
-      ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:18%"><col style="width:16%"><col></colgroup><thead><tr><th>${p.exclusions || p.pilotsReady || p.pilotsUndo ? "Who" : "Country"}</th><th>Step</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">Nothing to write.</p>`}
+      ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:18%"><col style="width:16%"><col></colgroup><thead><tr><th>${p.holdGroups ? "For" : p.exclusions || p.pilotsReady || p.pilotsUndo ? "Who" : "Country"}</th><th>Step</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">Nothing to write.</p>`}
       ${p.runKind === "revert" && p.reason ? `<p class="mini" style="margin:8px 0 0"><b>Reason:</b> “${esc(p.reason)}”</p>` : ""}
       <p class="mini muted" style="margin:8px 0 0">${p.runKind === "waveswap"
         ? "Likely impact: none — the static group holds the same users, so the wave's membership and every policy stay as they are. A country whose check finds a difference keeps its dynamic group and is said in the ledger. Way back: 📜 Undo re-nests the dynamic group and takes the static one out (a group this run created is left in place)."
@@ -3282,6 +3313,8 @@ const MdeRolloutV2Tool = (() => {
         ? "Likely impact: an added member gets the new MDE policies at its next Intune check-in (the old ones leave once ⚡③ excluded the wave); a removed one goes back to the old set. Reverted members stay out unless re-included with the confirm. Way back: 📜 Undo — the inverse of what was written."
         : p.runKind === "testmembers"
         ? "Likely impact: at their next Intune check-in the added users and devices get what the wave is assigned — the new MDE policies, and once ⚡③ excluded the wave, no longer the old ones. A member moved to live changes nothing on the device: the same wave through the nested country group, only the test route goes. A test member taken out completely goes back to whatever their country gives them. The test group is not a country group: no 👥 / 🔄 sync adds to it or takes from it. Way back: 📜 Undo — the inverse of what was written (a group this run created is left in place, empty after the undo)."
+        : p.runKind === "holdgroups"
+        ? "Likely impact: none on any device — empty groups, assigned to no policy; a 🧪 test group nested in its wave carries nobody until a test member is added. Way back: 📜 Undo takes the nests out; a group this run created is left in place, empty (delete it in Entra if it must go)."
         : p.runKind === "exscan"
         ? "Likely impact: out of the group, the member leaves the wave — at its next Intune check-in the new MDE policies stop reaching it (they excluded it already) and, once ⚡③ excluded the wave from the old ones, the old set reaches it again, which is what the exclusion is for. The 👥 / 🔄 sync holds an excluded member out of the static country groups, so a sync does not put it back; a 🧪 test group is not synced at all. Way back: 📜 Undo — the inverse of what was written — or take the member out of the exclusion group."
         : p.runKind === "revert"
@@ -3357,6 +3390,8 @@ const MdeRolloutV2Tool = (() => {
       }
       const okN = r.results.filter((x) => x.ok && x.verified).length;
       csAfterRun(p, r, verifiedDone);
+      // ⚡ ⓪ (10701): the test groups are read again so the row says "in place"
+      if (p.holdGroups) { tm.test.clear(); tm.all = false; tm.allAt = 0; setTimeout(() => tmReadAll(), 0); }
       // 🧪 (10688): the region's test groups are read again, the list's
       // added rows leave it, the ticked-out members are forgotten
       if (p.runKind === "testmembers" && p.region) {
@@ -4933,6 +4968,7 @@ const MdeRolloutV2Tool = (() => {
         rollRegions = cur.size === all.length ? null : cur;
         derive(); render(); return;   // the ⚔️ wave proposals follow the regions (10643)
       }
+      if (t.closest("[data-mrrollgroups]")) { dryRunHoldGroups(); return; }
       const ra = t.closest("[data-mrroll]"); if (ra) { dryRunRollout(ra.dataset.mrroll); return; }
       if (t.id === "mvWaveCreate") { createWaves(); return; }
       if (t.id === "mvRenameGo") {
