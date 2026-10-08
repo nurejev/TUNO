@@ -367,7 +367,7 @@ const MdeLanding = (() => {
   // ---------------------------------------------------------------- join --
   const worstOf = (states) => states.reduce((w, s) => (STATE[s] && (!w || STATE[s].rank > STATE[w].rank) ? s : w), null);
   const newest = (rows) => rows.slice().sort((a, b) => (Date.parse(b.when || "") || 0) - (Date.parse(a.when || "") || 0))[0];
-  const emptyCounts = () => ({ expected: 0, landed: 0, pending: 0, none: 0, error: 0, conflict: 0, na: 0, unreadable: 0, excluded: 0, extra: 0 });
+  const emptyCounts = () => ({ expected: 0, landed: 0, pending: 0, none: 0, error: 0, conflict: 0, na: 0, unreadable: 0, excluded: 0, extra: 0, leak: 0, staleEx: 0 });
   const bump = (c, state) => { if (state in c) c[state]++; };
 
   function join(sc, members, managed, status, opts) {
@@ -402,6 +402,17 @@ const MdeLanding = (() => {
       }
     }
     const regions = [...new Set(sc.policies.flatMap((p) => p.regions))];
+    // 10697 (Mihai, 8 Oct, Hans Katsman: "user is in the exclusion list, but
+    // also in the landed in the pilot list and gets policies"): the ⊘
+    // exclusion groups' members, handed in by the caller — a member in the
+    // exclusion group of their kind that a policy does NOT exclude is REACHED
+    // THOUGH EXCLUDED (the policy's assignments lack the group): a leak, said
+    // per policy with the group's name. And a member a policy does exclude
+    // for whom Intune still reports a state is said with the time: the
+    // device has to check in before the status goes.
+    const X = o.exclusion || null;
+    const inExclusion = (e) => !X ? false : e.kind === "device" ? !!((e.objectId && X.devices.has(lc(e.objectId))) || (e.aadId && X.deviceIds.has(lc(e.aadId)))) : !!((e.userId && X.users.has(lc(e.userId))) || (e.upn && X.upns.has(lc(e.upn))));
+    const exName = (e) => X ? (e.kind === "device" ? X.names.device : X.names.user) || "the ⊘ exclusion group" : "";
     const xb = members.excludedBy || new Map();
     const excludedFor = (e, p) => p.excludes.some((g) => { const x = xb.get(lc(g)); return !!x && (e.kind === "device" ? (x.devices.has(e.aadId) || x.deviceIds.has(e.objectId)) : (x.users.has(e.upn) || x.userIds.has(lc(e.userId)))); });
     const policies = sc.policies.map((p) => {
@@ -417,13 +428,19 @@ const MdeLanding = (() => {
         bump(total, state === "excluded" ? "excluded" : state);
         if (state !== "excluded") { for (const r of e.regions) if (want.has(r)) cells.get(r).expected++; total.expected++; }
       };
-      const put = (e, st) => { e.per.set(p.key, st); count(e, st.state); };
+      const put = (e, st) => {
+        // a member the policy reaches although the ⊘ group holds them
+        if (st.state !== "excluded" && inExclusion(e)) { st.leak = exName(e); total.leak++; for (const r of e.regions) if (want.has(r)) cells.get(r).leak++; }
+        // excluded by the policy, yet a state is still reported
+        if (st.state === "excluded" && st.rows && st.rows.length) { const n = newest(st.rows); if (n.state !== "na") { st.stale = { state: n.state, when: n.when }; total.staleEx++; } }
+        e.per.set(p.key, st); count(e, st.state);
+      };
       if (p.audience !== "user") {
         for (const e of devices.values()) {
           if (!inRegion(e)) continue;
-          if (excludedFor(e, p)) { put(e, { state: "excluded", rows: [] }); continue; }
-          if (failed) { put(e, { state: "unreadable", word: "report failed", rows: [] }); continue; }
           const mine = e.intuneId ? rows.filter((r) => r.intuneId === e.intuneId) : [];
+          if (excludedFor(e, p)) { mine.forEach((r) => seenDev.add(r.intuneId)); put(e, { state: "excluded", rows: mine }); continue; }
+          if (failed) { put(e, { state: "unreadable", word: "report failed", rows: [] }); continue; }
           mine.forEach((r) => seenDev.add(r.intuneId));
           if (!mine.length) { put(e, { state: "none", rows: [], inIntune: e.inIntune }); continue; }
           const n = newest(mine);
@@ -433,9 +450,9 @@ const MdeLanding = (() => {
       if (p.audience === "user" || p.audience === "both") {
         for (const e of users.values()) {
           if (!inRegion(e)) continue;
-          if (excludedFor(e, p)) { put(e, { state: "excluded", rows: [] }); continue; }
-          if (failed) { put(e, { state: "unreadable", word: "report failed", rows: [] }); continue; }
           const mine = e.upn ? rows.filter((r) => r.upn === e.upn) : [];
+          if (excludedFor(e, p)) { mine.forEach((r) => seenUpn.add(r.upn)); put(e, { state: "excluded", rows: mine }); continue; }
+          if (failed) { put(e, { state: "unreadable", word: "report failed", rows: [] }); continue; }
           mine.forEach((r) => seenUpn.add(r.upn));
           if (!mine.length) { put(e, { state: "none", rows: [] }); continue; }
           const n = newest(mine);
@@ -456,14 +473,16 @@ const MdeLanding = (() => {
     const list = [...devices.values(), ...users.values()].map((e) => {
       const states = [...e.per.values()].map((s) => s.state).filter((s) => s !== "excluded");
       e.worst = worstOf(states);
-      e.problems = states.filter((s) => STATE[s] && STATE[s].problem).length;
+      e.leaks = [...e.per.values()].filter((s) => s.leak).length;
+      e.staleEx = [...e.per.values()].filter((s) => s.stale).length;
+      e.problems = states.filter((s) => STATE[s] && STATE[s].problem).length + e.leaks + e.staleEx;
       e.landed = states.filter((s) => s === "landed").length;
       e.regionList = [...e.regions].sort();
       return e;
     });
     const summary = emptyCounts();
     for (const p of policies) for (const k of Object.keys(summary)) summary[k] += p.total[k];
-    summary.problems = summary.pending + summary.none + summary.error + summary.conflict + summary.unreadable;
+    summary.problems = summary.pending + summary.none + summary.error + summary.conflict + summary.unreadable + summary.leak + summary.staleEx;
     summary.members = list.length;
     summary.devices = devices.size;
     summary.users = users.size;
@@ -508,7 +527,10 @@ const MdeLanding = (() => {
     const probs = [];
     for (const p of model.policies) {
       const st = e.per.get(p.key);
-      if (!st || !STATE[st.state] || !STATE[st.state].problem) continue;
+      if (!st) continue;
+      if (st.leak) probs.push(`⊘ ${p.name} — in ${st.leak}, but the policy does not exclude that group: reached, ${STATE[st.state] ? STATE[st.state].label : st.state}${st.when ? ` at ${st.when}` : ""}`);
+      if (st.stale) probs.push(`⊘ ${p.name} — excluded, yet Intune still reports ${STATE[st.stale.state] ? STATE[st.stale.state].label : st.stale.state}${st.stale.when ? ` at ${st.stale.when}` : ""}: the device has to check in before the status goes; if it stays, check the assignment`);
+      if (!STATE[st.state] || !STATE[st.state].problem) continue;
       const short = p.name;
       if (st.state === "conflict") probs.push(`⚔ ${short}${st.settings && st.settings.length ? ` — ${st.settings.join(", ")}` : ""}${st.others && st.others.length ? ` — also in conflict on ${st.others.join(", ")}` : ""}`);
       else if (st.state === "error") probs.push(`✕ ${short}${st.word && !/^error$/i.test(st.word) ? ` — ${st.word}` : ""}`);
@@ -517,6 +539,7 @@ const MdeLanding = (() => {
       else if (st.state === "unreadable") probs.push(`? ${short} — ${st.word || "status unreadable"}`);
     }
     const excl = [...e.per.values()].filter((s) => s.state === "excluded").length;
+    if (probs.length && (e.leaks || e.staleEx) && !e.worst) return { state: "excluded", text: probs.join(" · ") };
     if (!probs.length) {
       if (excl && excl === e.per.size) return { state: "excluded", text: "excluded from every new policy it would get (⊘)" };
       const n = e.per.size - excl;
@@ -530,6 +553,7 @@ const MdeLanding = (() => {
     let list = model.members.filter((e) => !o.region || e.regions.has(o.region));
     if (o.filter && o.filter !== "all") {
       if (o.filter === "problems") list = list.filter((e) => e.problems > 0);
+      else if (o.filter === "leak") list = list.filter((e) => e.leaks > 0 || e.staleEx > 0);
       else if (o.filter === "excluded") list = list.filter((e) => [...e.per.values()].some((s) => s.state === "excluded"));
       else list = list.filter((e) => [...e.per.values()].some((s) => s.state === o.filter));
     }

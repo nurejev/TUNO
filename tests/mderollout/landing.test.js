@@ -118,6 +118,25 @@ async function run() {
   const csv = L.csv(m).split("\r\n");
   ok("the CSV: a header, one row per member × expected policy, then the extras", /^Member,Kind,User,Regions,Last check-in,Policy,Scope,State,Intune says,Last report,Detail$/.test(csv[0]) && csv.length === 1 + 9 + 2 && csv.some((l) => /PILOT9,device,.*extra \(not a wave member\)/.test(l)) && csv.some((l) => /^PC3,device,.*,no status,/.test(l)));
 
+  // ------------------------------------ reached though excluded (10697) --
+  // Hans Katsman on PVM: in the ⊘ exclusion groups, yet the pilot's policies
+  // land on him — because the policies' assignments do not exclude the group.
+  {
+    const exclusion = { users: new Set(["u1"]), upns: new Set(["eva@x.com"]), devices: new Set(["o1"]), deviceIds: new Set(["aad1"]), names: { user: "INT-SG-U-MDE-Exclusion", device: "INT-SG-D-MDE-Exclusion" } };
+    const status2 = { at: 1000, rows: 0, codeBased: false, failed: new Map(), byPolicy: new Map([
+      ["pd", [row("pd", "i1", "PC1", "eva@x.com", "landed", "2026-10-07T09:50:00Z"), row("pd", "i2", "PC2", "p@x.com", "landed", "2026-10-07T09:55:00Z")]],
+      ["pu", [row("pu", "i1", "PC1", "eva@x.com", "landed", "2026-10-07T09:50:00Z")]],
+    ]) };
+    const m3 = L.join(sc, members, managed, status2, { exclusion });
+    const pc1 = m3.members.find((e) => e.name === "PC1"), eva = m3.members.find((e) => e.name === "Eva@x.com"), pc2 = m3.members.find((e) => e.name === "PC2");
+    ok("a device in the ⊘ device group that a - D - policy does not exclude is reached though excluded: flagged with the group's name on both such policies (landed on one, no status on the other), a problem each", pc1.per.get(PD.key).state === "landed" && pc1.per.get(PD.key).leak === "INT-SG-D-MDE-Exclusion" && pc1.per.get(PX.key).leak === "INT-SG-D-MDE-Exclusion" && pc1.leaks === 2 && pc1.problems === 3);
+    ok("…a user in the ⊘ user group the - U - policy does not exclude: the same, by UPN", eva.per.get(PU.key).leak === "INT-SG-U-MDE-Exclusion" && eva.leaks === 1);
+    ok("…the verdict names the policy, the group and that the policy does not exclude it", /⊘ .*Firewall.* — in INT-SG-D-MDE-Exclusion, but the policy does not exclude that group: reached, landed at 2026-10-07T09:50:00Z/.test(L.verdict(pc1, m3).text) && L.verdict(pc1, m3).state === "none");
+    ok("…counted per cell and in the summary, among the things to look at; the filter finds them (and the excluded-yet-reported one)", P("pd").cells && m3.policies.find((p) => p.id === "pd").cells.get("Euro").leak === 1 && m3.summary.leak === 3 && m3.summary.problems >= 3 && L.memberRows(m3, { filter: "leak" }).map((e) => e.name).sort().join() === "Eva@x.com,PC1,PC2");
+    ok("a member the policy DOES exclude (PC2, via xd) for whom Intune still reports landed is said with the time, not counted as reached", pc2.per.get(PD.key).state === "excluded" && pc2.per.get(PD.key).stale && pc2.per.get(PD.key).stale.state === "landed" && !pc2.per.get(PD.key).leak && m3.summary.staleEx === 1 && /excluded, yet Intune still reports landed at 2026-10-07T09:55:00Z/.test(L.verdict(pc2, m3).text) && /⊘ .*Firewall/.test(L.verdict(pc2, m3).text));
+    ok("without the ⊘ groups handed in nothing is flagged", L.join(sc, members, managed, status2).summary.leak === 0);
+  }
+
   // ---------------------------------------------------- explain conflicts --
   const status2 = { at: 1, rows: 1, codeBased: false, failed: new Map(), byPolicy: new Map([["pd", [row("pd", "i1", "PC1", "eva@x.com", "conflict")]]]) };
   const m2 = L.join(sc, members, managed, status2);
@@ -221,7 +240,7 @@ async function run() {
 
   // ------------------------------------------------------------ screen --
   const D = w.document, $ = (id) => D.getElementById(id);
-  ok("T28's note names build 10689", /build 10689/.test(w.TOOL_VERSIONS.toolMdeRollout.note));
+  ok("T28's note names builds 10689 and 10697", /build 10689/.test(w.TOOL_VERSIONS.toolMdeRollout.note) && /build 10697/.test(w.TOOL_VERSIONS.toolMdeRollout.note));
   $("demoLink").dispatchEvent(new w.Event("click", { bubbles: true }));
   await until(() => w.PolicyCache.get(), 30000, "sign-in read");
   $("toolMdeRollout").click();
@@ -251,6 +270,17 @@ async function run() {
   ok("the rail counts what is to look at", /4to look at/.test(D.querySelector('[data-mrldfilter="problems"]').textContent));
   ok("the pane: tiles, the matrix with the Euro column, 0 / 2 with ⚔ 2 for antivirus, ✕ 1 and ◌ 1 for audit", D.querySelectorAll("[data-mrldfilter].mr-tile").length >= 7 && /🌊 Euro/.test(body()) && /0<\/b> \/ 2/.test($("mvBody").innerHTML) && /⚔ 2/.test(body()) && /✕ 1/.test(body()) && /◌ 1/.test(body()));
   ok("…the member table lists both devices, problems first, with a verdict", /WS-ENG-0221/.test(body()) && /WS-FIN-0142/.test(body()) && /also in conflict on/.test(body()));
+  {
+    // 10697: fake one reached-though-excluded result onto the read model and look at the pane
+    const LM2 = st().ld.model, e2 = LM2.members[0], k2 = [...e2.per.keys()][0];
+    const stx = e2.per.get(k2); stx.leak = "INT-SG-D-MDE-Exclusion"; e2.leaks = 1; e2.problems += 1; LM2.summary.leak = 1; LM2.summary.problems += 1;
+    w.MdeRolloutV2Tool._pane("landing");
+    ok("the pane: a ⊘ reached-though-excluded tile and a notice pointing at ⚡ Rollout actions ②, the filter chip, the member's verdict naming the group", !!D.querySelector('[data-mrldfilter="leak"].mr-tile') && /reached though excluded/.test(body()) && !!D.querySelector('.mr-report-notice [data-mrpane="waves"]') && /but the policy does not exclude that group/.test(body()));
+    D.querySelector('[data-mrldfilter="leak"]:not(.mr-tile)').click();
+    ok("…the filter shows that member alone", st().ld.filter === "leak" && new RegExp(e2.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(body()));
+    stx.leak = undefined; e2.leaks = 0; e2.problems -= 1; LM2.summary.leak = 0; LM2.summary.problems -= 1; st().ld.filter = "problems";
+    w.MdeRolloutV2Tool._pane("landing");
+  }
   const fold = D.querySelector('[data-mrfold^="ld|"]');
   fold.click();
   ok("the antivirus extra folds open and names WS-ENG-0308", /Reported, not a wave member: .*WS-ENG-0308/.test(body()));
