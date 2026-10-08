@@ -27,7 +27,7 @@ function ok(name, cond, extra) {
 async function run() {
   // ------------------------------------------------------------ mapping --
   const cfg = MM.normConfig({ countryMap: [{ region: "Euro", suffixes: ["NL-Breda", "NL", "GB", "DE"] }, { region: "Americas", suffixes: ["US", "DEM-X"] }], pilots: ["NL-Breda"], batched: [] });
-  ok("defaults: INT-SG-U-, the Revert pair, 14 days", cfg.userGroupPrefix === "INT-SG-U-" && cfg.revertUser === "INT-SG-U-MDE-Revert" && cfg.revertDevice === "INT-SG-D-MDE-Revert" && cfg.syncStaleDays === 14);
+  ok("defaults: INT-SG-U-, the Revert pair, 14 days", cfg.userGroupPrefix === "INT-SG-U-" && cfg.revertUser === "INT-SG-U-MDE-HoldBack" && cfg.revertDevice === "INT-SG-D-MDE-HoldBack" && cfg.syncStaleDays === 14);
   ok("normConfig keeps them", MM.normConfig(JSON.parse(JSON.stringify(Object.assign({}, cfg, { syncStaleDays: 7, revertUser: "X-R" })))).syncStaleDays === 7 && MM.normConfig({ revertUser: "X-R" }).revertUser === "X-R");
   const rowsT = MM.countryRows(cfg);
   const map = MR.mapping(rowsT, cfg);
@@ -74,7 +74,7 @@ async function run() {
     userGroups: new Map([["int-sg-u-gbr", { id: "su-gbr", displayName: "INT-SG-U-GBR" }]]),
     userMembers: new Map([["su-gbr", new Set(["u4", "u8"])]]),
     upn: new Map([["u8", "eve@x"]]),
-    revert: { user: { id: "rv-u", displayName: "INT-SG-U-MDE-Revert" }, device: { id: "rv-d", displayName: "INT-SG-D-MDE-Revert" } },
+    revert: { user: { id: "rv-u", displayName: "INT-SG-U-MDE-HoldBack" }, device: { id: "rv-d", displayName: "INT-SG-D-MDE-HoldBack" } },
     revertUsers: new Map([["u2", { id: "u2", upn: "bob@x", name: "Bob" }], ["u7", { id: "u7", upn: "gone@x", name: "Gone" }]]),
     revertDevices: new Map([["e2", { id: "e2", deviceId: "a2", name: "NLD2" }], ["e7", { id: "e7", deviceId: "", name: "OLD7" }]]),
     failed: [], readAt: now,
@@ -134,7 +134,7 @@ async function run() {
   ok("the unnest waits for the check, the check for the fill and nest", nlOps[3].needsOk.join() === String(sw.ops.indexOf(nlOps[2])) && nlOps[2].needsOk.length === 2 && nlOps[3].child.id === "src-nl" && nlOps[3].parent.id === "wu-euro");
   ok("GB is already swapped — said, not planned", sw.skipped.some((s) => /GB|United Kingdom/.test(s) && /already swapped/.test(s)) && !sw.ops.some((o) => o.key === "gb"));
   const swHeld = MR.planSwap(smN, "Euro");
-  ok("a source with a reverted user is not swapped: the wave would change", !swHeld.ops.some((o) => o.key === "nl") && swHeld.skipped.some((s) => /Revert/.test(s)));
+  ok("a source with a reverted user is not swapped: the wave would change", !swHeld.ops.some((o) => o.key === "nl") && swHeld.skipped.some((s) => /HoldBack/.test(s)));
 
   // applyOps runs the check: equal sets → the unnest runs; different → it does not
   const members = new Map([["wu-euro", new Set(["src-nl"])], ["su-nld", new Set()], ["src-nl", new Set(["u1", "u2", "u3"])]]);
@@ -179,23 +179,23 @@ async function run() {
   const dcard = Object.assign({}, card, { pick: { type: "device", managedId: "m1" }, devices: card.devices.map((d, i) => Object.assign({}, d, { searched: i === 0 })) });
   const td = MR.defaultTicks(dcard);
   ok("a device picked: only the device by default", !td.has("u:u1") && td.has("m:m1") && td.size === 1);
-  const ctx = { ticks: t, rows: mm.rows, cfg, revert: { user: null, device: { id: "rv-d", displayName: "INT-SG-D-MDE-Revert" } }, revertUsers: new Map(), revertDevices: new Map(), reason: "LOB app blocked" };
+  const ctx = { ticks: t, rows: mm.rows, cfg, revert: { user: null, device: { id: "rv-d", displayName: "INT-SG-D-MDE-HoldBack" } }, revertUsers: new Map(), revertDevices: new Map(), reason: "LOB app blocked" };
   const pr = MR.planRevert(card, ctx);
   ok("revert: create the user Revert group, add, then out of INT-SG-U-NLD after the add", pr.runKind === "revert" && pr.ops.map((o) => o.type).join() === "create,add,remove,add,remove"
-    && pr.ops[0].name === "INT-SG-U-MDE-Revert" && pr.ops[2].group.name === "INT-SG-U-NLD" && pr.ops[2].needsOk.join() === "1" && pr.ops[4].group.name === "INT-SG-D-NLD" && pr.ops[4].needsOk.join() === "3");
+    && pr.ops[0].name === "INT-SG-U-MDE-HoldBack" && pr.ops[2].group.name === "INT-SG-U-NLD" && pr.ops[2].needsOk.join() === "1" && pr.ops[4].group.name === "INT-SG-D-NLD" && pr.ops[4].needsOk.join() === "3");
   ok("…the dynamic source group is never touched", !pr.ops.some((o) => o.group && o.group.id === "src-nl"));
   ok("…the reason rides on every step", pr.ops.filter((o) => o.type !== "create").every((o) => o.reason === "LOB app blocked"));
   const und = MM.inverseOf(pr.ops.filter((o) => o.type !== "create").map((o) => Object.assign({}, o, { group: o.group.ref ? { id: "rv-u", name: o.group.name } : o.group })));
-  ok("undo: back into the country groups, out of Revert", und.ops.map((o) => `${o.type}:${o.group.name}`).join() === "add:INT-SG-D-NLD,remove:INT-SG-D-MDE-Revert,add:INT-SG-U-NLD,remove:INT-SG-U-MDE-Revert");
+  ok("undo: back into the country groups, out of Revert", und.ops.map((o) => `${o.type}:${o.group.name}`).join() === "add:INT-SG-D-NLD,remove:INT-SG-D-MDE-HoldBack,add:INT-SG-U-NLD,remove:INT-SG-U-MDE-HoldBack");
   const pu = MR.planRevert(card, Object.assign({}, ctx, { ticks: new Set(["u:u1"]) }));
-  ok("one side only: the mix is warned about", pu.warnings.some((x) => /Only the user is reverted/.test(x) && /NLD1/.test(x)));
+  ok("one side only: the mix is warned about", pu.warnings.some((x) => /Only the user is held back/.test(x) && /NLD1/.test(x)));
   const pdv = MR.planRevert(card, Object.assign({}, ctx, { ticks: new Set(["m:m1"]) }));
-  ok("…the device side alone too", pdv.warnings.some((x) => /Only the device is reverted/.test(x)));
+  ok("…the device side alone too", pdv.warnings.some((x) => /Only the device is held back/.test(x)));
   const dynCard = Object.assign({}, card, { user: Object.assign({}, card.user, { groups: new Set(["src-nl", "wu-euro"]), direct: [{ id: "src-nl", name: "PVM-UG-CORP-MEM-USERS-NL" }] }) });
   const pdyn = MR.planRevert(dynCard, Object.assign({}, ctx, { ticks: new Set(["u:u1"]) }));
   ok("a user in the wave only through the dynamic source: swap first, nothing written", !pdyn.ops.length && pdyn.skipped.some((x) => /swap Euro/.test(x) && /INT-SG-U-NLD/.test(x)));
   const pex = MR.planRevert(Object.assign({}, card, { user: Object.assign({}, card.user, { excluded: true }) }), ctx);
-  ok("Revert vs ⊘ Exclude: a member in both gets the note", pex.warnings.some((x) => /also in the exclusion group/.test(x)));
+  ok("Revert vs ⊘ Exclude: a member in both gets the note", pex.warnings.some((x) => /also in the ⊘ exclusion group/.test(x)));
   const pnr = MR.planRevert(card, Object.assign({}, ctx, { reason: "" }));
   ok("no reason: warned, still planned", pnr.ops.length && pnr.warnings.some((x) => /No reason/.test(x)));
   const pal = MR.planRevert(card, Object.assign({}, ctx, { revertUsers: new Map([["u1", {}]]), revertDevices: new Map([["e1", {}]]) }));
@@ -203,7 +203,7 @@ async function run() {
 
   // undo from the Reverted list (§3 way back)
   const un = MR.planUnrevert(sm, [{ kind: "user", id: "u2", name: "bob@x" }, { kind: "device", id: "e2", name: "NLD2" }, { kind: "user", id: "u7", name: "gone@x" }]);
-  ok("unrevert: NLD2 back into INT-SG-D-NLD, then both out of Revert; Bob waits for INT-SG-U-NLD", un.ops.map((o) => `${o.type}:${o.group.name}`).join() === "add:INT-SG-D-NLD,remove:INT-SG-U-MDE-Revert,remove:INT-SG-D-MDE-Revert"
+  ok("unrevert: NLD2 back into INT-SG-D-NLD, then both out of Revert; Bob waits for INT-SG-U-NLD", un.ops.map((o) => `${o.type}:${o.group.name}`).join() === "add:INT-SG-D-NLD,remove:INT-SG-U-MDE-HoldBack,remove:INT-SG-D-MDE-HoldBack"
     && un.skipped.some((x) => /bob@x/.test(x) && /INT-SG-U-NLD/.test(x)) && un.ops[1].ids.join() === "u7" && un.warnings.some((x) => /gone@x/.test(x)));
 
   // ------------------------------------------------------------ assess --
@@ -242,12 +242,12 @@ async function run() {
   const pl = MR.planRevertMany(L, lctx);
   const sig = pl.ops.map((o) => `${o.type}:${o.name || o.group.name}:${(o.ids || []).join("+")}${o.needsOk ? `@${o.needsOk.join("+")}` : ""}`).join(" ");
   ok("one plan: the user Revert group created once, one add per Revert group, one removal per country group after the add of its kind",
-    sig === "create:INT-SG-U-MDE-Revert: add:INT-SG-U-MDE-Revert:u1+u2+u9 add:INT-SG-D-MDE-Revert:e1+e2+e9 remove:INT-SG-U-NLD:u1+u2@1 remove:INT-SG-U-USA:u9@1 remove:INT-SG-D-NLD:e1+e2@2 remove:INT-SG-D-USA:e9@2", sig);
+    sig === "create:INT-SG-U-MDE-HoldBack: add:INT-SG-U-MDE-HoldBack:u1+u2+u9 add:INT-SG-D-MDE-HoldBack:e1+e2+e9 remove:INT-SG-U-NLD:u1+u2@1 remove:INT-SG-U-USA:u9@1 remove:INT-SG-D-NLD:e1+e2@2 remove:INT-SG-D-USA:e9@2", sig);
   ok("…the counts, the waves and the confirm line naming both", pl.bulk && pl.counts.users === 3 && pl.counts.devices === 3 && pl.waves.join() === "Americas,Euro"
-    && pl.confirmLine === "revert 3 users and 3 devices in waves Americas, Euro; they lose the new MDE policies", pl.confirmLine);
+    && pl.confirmLine === "hold back 3 users and 3 devices in waves Americas, Euro; they lose the new MDE policies", pl.confirmLine);
   ok("…the reason (trimmed) on every write, the run kind revert, removals typed", pl.ops.filter((o) => o.type !== "create").every((o) => o.reason === "SAP GUI blocked — MDE_P-2719") && pl.runKind === "revert" && pl.hasRemoval && pl.reason === "SAP GUI blocked — MDE_P-2719");
   ok("…a removal of several goes by $batch", pl.ops.find((o) => o.group && o.group.name === "INT-SG-D-NLD").batch && !pl.ops.find((o) => o.group && o.group.name === "INT-SG-D-USA").batch);
-  ok("the line reads like 🔄's: one wave, one kind", MR.bulkLine({ users: 1, devices: 0 }, ["Euro"]) === "revert 1 user in wave Euro; they lose the new MDE policies");
+  ok("the line reads like 🔄's: one wave, one kind", MR.bulkLine({ users: 1, devices: 0 }, ["Euro"]) === "hold back 1 user in wave Euro; they lose the new MDE policies");
   const pl2 = MR.planRevertMany([L[0], { key: "u:u1x", card: dynCard, ticks: new Set(["u:u1"]) }], Object.assign({}, lctx, { reason: "" }));
   ok("a person reached through a dynamic group is left out with the reason; the rest still planned; no reason warned once",
     pl2.skipped.some((x) => /swap Euro/.test(x)) && pl2.ops.some((o) => o.type === "add") && pl2.warnings.filter((x) => /No reason/.test(x)).length === 1);
@@ -276,8 +276,8 @@ async function run() {
   // ------------------------------------------------------------- patch --
   const ex2 = { userGroups: new Map(), userMembers: new Map(), upn: new Map(), revert: { user: null, device: null }, revertUsers: new Map(), revertDevices: new Map() };
   const in2 = { reverted: new Set() };
-  MR.patch(ex2, in2, [{ type: "create", name: "INT-SG-U-MDE-Revert", id: "rv-u2" }, { type: "add", group: { id: "rv-u2", name: "INT-SG-U-MDE-Revert" }, ids: ["u1"], memberKind: "user", objs: [{ id: "u1", userPrincipalName: "ann@x" }] },
-    { type: "add", group: { id: "rv-d2", name: "INT-SG-D-MDE-Revert" }, ids: ["e1"], memberKind: "device" }, { type: "create", name: "INT-SG-U-NLD", id: "su-n" }, { type: "add", group: { id: "su-n", name: "INT-SG-U-NLD" }, ids: ["u3"], memberKind: "user" }], cfg);
+  MR.patch(ex2, in2, [{ type: "create", name: "INT-SG-U-MDE-HoldBack", id: "rv-u2" }, { type: "add", group: { id: "rv-u2", name: "INT-SG-U-MDE-HoldBack" }, ids: ["u1"], memberKind: "user", objs: [{ id: "u1", userPrincipalName: "ann@x" }] },
+    { type: "add", group: { id: "rv-d2", name: "INT-SG-D-MDE-HoldBack" }, ids: ["e1"], memberKind: "device" }, { type: "create", name: "INT-SG-U-NLD", id: "su-n" }, { type: "add", group: { id: "su-n", name: "INT-SG-U-NLD" }, ids: ["u3"], memberKind: "user" }], cfg);
   ok("a verified run folds in: Revert members, the held device, a new static group", ex2.revertUsers.get("u1").upn === "ann@x" && ex2.revertDevices.has("e1") && in2.reverted.has("e1") && ex2.userMembers.get("su-n").has("u3") && ex2.revert.user.id === "rv-u2");
   ok("syncedRows: a row whose steps all verified moves its last sync", MR.syncedRows({ ops: [{ key: "nl" }, { key: "gb" }], rows: ["nl", "gb", "de"] }, [{ ok: true, verified: true }, { ok: false }]).join() === "nl,de");
 

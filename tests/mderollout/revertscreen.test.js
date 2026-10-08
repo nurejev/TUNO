@@ -157,20 +157,20 @@ async function run() {
   $("mvRvReason").value = "Finance LOB app blocked by ASR — ticket 4711"; $("mvRvReason").dispatchEvent(new w.Event("input", { bubbles: true }));
   $("mvRvDry").click();
   const rp = st().plan;
-  ok("the revert plan: create both Revert groups, add, then out of INT-SG-U-NLD and INT-SG-D-NLD", rp && rp.runKind === "revert" && rp.ops.map((o) => `${o.type}:${o.name || o.group.name}`).join() === "create:INT-SG-U-MDE-Revert,add:INT-SG-U-MDE-Revert,remove:INT-SG-U-NLD,create:INT-SG-D-MDE-Revert,add:INT-SG-D-MDE-Revert,remove:INT-SG-D-NLD", rp && rp.ops.map((o) => `${o.type}:${o.name || o.group.name}`).join());
+  ok("the revert plan: create both Revert groups, add, then out of INT-SG-U-NLD and INT-SG-D-NLD", rp && rp.runKind === "revert" && rp.ops.map((o) => `${o.type}:${o.name || o.group.name}`).join() === "create:INT-SG-U-MDE-HoldBack,add:INT-SG-U-MDE-HoldBack,remove:INT-SG-U-NLD,create:INT-SG-D-MDE-HoldBack,add:INT-SG-D-MDE-HoldBack,remove:INT-SG-D-NLD", rp && rp.ops.map((o) => `${o.type}:${o.name || o.group.name}`).join());
   ok("…the reason is in the plan, the removal typed", /ticket 4711/.test($("mvPlan").textContent) && !!$("mvConfirmText"));
   const rr = await apply();
   ok("applied: six steps verified", rr.ok === 6 && rr.runKind === "revert" && rr.reason === "Finance LOB app blocked by ASR — ticket 4711");
-  ok("the tenant: Eva in INT-SG-U-MDE-Revert, out of INT-SG-U-NLD; her laptop likewise", G("INT-SG-U-MDE-Revert")._users.includes(w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id)
-    && !G("INT-SG-U-NLD")._users.includes(w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id) && G("INT-SG-D-MDE-Revert")._devices.length === 1 && !G("INT-SG-D-NLD")._devices.includes(G("INT-SG-D-MDE-Revert")._devices[0]));
-  ok("Reverted now lists them with the reason; the rail counts 1 · 1", await until(() => /Reverted now/.test($("mvRvNow").textContent) && /ticket 4711/.test($("mvRvNow").textContent), 5000, "rv now") && st().cs.extra.revertUsers.size === 1 && st().cs.extra.revertDevices.size === 1);
+  ok("the tenant: Eva in INT-SG-U-MDE-HoldBack, out of INT-SG-U-NLD; her laptop likewise", G("INT-SG-U-MDE-HoldBack")._users.includes(w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id)
+    && !G("INT-SG-U-NLD")._users.includes(w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id) && G("INT-SG-D-MDE-HoldBack")._devices.length === 1 && !G("INT-SG-D-NLD")._devices.includes(G("INT-SG-D-MDE-HoldBack")._devices[0]));
+  ok("Reverted now lists them with the reason; the rail counts 1 · 1", await until(() => /Held back now/.test($("mvRvNow").textContent) && /ticket 4711/.test($("mvRvNow").textContent), 5000, "rv now") && st().cs.extra.revertUsers.size === 1 && st().cs.extra.revertDevices.size === 1);
 
   // ----------------------------------------------- the sync holds them back --
   node("countrysync").click();
   const sm2 = st().csModel();
   const it2 = w.MdeRevert.syncItems(sm2, st().cs.scope);
   const re = it2.filter((x) => x.dir === "reinc");
-  ok("🔄 now holds Eva and her laptop back, with the reason, unticked", re.length === 2 && re.every((x) => !st().cs.ticks.has(x.key)) && /Reverted, held back/.test($("mvCsSync").textContent) && /ticket 4711/.test($("mvCsSync").textContent));
+  ok("🔄 now holds Eva and her laptop back, with the reason, unticked", re.length === 2 && re.every((x) => !st().cs.ticks.has(x.key)) && /Held back/.test($("mvCsSync").textContent) && /ticket 4711/.test($("mvCsSync").textContent));
   re.forEach((x) => check(D.querySelector(`[data-mrcstick="${x.key}"]`), true));
   ok("ticking them shows the confirm line naming the count and the wave", !!$("mvCsConfirm") && /re-include 1 user and 1 device in wave Euro; they lose the old MDE policies/.test($("mvCsSync").textContent));
   $("mvCsDry").click();
@@ -185,11 +185,11 @@ async function run() {
   check(D.querySelector(`[data-mrrvsel="${evaKey}"]`), true);
   $("mvRvUndoDry").click();
   const up = st().plan;
-  ok("↩ Back into the wave: into INT-SG-U-NLD, then out of Revert", up && up.ops.map((o) => `${o.type}:${o.group.name}`).join() === "add:INT-SG-U-NLD,remove:INT-SG-U-MDE-Revert" && up.ops[1].needsOk.join() === "0");
+  ok("↩ Back into the wave: into INT-SG-U-NLD, then out of Revert", up && up.ops.map((o) => `${o.type}:${o.group.name}`).join() === "add:INT-SG-U-NLD,remove:INT-SG-U-MDE-HoldBack" && up.ops[1].needsOk.join() === "0");
   const ur = await apply();
   const eva = w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id;
   const reasons = JSON.parse(store.get([...store.keys()].find((k) => /^tuno\.t28\.revert\.reasons\./.test(k))) || "{}");
-  ok("applied: Eva back in INT-SG-U-NLD, out of Revert, her reason gone; the laptop still reverted", ur.ok === 2 && !G("INT-SG-U-MDE-Revert")._users.length && G("INT-SG-U-NLD")._users.includes(eva) && !reasons[eva] && Object.keys(reasons).length === 1);
+  ok("applied: Eva back in INT-SG-U-NLD, out of Revert, her reason gone; the laptop still reverted", ur.ok === 2 && !G("INT-SG-U-MDE-HoldBack")._users.length && G("INT-SG-U-NLD")._users.includes(eva) && !reasons[eva] && Object.keys(reasons).length === 1);
   ok("📜 lists the five runs with their kinds", [null, "waveswap", "groupsync", "revert", "revert"].every((k, i) => (st().runs[i].runKind || null) === k));
 
   console.log(`T28 revert & country groups screen: ${passed} passed, ${failed} failed`);

@@ -261,7 +261,7 @@ const MdeTest = (() => {
     const ex = (list || []).flatMap((e) => [e.user && T.has(userKey(e.user)) && e.user.excluded ? e.user.name : "", ...e.devices.filter((d) => T.has(devKey(d)) && d.excluded).map((d) => d.name)]).filter(Boolean);
     if (ex.length) warnings.push(`${ex.join(", ")} ${ex.length === 1 ? "is" : "are"} in the ⊘ exclusion group: in the wave as a test member, but still skipping the new policies. Take ${ex.length === 1 ? "it" : "them"} out in ⊘ to test them.`);
     const rv = (list || []).flatMap((e) => [e.user && T.has(userKey(e.user)) && e.user.revert ? e.user.name : "", ...e.devices.filter((d) => T.has(devKey(d)) && d.revert).map((d) => d.name)]).filter(Boolean);
-    if (rv.length) warnings.push(`${rv.join(", ")} ${rv.length === 1 ? "is" : "are"} in ↩ Revert and ticked anyway: a test member reaches the wave through the test group, whatever Revert says.`);
+    if (rv.length) warnings.push(`${rv.join(", ")} ${rv.length === 1 ? "is" : "are"} ⏸ held back and ticked anyway: a test member reaches the wave through the test group, whatever the hold-back says.`);
     const nU = byKind.user.size, nD = byKind.device.size;
     const nLive = ops.filter((x) => x.type === "remove" && x.live).reduce((n, x) => n + x.ids.length, 0);
     const nOut = ops.filter((x) => x.type === "remove" && !x.live).reduce((n, x) => n + x.ids.length, 0);

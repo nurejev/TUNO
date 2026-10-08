@@ -79,7 +79,7 @@ async function run() {
   click('[data-project-wtab="policies"]');
   ok("country policy view discloses whole-wave scope", /whole wave/.test($("mvBody").textContent) && /AV Configuration/.test($("mvBody").textContent));
   click('.mr-navigation [data-mrpane="exceptionhome"]');
-  ok("exclude and return retain distinct intents", /Exclude from new policies/.test($("mvBody").textContent) && /Resuming is a separate/.test($("mvBody").textContent));
+  ok("one hold-back: hold back / resume, and the migration of the ⊘ pair while it exists", /One hold-back/.test($("mvBody").textContent) && /Hold back or resume/.test($("mvBody").textContent) && /Migrate the exclusions/.test($("mvBody").textContent) && /Resume = back into the wave/.test($("mvBody").textContent));
   click('.mr-navigation [data-mrpane="journal"]');click('.t28-subnav [data-mrpane="reports"]');
   for (const id of ["assign","config","conflicts","landing"]) { click(`[data-mrreport="${id}"]`); await until(() => st().reps[id] && !st().reps.busy, 15000, id+" automatic report"); ok(id+" has automatic preview, HTML and CSV", !!st().reps[id] && st().reps[id].csv.length > 0 && !!D.querySelector(`[data-report-preview="${id}"]`) && !!D.querySelector(`[data-mrrep="${id}"][data-mrrepfmt="html"]`)); }
   ok("report browsing needs no extra full-policy scan", reads === 0 && writes === 0);

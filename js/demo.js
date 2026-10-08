@@ -1626,6 +1626,16 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     if (body.mailNickname) g.mailNickname = body.mailNickname;
     return null;
   }
+  // a group deleted (T28 ⊘→⏸, 10702: the exclusion pair once empty): gone
+  // for the session — a later GET is a 404, as Graph answers; every nesting
+  // that pointed at it goes with it
+  if (method === "DELETE" && grpPatch) {
+    const i = T.GROUPS.findIndex((x) => x.id === grpPatch[1]);
+    if (i < 0) return M.fault(404, "ResourceNotFound", "Group not found.");
+    T.GROUPS.splice(i, 1);
+    for (const g of T.GROUPS) if ((g.memberOf || []).includes(grpPatch[1])) g.memberOf = g.memberOf.filter((x) => x !== grpPatch[1]);
+    return null;
+  }
   if (method === "PATCH" && grpPatch && body && body["members@odata.bind"]) {
     const g = T.GROUPS.find((x) => x.id === grpPatch[1]);
     if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");

@@ -105,7 +105,7 @@ async function run() {
   ok("mixed: the device in the wave, the user not — the mix named", M.verdict.kind === "mixed" && /LT-5 in the Euro wave, Kim not/.test(M.verdict.text) && /new - D - policies on the device, the old - U - policies on the user/.test(M.verdict.sub), M.verdict.text);
   // out, with Revert and its reason; a stale device is shown, not judged
   M = WC.model(card({ id: "u9", displayName: "Rev", upn: "r@x", groups: new Set([G(80)]), direct: [] }, [dev({ name: "OLD-1", stale: true, groups: new Set([G(21), G(35)]), direct: [{ id: G(35), name: "INT-SG-D-NLD" }] })]), ctx);
-  ok("out: held in Revert with the reason; the stale device in a wave does not change the verdict", M.verdict.kind === "out" && /held in ↩ Revert/.test(M.verdict.sub) && M.rows[0].held.reverted && M.rows[0].held.reason.reason === "laptop issues" && M.rows[1].stale && M.rows[1].waves.length === 1, M.verdict.text);
+  ok("out: held in Revert with the reason; the stale device in a wave does not change the verdict", M.verdict.kind === "out" && /⏸ held back/.test(M.verdict.sub) && M.rows[0].held.reverted && M.rows[0].held.reason.reason === "laptop issues" && M.rows[1].stale && M.rows[1].waves.length === 1, M.verdict.text);
   // held yet in: excluded and still in the wave
   M = WC.model(card({ id: "u6", displayName: "Hans", upn: "h@x", groups: new Set([G(20), G(41), G(90)]), direct: [{ id: G(41), name: "INT-SG-U-NLD" }] }, []), ctx);
   ok("held yet in a wave: ⊘ excluded and still in it — mixed, said", M.verdict.kind === "mixed" && /Hans is held, yet still in a wave/.test(M.verdict.text) && /⊘ excluded means/.test(M.verdict.sub) && M.rows[0].held.excluded && M.rows[0].reach.keptOutNew === 1);

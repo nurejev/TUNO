@@ -75,11 +75,11 @@ async function run() {
   const N = T.names(waveRows, "Euro");
   ok("the test groups are the wave's name plus -Test", N.user.name === "INT-SG-U-WAVE-Euro-Test" && N.device.name === "INT-SG-D-WAVE-Euro-Test");
   ok("regions: the waves only", T.regions(waveRows).join() === "Euro,Asia");
-  const cfg = { revertUser: "INT-SG-U-MDE-Revert", revertDevice: "INT-SG-D-MDE-Revert" };
+  const cfg = { revertUser: "INT-SG-U-MDE-HoldBack", revertDevice: "INT-SG-D-MDE-HoldBack" };
   const dev = (key, objId, name, o) => Object.assign({ key, objId, name, stale: false, direct: [] }, o || {});
   const items = [
     { line: "jan@x.nl", card: { pick: { type: "user" }, user: { id: "U1", displayName: "Jan", upn: "jan@x.nl", direct: [{ id: "g", name: "PVM-UG-CORP-MEM-USERS-US" }] }, devices: [dev("m1", "o1", "NLD5CD1"), dev("m2", "o2", "NLD5CD9", { stale: true }), dev("m3", "o3", "PVM-LT-VDI-0021")] } },
-    { line: "rev@x.nl", card: { pick: { type: "user" }, user: { id: "U2", displayName: "Rev", upn: "rev@x.nl", direct: [{ id: "r", name: "INT-SG-U-MDE-Revert" }], excluded: false }, devices: [] } },
+    { line: "rev@x.nl", card: { pick: { type: "user" }, user: { id: "U2", displayName: "Rev", upn: "rev@x.nl", direct: [{ id: "r", name: "INT-SG-U-MDE-HoldBack" }], excluded: false }, devices: [] } },
     { line: "GBR5CD2", card: { pick: { type: "device" }, user: null, devices: [dev("m4", "o4", "GBR5CD2", { searched: true, excluded: true })] } },
     { line: "nobody@x.nl", kind: "none" },
   ];

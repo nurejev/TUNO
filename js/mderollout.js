@@ -1162,6 +1162,9 @@ const MdeRollout = (() => {
     includeWaves: { label: "Include the waves in the new policies", verb: "include" },
     excludeExclusion: { label: "Exclude the exclusion groups from the new policies", verb: "exclude" },
     excludeWaves: { label: "Exclude the waves from the colliding old policies", verb: "exclude" },
+    // 10702 (⊘→⏸ Migrate exclusions, ②): the exclusion pair off every
+    // assignment that names it — the hold-back took its members
+    removeExclusion: { label: "Take the exclusion groups off every policy", verb: "remove" },
   };
   // ctx: { kinds, found, twins, names, pairs, regions: Set|null (null = all) }
   function rolloutWants(which, model, ctx) {
@@ -1205,6 +1208,19 @@ const MdeRollout = (() => {
         const sup = exclusionSupport(k.kind, effectiveTargets(N, kinds).kinds);
         if (sup.ok === false) { skipped.push(`${N.name} ⊘ ${name}: ${sup.why}`); continue; }
         add(N, id, name, "add-exclude", [k.source === "targets" ? `${k.kind} policy by its targets` : k.source === "targets-over-name" ? `named ${AUD[N.audience].tag} but assigned to ${k.kind} groups — so the ${k.kind} exclusion group` : "", sup.ok === null && N.reach.inc.size ? `⚠ ${sup.why}` : ""].filter(Boolean).join(" · "));
+      }
+    } else if (which === "removeExclusion") {
+      // every in-scope policy, new or old, whose assignments name either
+      // exclusion group — as an exclusion or (a mistake) an include
+      for (const name of [cfg.exclusionDevice, cfg.exclusionUser]) {
+        if (!name) continue;
+        const id = idOf(name);
+        if (!id) { skipped.push(`${name} does not exist — nothing to take off`); continue; }
+        for (const P of model.newP.concat(model.oldP || [])) {
+          if (!P.reach.exc.has(id) && !P.reach.inc.has(id)) continue;
+          if (!P.surface) { skipped.push(`${P.name}: not a surface the engine writes — take ${name} off by hand`); continue; }
+          add(P, id, name, "remove", P.reach.inc.has(id) ? "it INCLUDED the exclusion group" : "");
+        }
       }
     } else if (which === "excludeWaves") {
       // The proposals, waves only: a wave leaves an old policy only where a

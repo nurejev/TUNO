@@ -367,7 +367,7 @@ const MdeLanding = (() => {
   // ---------------------------------------------------------------- join --
   const worstOf = (states) => states.reduce((w, s) => (STATE[s] && (!w || STATE[s].rank > STATE[w].rank) ? s : w), null);
   const newest = (rows) => rows.slice().sort((a, b) => (Date.parse(b.when || "") || 0) - (Date.parse(a.when || "") || 0))[0];
-  const emptyCounts = () => ({ expected: 0, landed: 0, pending: 0, none: 0, error: 0, conflict: 0, na: 0, unreadable: 0, excluded: 0, extra: 0, leak: 0, staleEx: 0 });
+  const emptyCounts = () => ({ expected: 0, landed: 0, pending: 0, none: 0, error: 0, conflict: 0, na: 0, unreadable: 0, excluded: 0, extra: 0, leak: 0, staleEx: 0, held: 0 });
   const bump = (c, state) => { if (state in c) c[state]++; };
 
   function join(sc, members, managed, status, opts) {
@@ -413,6 +413,13 @@ const MdeLanding = (() => {
     const X = o.exclusion || null;
     const inExclusion = (e) => !X ? false : e.kind === "device" ? !!((e.objectId && X.devices.has(lc(e.objectId))) || (e.aadId && X.deviceIds.has(lc(e.aadId)))) : !!((e.userId && X.users.has(lc(e.userId))) || (e.upn && X.upns.has(lc(e.upn))));
     const exName = (e) => X ? (e.kind === "device" ? X.names.device : X.names.user) || "the ⊘ exclusion group" : "";
+    // 10702 (one hold-back): the ⏸ hold-back pair's members, the same shape —
+    // a held-back member that is still a wave member has a route into the
+    // wave the hold-back did not cover (a direct membership, a group nested
+    // deeper): reached though held back, said per policy with the group
+    const H = o.holdBack || null;
+    const inHold = (e) => !H ? false : e.kind === "device" ? !!((e.objectId && H.devices.has(lc(e.objectId))) || (e.aadId && H.deviceIds.has(lc(e.aadId)))) : !!((e.userId && H.users.has(lc(e.userId))) || (e.upn && H.upns.has(lc(e.upn))));
+    const holdName = (e) => H ? (e.kind === "device" ? H.names.device : H.names.user) || "the ⏸ hold-back group" : "";
     const xb = members.excludedBy || new Map();
     const excludedFor = (e, p) => p.excludes.some((g) => { const x = xb.get(lc(g)); return !!x && (e.kind === "device" ? (x.devices.has(e.aadId) || x.deviceIds.has(e.objectId)) : (x.users.has(e.upn) || x.userIds.has(lc(e.userId)))); });
     const policies = sc.policies.map((p) => {
@@ -431,6 +438,7 @@ const MdeLanding = (() => {
       const put = (e, st) => {
         // a member the policy reaches although the ⊘ group holds them
         if (st.state !== "excluded" && inExclusion(e)) { st.leak = exName(e); total.leak++; for (const r of e.regions) if (want.has(r)) cells.get(r).leak++; }
+        else if (st.state !== "excluded" && inHold(e)) { st.leak = holdName(e); st.held = true; total.leak++; total.held++; for (const r of e.regions) if (want.has(r)) { cells.get(r).leak++; cells.get(r).held++; } }
         // excluded by the policy, yet a state is still reported
         if (st.state === "excluded" && st.rows && st.rows.length) { const n = newest(st.rows); if (n.state !== "na") { st.stale = { state: n.state, when: n.when }; total.staleEx++; } }
         e.per.set(p.key, st); count(e, st.state);
@@ -528,7 +536,8 @@ const MdeLanding = (() => {
     for (const p of model.policies) {
       const st = e.per.get(p.key);
       if (!st) continue;
-      if (st.leak) probs.push(`⊘ ${p.name} — in ${st.leak}, but the policy does not exclude that group: reached, ${STATE[st.state] ? STATE[st.state].label : st.state}${st.when ? ` at ${st.when}` : ""}`);
+      if (st.leak && st.held) probs.push(`⏸ ${p.name} — in ${st.leak} (held back), yet still a member of the wave: a route into it is still open — ⏸ Hold-back names the routes; reached, ${STATE[st.state] ? STATE[st.state].label : st.state}${st.when ? ` at ${st.when}` : ""}`);
+      else if (st.leak) probs.push(`⊘ ${p.name} — in ${st.leak}, but the policy does not exclude that group: reached, ${STATE[st.state] ? STATE[st.state].label : st.state}${st.when ? ` at ${st.when}` : ""}`);
       if (st.stale) probs.push(`⊘ ${p.name} — excluded, yet Intune still reports ${STATE[st.stale.state] ? STATE[st.stale.state].label : st.stale.state}${st.stale.when ? ` at ${st.stale.when}` : ""}: the device has to check in before the status goes; if it stays, check the assignment`);
       if (!STATE[st.state] || !STATE[st.state].problem) continue;
       const short = p.name;

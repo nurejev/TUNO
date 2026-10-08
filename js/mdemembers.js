@@ -92,9 +92,15 @@ const MdeMembers = (() => {
     // country is the device group's (countryRows), never a second table.
     userGroupPrefix: "INT-SG-U-",
     userGroupDescription: "Users of {userGroup} (transitive), as direct members. Static — kept in sync by TUNO (T28 MDE rollout · 🔄 country groups).",
-    revertUser: "INT-SG-U-MDE-Revert",
-    revertDevice: "INT-SG-D-MDE-Revert",
-    revertDescription: "MDE rollout revert — members were taken out of their wave and are back on the old MDE policies. Not assigned to any policy. Created by TUNO (T28 MDE rollout · ↩ Revert).",
+    // ⏸ Hold-back (10702, Mihai 8 Oct: "change the name to hold-back" — one
+    // hold-back instead of ⊘ Exclude + ↩ Revert; at PVM an exclusion means
+    // "not yet", never "never"). The pair keeps its config keys (revertUser,
+    // revertDevice — the ledger and the browser keys read them); only the
+    // tenant names and the words changed. A pair still under the earlier
+    // name is found and used as is (readExtra), and offered for rename.
+    revertUser: "INT-SG-U-MDE-HoldBack",
+    revertDevice: "INT-SG-D-MDE-HoldBack",
+    revertDescription: "MDE rollout hold-back — members were taken out of their wave and are back on the old MDE policies until re-included. Not assigned to any policy. Created by TUNO (T28 MDE rollout · ⏸ Hold-back).",
     // Mihai (5 Oct): a sync older than this is shown in the warning colour
     syncStaleDays: 14,
     // 10682 (Mihai: "i want to make sure that most devices are included in
@@ -122,6 +128,9 @@ const MdeMembers = (() => {
     pinnedDescription: "MDE rollout pinned devices — kept in their country device group by TUNO (T28) although no rule places them there. Not assigned to any policy.",
   });
 
+  // the hold-back pair's earlier names (↩ Revert, 10679–10701): found and
+  // used as is, offered for rename in ⊘→⏸ Migrate exclusions
+  const HOLD_OLD = Object.freeze({ user: ["INT-SG-U-MDE-Revert"], device: ["INT-SG-D-MDE-Revert"] });
   const cleanStr = (v, d) => { const t = String(v == null ? "" : v).trim(); return t || d; };
   function normMap(list) {
     const out = [];
@@ -155,8 +164,8 @@ const MdeMembers = (() => {
       largeNest: DEFAULTS.largeNest,
       userGroupPrefix: cleanStr(o.userGroupPrefix, DEFAULTS.userGroupPrefix),
       userGroupDescription: cleanStr(o.userGroupDescription, DEFAULTS.userGroupDescription),
-      revertUser: cleanStr(o.revertUser, DEFAULTS.revertUser),
-      revertDevice: cleanStr(o.revertDevice, DEFAULTS.revertDevice),
+      revertUser: HOLD_OLD.user.some((n) => lc(n) === lc(cleanStr(o.revertUser, ""))) ? DEFAULTS.revertUser : cleanStr(o.revertUser, DEFAULTS.revertUser),
+      revertDevice: HOLD_OLD.device.some((n) => lc(n) === lc(cleanStr(o.revertDevice, ""))) ? DEFAULTS.revertDevice : cleanStr(o.revertDevice, DEFAULTS.revertDevice),
       revertDescription: cleanStr(o.revertDescription, DEFAULTS.revertDescription),
       syncStaleDays: Number.isFinite(+o.syncStaleDays) && +o.syncStaleDays > 0 ? +o.syncStaleDays : DEFAULTS.syncStaleDays,
       useIntuneLogons: o.useIntuneLogons !== false,
@@ -315,8 +324,9 @@ const MdeMembers = (() => {
     // not country device groups, so their members are not read here
     const waveIds = new Set((waveGroups || []).filter((g) => g && g.id).map((g) => lc(g.id)));
     const dgAll = dgList;
-    // the ↩ Revert device group shares the prefix too (10679) — never a country group
-    const own = new Set([lc(cfg.revertDevice), lc(cfg.revertUser), lc(cfg.pinnedDevice), lc(cfg.skipDevice)]);
+    // the ⏸ Hold-back device group shares the prefix too (10679; its earlier
+    // ↩ Revert name as well) — never a country group
+    const own = new Set([lc(cfg.revertDevice), lc(cfg.revertUser), lc(cfg.pinnedDevice), lc(cfg.skipDevice), ...HOLD_OLD.device.map(lc), ...HOLD_OLD.user.map(lc)]);
     dgList = dgAll.filter((g) => !waveIds.has(lc(g.id)) && !/-WAVE-/i.test(g.displayName || "") && !(skip && skip.has(lc(g.displayName))) && !own.has(lc(g.displayName)));
     // every platform, once (10642): Windows is the wave's subset; the rest
     // says what a user with no Windows device does have (🕳 Left out)
@@ -1312,14 +1322,14 @@ const MdeMembers = (() => {
         if (!r.uRead) skipped.push(`${tag}: the static user groups were not read — ↻ Read again`);
         else if (!r.userGroupStatic) { if (r.deviceGroupName) skipped.push(`${tag}: ${r.iso3Source}`); }
         else if (r.batch && !r.batch.finished) { if (!r.sug) skipped.push(`${tag}: added in batches — 🧪 batch 1 creates ${r.userGroupStatic}`); }
-        else if (!r.sug && !r.uWant.size) skipped.push(`${tag}: no users in ${r.userGroupName}${r.uHeld ? " outside Revert" : ""} — ${r.userGroupStatic} not created`);
+        else if (!r.sug && !r.uWant.size) skipped.push(`${tag}: no users in ${r.userGroupName}${r.uHeld ? " outside the hold-back" : ""} — ${r.userGroupStatic} not created`);
         else {
           if (!r.sug) {
             ops.push({ type: "create", key: r.key, name: r.userGroupStatic, description: String((cfg && cfg.userGroupDescription) || DEFAULTS.userGroupDescription).replace("{userGroup}", r.userGroupName) });
             ugRef = { ref: r.userGroupStatic, name: r.userGroupStatic };
           }
           if (r.uAdd.length) { ops.push({ type: "add", key: r.key, group: ugRef, ids: r.uAdd.slice(), memberKind: "user", label: `${r.uAdd.length} user${r.uAdd.length === 1 ? "" : "s"} of ${r.userGroupName}` }); mark(r, "userAdd"); }
-          if (r.uHeld) warnings.push(`${r.country}: ${r.uHeld} user${r.uHeld === 1 ? " is" : "s are"} held back, not added — ${r.uHeld - (r.uExcluded || 0) ? `${r.uHeld - (r.uExcluded || 0)} in ${(cfg && cfg.revertUser) || DEFAULTS.revertUser} (↩ Revert)` : ""}${r.uHeld - (r.uExcluded || 0) && r.uExcluded ? ", " : ""}${r.uExcluded ? `${r.uExcluded} in the ⊘ user exclusion group` : ""}`);
+          if (r.uHeld) warnings.push(`${r.country}: ${r.uHeld} user${r.uHeld === 1 ? " is" : "s are"} held back, not added — ${r.uHeld - (r.uExcluded || 0) ? `${r.uHeld - (r.uExcluded || 0)} in ${(cfg && cfg.revertUser) || DEFAULTS.revertUser} (⏸ held back)` : ""}${r.uHeld - (r.uExcluded || 0) && r.uExcluded ? ", " : ""}${r.uExcluded ? `${r.uExcluded} in the ⊘ user exclusion group` : ""}`);
         }
       }
       if (o.removals && r.dg && r.remove.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.dg.id), name: r.dg.displayName }, ids: r.remove.slice(), label: `${r.remove.length} device${r.remove.length === 1 ? "" : "s"}: ${r.removeNames.slice(0, 5).join(", ")}${r.remove.length > 5 ? " …" : ""}` });
@@ -1520,7 +1530,7 @@ const MdeMembers = (() => {
       const name = it.name || (e && e.displayName) || it.aad;
       if (!e) { skipped.push(`${name}: no Entra object — it cannot be a group member`); continue; }
       const id = lc(e.id);
-      if (held.has(id)) { skipped.push(`${name}: in the exclusion or Revert group — it stays on the old set`); continue; }
+      if (held.has(id)) { skipped.push(`${name}: in the exclusion or hold-back group — it stays on the old set`); continue; }
       if (isAvdName(name) || isAvdName(e.displayName) || (input.avdIds && input.avdIds.has(id)) || avdIdsOf(input).has(id)) { skipped.push(`${name}: ${AVD_WHY}`); continue; }
       const r = rowOfUser(lc(it.userId));
       if (!r) { skipped.push(`${name}: its user is in no country group of the table`); continue; }
@@ -1598,8 +1608,13 @@ const MdeMembers = (() => {
       else if (d.type === "remove" && d.ids.length) out.push(Object.assign({ type: "add", key: d.key, group: d.group, ids: d.ids.slice(), label: `${what(d.ids.length)} this run removed` }, kin));
       else if (d.type === "nest") out.push({ type: "unnest", key: d.key, parent: d.parent, child: d.child, kind: d.kind });
       else if (d.type === "unnest") out.push({ type: "nest", key: d.key, parent: d.parent, child: d.child, kind: d.kind });
+      // 10702: a rename is renamed back; a deletion has no way back
+      else if (d.type === "rename") out.push({ type: "rename", key: d.key, who: d.who || null, group: { id: d.group.id, name: d.to }, from: d.to, to: d.from });
     }
-    return { ops: out, skipped: [], warnings: done && done.some((d) => d.type === "create") ? ["groups this run created are left in place (empty after the undo) — delete them in Entra if they are not wanted"] : [], hasRemoval: out.some((x) => x.type === "remove" || x.type === "unnest") };
+    const w = [];
+    if (done && done.some((d) => d.type === "create")) w.push("groups this run created are left in place (empty after the undo) — delete them in Entra if they are not wanted");
+    if (done && done.some((d) => d.type === "deletegroup")) w.push(`a group this run deleted (${done.filter((d) => d.type === "deletegroup").map((d) => d.group.name).join(", ")}) cannot be brought back — create it again in 🌊 if it is wanted, empty`);
+    return { ops: out, skipped: [], warnings: w, hasRemoval: out.some((x) => x.type === "remove" || x.type === "unnest") };
   }
 
   // ------------------------------------------------------------- writes --
@@ -1757,6 +1772,38 @@ const MdeMembers = (() => {
           else { if (L) L.done(i, "", `${op.type === "nest" ? "nested" : "taken out"} · verified`); results.push({ op, ok: true, verified: true }); }
           continue;
         }
+        // ✏️ rename (10702): the hold-back pair under its earlier ↩ Revert
+        // name — MdeRollout.renameGroup (display name + mail nickname, read
+        // back); the object id stays, so every nesting stays
+        if (op.type === "rename") {
+          const r = await MdeRollout.renameGroup({ id: op.group.id, displayName: op.from }, op.to);
+          if (!r.ok) { fail(r.why || "not renamed", "not renamed"); continue; }
+          doneOps.push({ type: "rename", key: op.key, group: { id: lc(op.group.id), name: op.to }, from: op.from, to: op.to });
+          if (!r.verified) { if (L) L.fail(i, "the read-back does not show the new name yet", "renamed · NOT verified"); results.push({ op, ok: true, verified: false, note: "not verified" }); }
+          else { if (L) L.done(i, r.note || "", "renamed · verified"); results.push({ op, ok: true, verified: true }); }
+          continue;
+        }
+        // 🗑 delete a group (10702, Mihai: "delete after migration" — the ⊘
+        // exclusion pair once empty and off every assignment): the group is
+        // read first and left alone while anything is still in it; the
+        // read-back is a 404
+        if (op.type === "deletegroup") {
+          const gid = op.group.id;
+          // users, devices and nested groups, each read by its type (one
+          // read of every kind at once is what the demo tenant has no answer for)
+          let left = 0;
+          for (const kind of ["user", "device", "group"]) left += ((await Graph.readAll(`/groups/${enc(gid)}/members/microsoft.graph.${kind}?$select=id&$top=999`, { scopes: Graph.SCOPES.groups, retry: true })) || []).length;
+          if (left) { fail(`${op.group.name} still holds ${left} member${left === 1 ? "" : "s"} — not deleted`, "NOT deleted"); continue; }
+          try { await Graph.del(`/groups/${enc(gid)}`, { scopes: W() }); }
+          catch (e) { if (!(e && (e.kind === "notfound" || e.status === 404))) throw e; }
+          let verified = false, note = "";
+          try { await Graph.get(`/groups/${enc(gid)}?$select=id`, { scopes: Graph.SCOPES.groups }); note = "the read-back still finds the group (Entra can take a moment)"; }
+          catch (e) { if (e && (e.kind === "notfound" || e.status === 404)) verified = true; else note = "deleted, but the read-back failed: " + msg(e).slice(0, 160); }
+          doneOps.push({ type: "deletegroup", key: op.key, group: { id: lc(gid), name: op.group.name } });
+          if (!verified) { if (L) L.fail(i, note, "deleted · NOT verified"); results.push({ op, ok: true, verified: false, note }); }
+          else { if (L) L.done(i, "", "deleted · verified"); results.push({ op, ok: true, verified: true }); }
+          continue;
+        }
         fail(`unknown step "${op.type}"`);
       } catch (e) { fail(msg(e).slice(0, 240)); }
     }
@@ -1778,8 +1825,8 @@ const MdeMembers = (() => {
       if (exists) inPlace.push(name);
       else ops.push({ type: "create", key: "holdgroups", name, description, who });
     };
-    one(c.revertUser, c.revertDescription, S.revert && S.revert.user, "↩ Revert");
-    one(c.revertDevice, c.revertDescription, S.revert && S.revert.device, "↩ Revert");
+    one(c.revertUser, c.revertDescription, S.revert && S.revert.user, "⏸ Hold-back");
+    one(c.revertDevice, c.revertDescription, S.revert && S.revert.device, "⏸ Hold-back");
     one(c.pinnedDevice, c.pinnedDescription, S.pinnedGroup, "📌 pins");
     one(c.skipDevice, c.skipDescription, S.skipGroup, "⊝ skip");
     for (const [region, t] of S.tests || new Map()) {
@@ -1886,6 +1933,6 @@ const MdeMembers = (() => {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides, planHoldGroups,
     iso3Of, countryName, countryRows, realUpnOf, isAvdName, avdIdsOf, AVD_WHY, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
     addMembers, removeMembers, applyOps, patchInput, csv, VIA_TEXT, sidToObjectId, deviceLogonKql, planPin, planUnpin, planSkip, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
-    _setWait: (fn) => { wait = fn; },
+    _setWait: (fn) => { wait = fn; }, HOLD_OLD,
   };
 })();

@@ -89,7 +89,7 @@ const MdeWaveCheck = (() => {
     let verdict;
     if (!judged.length) verdict = { kind: "unread", text: "Nothing to judge", sub: unread.length ? "the groups could not be read" : "no user and no Windows device found" };
     else if (heldIn.length) verdict = { kind: "mixed", text: `${heldIn.map((r) => r.name).join(", ")} ${heldIn.length === 1 ? "is" : "are"} held, yet still in a wave`,
-      sub: heldIn.some((r) => r.held.excluded) ? "⊘ excluded means in the wave but skipping the new policies — and once ⚡③ excluded the wave from the old ones, reached by nothing" : "in ↩ Revert, but not taken out of the country group yet — finish the revert in 🔄 or ↩" };
+      sub: heldIn.some((r) => r.held.excluded) ? "⊘ excluded means in the wave but skipping the new policies — and once ⚡③ excluded the wave from the old ones, reached by nothing" : "⏸ held back, but not taken out of the country group yet — finish the hold-back in 🔄 or ⏸" };
     else if (!outside.length) {
       // "in the wave" is the groups' answer; whether a new policy reaches
       // them is the policies' (⚡ ① assigns the waves)
@@ -97,7 +97,7 @@ const MdeWaveCheck = (() => {
       const policies = !known.length ? "" : reached.length === known.length ? "the new MDE policies reach them" : !reached.length ? "no new policy includes the wave yet (⚡ Rollout actions ①)" : `the new policies reach ${reached.map((r) => r.name).join(", ")} but not ${known.filter((r) => !r.reach.new).map((r) => r.name).join(", ")} (⚡ ①)`;
       verdict = { kind: "in", text: `In the ${regions.join(" / ")} wave${inside.length > 1 ? "s" : ""}`, sub: [who, policies].filter(Boolean).join(" · ") };
     }
-    else if (!inside.length) verdict = { kind: "out", text: "Not in a wave", sub: judged.some((r) => r.held.reverted) ? "held in ↩ Revert — on the old set" : judged.some((r) => r.held.excluded) ? "⊘ excluded and in no wave — on the old set" : "on the old set — the waves do not reach them" };
+    else if (!inside.length) verdict = { kind: "out", text: "Not in a wave", sub: judged.some((r) => r.held.reverted) ? "⏸ held back — on the old set" : judged.some((r) => r.held.excluded) ? "⊘ excluded and in no wave — on the old set" : "on the old set — the waves do not reach them" };
     else verdict = { kind: "mixed", text: `${inside.map((r) => r.name).join(", ")} in the ${regions.join(" / ")} wave, ${outside.map((r) => r.name).join(", ")} not`,
       sub: inside.some((r) => r.kind === "device") && outside.some((r) => r.kind === "user") ? "a mix: the new - D - policies on the device, the old - U - policies on the user" : "a mix: the new - U - policies on the user, the old - D - policies on the device" };
     if (unread.length && verdict.kind !== "unread") verdict.sub += ` · ${unread.map((r) => r.name).join(", ")}: groups not read`;

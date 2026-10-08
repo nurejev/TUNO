@@ -33,13 +33,15 @@ const T28V2Safety = (() => {
       if (!r.ok || !r.verified || !r.op || r.op.type !== d.type) return false;
       const o = r.op;
       if (d.type === "create") return lc(o.name) === lc(d.name);
+      // 10702: a rename and a deletion are whole steps on one group
+      if (d.type === "rename" || d.type === "deletegroup") return lc(o.key) === lc(d.key) && idOf(o.group) === idOf(d.group);
       if (d.type === "add" || d.type === "remove") return lc(o.key) === lc(d.key) && idOf(o.group) === idOf(d.group) && (d.ids || []).every((id) => (o.ids || []).some((x) => lc(id) === lc(x)));
       return lc(o.key) === lc(d.key) && idOf(o.parent) === idOf(d.parent) && idOf(o.child) === idOf(d.child);
     }));
   }
   function actualOps(result, snapshot) {
     return (result.done || []).flatMap((d) => {
-      if (d.type === "create") return [d];
+      if (d.type === "create" || d.type === "rename" || d.type === "deletegroup") return [d];
       const t = keyOf(d);
       const before = (snapshot || []).find((s) => t && s.id === lc(t.id) && s.kind === t.kind);
       const old = new Set(before ? before.members : []);

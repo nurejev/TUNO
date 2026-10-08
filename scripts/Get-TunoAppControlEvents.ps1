@@ -1,4 +1,4 @@
-# Get-TunoAppControlEvents.ps1  v1.3.1  (TUNO build 10701)
+# Get-TunoAppControlEvents.ps1  v1.3.1  (TUNO build 10702)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -178,7 +178,7 @@ param(
 # own history, TunoBuild the site build that served it. Held to js/version.js by
 # the guard in _to_delete/check-script-versions.js.
 $script:ScriptVersion = '1.3.1'
-$script:TunoBuild = 10701
+$script:TunoBuild = 10702
 
 # ── HARVEST TARGET ─────────────────────────────────────────────────────────
 # Filled in by T01 when the events Remediation is created from a page with a

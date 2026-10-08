@@ -68,8 +68,8 @@ async function run() {
   const asia = { user: side("INT-SG-U-WAVE-Asia-Test", { id: "wua", name: "INT-SG-U-WAVE-Asia", exists: true }, null, false, 2), device: side(null, null, null) };
   let p = MM.planHoldGroups(cfg, { revert: { user: null, device: { id: "rd", displayName: cfg.revertDevice } }, pinnedGroup: null, skipGroup: { id: "sk", name: cfg.skipDevice }, tests: new Map([["Euro", euro], ["Americas", amer], ["Asia", asia]]), regions: null });
   const names = p.ops.map((o) => `${o.type}:${o.type === "create" ? o.name : o.child.name + "→" + o.parent.name}`);
-  ok("nothing in place: the user Revert group, Pinned, Euro's test pair (the device one exists — nested only)", names.join("|") === "create:INT-SG-U-MDE-Revert|create:INT-SG-D-MDE-Pinned|create:INT-SG-U-WAVE-Euro-Test|nest:INT-SG-U-WAVE-Euro-Test→INT-SG-U-WAVE-Euro|nest:INT-SG-D-WAVE-Euro-Test→INT-SG-D-WAVE-Euro", names.join("|"));
-  ok("…what exists is said as in place, the nested Americas device test group included", p.inPlace.join() === "INT-SG-D-MDE-Revert,INT-SG-D-MDE-Skip,INT-SG-D-WAVE-Americas-Test", p.inPlace.join());
+  ok("nothing in place: the user Revert group, Pinned, Euro's test pair (the device one exists — nested only)", names.join("|") === "create:INT-SG-U-MDE-HoldBack|create:INT-SG-D-MDE-Pinned|create:INT-SG-U-WAVE-Euro-Test|nest:INT-SG-U-WAVE-Euro-Test→INT-SG-U-WAVE-Euro|nest:INT-SG-D-WAVE-Euro-Test→INT-SG-D-WAVE-Euro", names.join("|"));
+  ok("…what exists is said as in place, the nested Americas device test group included", p.inPlace.join() === "INT-SG-D-MDE-HoldBack,INT-SG-D-MDE-Skip,INT-SG-D-WAVE-Americas-Test", p.inPlace.join());
   ok("…a missing wave and a duplicated name are left out with the reason", p.skipped.length === 2 && /INT-SG-U-WAVE-Americas-Test: INT-SG-U-WAVE-Americas does not exist yet — create it in 🌊 first/.test(p.skipped[0]) && /INT-SG-U-WAVE-Asia-Test: 2 groups carry this name/.test(p.skipped[1]), p.skipped.join("\n"));
   ok("…the descriptions: Revert's, Pinned's, the test group's with the wave's name; the nest after its create by ref", p.ops[0].description === cfg.revertDescription && p.ops[1].description === cfg.pinnedDescription && /test members of INT-SG-U-WAVE-Euro/.test(p.ops[2].description) && p.ops[3].child.ref === "INT-SG-U-WAVE-Euro-Test" && p.ops[4].child.id === "tg" && p.ops[4].size === 1);
   ok("…the title and counts; no REMOVE, run kind holdgroups", /create 3 · nest 2/.test(p.title) && p.counts.create === 3 && p.counts.nest === 2 && !p.hasRemoval && p.runKind === "holdgroups" && p.ops.every((o) => o.key === "holdgroups" && o.who));
@@ -94,10 +94,10 @@ async function run() {
     && /groups to create/.test(card().textContent), card().textContent.slice(0, 400));
   const G = () => w.TUNO_DEMO_GRAPH.T.GROUPS;
   const has = (n) => G().some((g) => g.displayName === n);
-  ok("in the demo tenant none of them exists yet", !has("INT-SG-U-MDE-Revert") && !has("INT-SG-D-MDE-Revert") && !has("INT-SG-D-MDE-Pinned") && !has("INT-SG-D-MDE-Skip") && !has("INT-SG-U-WAVE-Euro-Test"));
+  ok("in the demo tenant none of them exists yet", !has("INT-SG-U-MDE-HoldBack") && !has("INT-SG-D-MDE-HoldBack") && !has("INT-SG-D-MDE-Pinned") && !has("INT-SG-D-MDE-Skip") && !has("INT-SG-U-WAVE-Euro-Test"));
   D.querySelector("[data-mrrollgroups]").click();
   ok("the dry run: four hold groups, Euro's test pair created and nested; the other regions' waves do not exist — left out", await until(() => st().plan && st().plan.holdGroups, 10000, "plan")
-    && st().plan.ops.filter((o) => o.type === "create").map((o) => o.name).join() === "INT-SG-U-MDE-Revert,INT-SG-D-MDE-Revert,INT-SG-D-MDE-Pinned,INT-SG-D-MDE-Skip,INT-SG-U-WAVE-Euro-Test,INT-SG-D-WAVE-Euro-Test"
+    && st().plan.ops.filter((o) => o.type === "create").map((o) => o.name).join() === "INT-SG-U-MDE-HoldBack,INT-SG-D-MDE-HoldBack,INT-SG-D-MDE-Pinned,INT-SG-D-MDE-Skip,INT-SG-U-WAVE-Euro-Test,INT-SG-D-WAVE-Euro-Test"
     && st().plan.ops.filter((o) => o.type === "nest").length === 2 && st().plan.skipped.some((x) => /INT-SG-U-WAVE-Americas-Test: INT-SG-U-WAVE-Americas does not exist yet/.test(x)), JSON.stringify(st().plan && st().plan.ops.map((o) => o.name || o.child.name)));
   ok("…it opens under the ⚡ card, a tick confirms (no REMOVE), the impact says empty groups", card().nextElementSibling === $("mvPlan") && !!$("mvConfirmTick") && !$("mvConfirmText") && /none on any device — empty groups/.test($("mvPlan").textContent) && /For/.test($("mvPlan").textContent));
   $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
@@ -109,7 +109,7 @@ async function run() {
   const n0 = st().runs.length;
   $("mvMemApply").click();
   ok("applied: the six groups exist in the tenant, the test pair nested in the Euro waves, the run on 📜", await until(() => st().runs.length === n0 + 1, 15000, "run") && st().runs[n0].runKind === "holdgroups" && st().runs[n0].ok === 8
-    && has("INT-SG-U-MDE-Revert") && has("INT-SG-D-MDE-Revert") && has("INT-SG-D-MDE-Pinned") && has("INT-SG-D-MDE-Skip") && has("INT-SG-U-WAVE-Euro-Test") && has("INT-SG-D-WAVE-Euro-Test")
+    && has("INT-SG-U-MDE-HoldBack") && has("INT-SG-D-MDE-HoldBack") && has("INT-SG-D-MDE-Pinned") && has("INT-SG-D-MDE-Skip") && has("INT-SG-U-WAVE-Euro-Test") && has("INT-SG-D-WAVE-Euro-Test")
     && (G().find((g) => g.displayName === "INT-SG-U-WAVE-Euro-Test").memberOf || []).includes(G().find((g) => g.displayName === "INT-SG-U-WAVE-Euro").id), JSON.stringify(st().runs[n0] && st().runs[n0].lines));
   ok("…the Revert groups are known to ↩ and 🔄 without a re-read, Pinned and Skip to 👥", st().cs.extra.revert.user && st().cs.extra.revert.device && st().mem.input.pinnedGroup && st().mem.input.skipGroup);
   await until(() => st().tm.all && st().tm.test.get("Euro") && st().tm.test.get("Euro").user.group, 15000, "tests re-read");
