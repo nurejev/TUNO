@@ -299,8 +299,12 @@ const MdeMembers = (() => {
   // country device groups
   // held (10639): the device exclusion group — its devices are KEPT OUT of
   // the country device groups (Mihai: "keep it on the old set"), so the
-  // sync never adds them and offers to take them out.
-  async function readInput(cfg, waveGroups, onStatus, skip, held, pilotNames) {
+  // sync never adds them and offers to take them out. heldUser (10698): the
+  // user exclusion group, the same way for the static country user groups
+  // — both read transitively, so a group nested in an exclusion group holds
+  // its members out too (Mihai: "excluded users never get in the wave
+  // through another nested group").
+  async function readInput(cfg, waveGroups, onStatus, skip, held, pilotNames, heldUser) {
     const say = (m) => { if (onStatus) onStatus(m); };
     const GS = Graph.SCOPES.groups, DS = Graph.SCOPES.devices, DO = Graph.SCOPES.deviceObjects;
     say("Reading the country groups…");
@@ -397,8 +401,14 @@ const MdeMembers = (() => {
     let heldIds = new Set();
     if (held && held.id) {
       say("Reading the device exclusion group…");
-      try { heldIds = new Set(((await Graph.readAll(`/groups/${enc(held.id)}/members/microsoft.graph.device?$select=id&$top=999`, { scopes: GS, retry: true })) || []).map((d) => lc(d.id))); }
+      try { heldIds = new Set(((await Graph.readAll(`/groups/${enc(held.id)}/transitiveMembers/microsoft.graph.device?$select=id&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true })) || []).map((d) => lc(d.id))); }
       catch (e) { failed.push(`${held.displayName || "the device exclusion group"}: ${(e && e.message) || e}`); }
+    }
+    const excludedUsers = new Map();
+    if (heldUser && heldUser.id) {
+      say("Reading the user exclusion group…");
+      try { for (const u of (await Graph.readAll(`/groups/${enc(heldUser.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,displayName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true })) || []) excludedUsers.set(lc(u.id), { id: lc(u.id), upn: u.userPrincipalName || u.id, name: u.displayName || u.userPrincipalName || u.id }); }
+      catch (e) { failed.push(`${heldUser.displayName || "the user exclusion group"}: ${(e && e.message) || e}`); }
     }
     // 🧪 the pilot groups' direct members (10647): users, devices, and any
     // nested group (listed, never taken out member by member)
@@ -487,6 +497,7 @@ const MdeMembers = (() => {
     }
     say("");
     return { entraUsers, skip: skipSet, skipGroup, intuneLogons, defLogons, logonRead, pinned, pinnedGroup, countryGroups, deviceGroups: dgList, managed, managedAll, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null,
+      excludedUsers, heldUserGroup: heldUser && heldUser.id ? { id: lc(heldUser.id), name: heldUser.displayName || "" } : null,
       pilots, pilotsMissing, owners, primaryUsers, failed, readAt: Date.now() };
   }
 
@@ -795,14 +806,17 @@ const MdeMembers = (() => {
       row.userGroupStatic = row.iso3 && cfg.userGroupPrefix ? `${cfg.userGroupPrefix}${row.iso3}` : null;
       row.sug = row.userGroupStatic && input.userGroups ? input.userGroups.get(lc(row.userGroupStatic)) || null : null;
       {
-        const revU = input.revertUsers || new Map();
+        // held back: in ↩ Revert, or (10698) in the ⊘ user exclusion group
+        const revU = input.revertUsers || new Map(), exU = input.excludedUsers || new Map();
+        const heldU = (id) => revU.has(id) || exU.has(id);
         const src = row.ug ? (input.usersByGroup.get(lc(row.ug.id)) || []) : [];
         const srcIds = new Set(src.map((u) => lc(u.id)));
-        row.uWant = new Set([...srcIds].filter((id) => !revU.has(id)));
+        row.uWant = new Set([...srcIds].filter((id) => !heldU(id)));
         row.uHave = row.sug && input.userMembers ? (input.userMembers.get(lc(row.sug.id)) || new Set()) : new Set();
         row.uAdd = [...row.uWant].filter((id) => !row.uHave.has(id));
-        row.uRemove = [...row.uHave].filter((id) => !srcIds.has(id) || revU.has(id));
-        row.uHeld = [...srcIds].filter((id) => revU.has(id)).length;
+        row.uRemove = [...row.uHave].filter((id) => !srcIds.has(id) || heldU(id));
+        row.uHeld = [...srcIds].filter(heldU).length;
+        row.uExcluded = [...srcIds].filter((id) => exU.has(id)).length;
         row.uInSync = !row.uRead || (row.sug ? !row.uAdd.length && !row.uRemove.length : !row.uWant.size);
       }
       row.batch = batchOf(cfg, input, row);
@@ -1305,7 +1319,7 @@ const MdeMembers = (() => {
             ugRef = { ref: r.userGroupStatic, name: r.userGroupStatic };
           }
           if (r.uAdd.length) { ops.push({ type: "add", key: r.key, group: ugRef, ids: r.uAdd.slice(), memberKind: "user", label: `${r.uAdd.length} user${r.uAdd.length === 1 ? "" : "s"} of ${r.userGroupName}` }); mark(r, "userAdd"); }
-          if (r.uHeld) warnings.push(`${r.country}: ${r.uHeld} user${r.uHeld === 1 ? " is" : "s are"} in ${(cfg && cfg.revertUser) || DEFAULTS.revertUser} — held back, not added (↩ Revert)`);
+          if (r.uHeld) warnings.push(`${r.country}: ${r.uHeld} user${r.uHeld === 1 ? " is" : "s are"} held back, not added — ${r.uHeld - (r.uExcluded || 0) ? `${r.uHeld - (r.uExcluded || 0)} in ${(cfg && cfg.revertUser) || DEFAULTS.revertUser} (↩ Revert)` : ""}${r.uHeld - (r.uExcluded || 0) && r.uExcluded ? ", " : ""}${r.uExcluded ? `${r.uExcluded} in the ⊘ user exclusion group` : ""}`);
         }
       }
       if (o.removals && r.dg && r.remove.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.dg.id), name: r.dg.displayName }, ids: r.remove.slice(), label: `${r.remove.length} device${r.remove.length === 1 ? "" : "s"}: ${r.removeNames.slice(0, 5).join(", ")}${r.remove.length > 5 ? " …" : ""}` });
@@ -1787,6 +1801,12 @@ const MdeMembers = (() => {
       if ((d.type === "add" || d.type === "remove") && input.heldGroup && lc(d.group.id) === input.heldGroup.id) {
         if (!input.held) input.held = new Set();
         d.ids.forEach((id) => d.type === "add" ? input.held.add(lc(id)) : input.held.delete(lc(id)));
+        continue;
+      }
+      // ⊘ the user exclusion group (10698): its users are held out of the static country user groups
+      if ((d.type === "add" || d.type === "remove") && input.heldUserGroup && lc(d.group.id) === input.heldUserGroup.id) {
+        if (!input.excludedUsers) input.excludedUsers = new Map();
+        d.ids.forEach((id, i) => { const o = (d.objs || [])[i] || {}; d.type === "add" ? input.excludedUsers.set(lc(id), { id: lc(id), upn: o.userPrincipalName || lc(id), name: o.displayName || o.userPrincipalName || lc(id) }) : input.excludedUsers.delete(lc(id)); });
         continue;
       }
       if (d.type === "add" || d.type === "remove") {

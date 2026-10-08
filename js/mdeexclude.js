@@ -38,6 +38,7 @@ const MdeExclude = (() => {
   const EV = { ConsistencyLevel: "eventual" };
   const DAY = 86400000;
   const msg = (e) => String((e && e.message) || e || "");
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many || `${one}s`}`;
   const GS = () => Graph.SCOPES.groups, DS = () => Graph.SCOPES.devices, DO = () => Graph.SCOPES.deviceObjects, US = () => Graph.SCOPES.directory;
   const scopes = () => [...new Set([...GS(), ...DS(), ...DO(), ...US()])];
 
@@ -630,6 +631,132 @@ const MdeExclude = (() => {
     return { ops, skipped, warnings: ops.some((x) => x.memberKind === "device") ? ["A device taken out goes back into its country device group — and so its wave — the next time 👥 syncs that country. Until then it stays on the old set."] : [], hasRemoval: true, exclusions: true };
   }
 
+  // ------------------------------------------ 🔎 in a wave anyway (10698) --
+  // Mihai: "make sure that there is check that excluded users never (in a
+  // nested exclusion group) never gets in the wave through a other nested
+  // group. it should be removed or there should be a option in the
+  // exclusion overview to do a scan check and remove the users."
+  //
+  // Who is excluded is read TRANSITIVELY — a group nested in an exclusion
+  // group counts, and its members are marked "through <group>". Each
+  // wave's transitive members are matched against them; for a wave with a
+  // hit, its direct members and its child groups (kind, rule, and the
+  // child's own direct members) say the route in. A route through a static
+  // group — a country group, a 🧪 test group, the wave itself — can be
+  // taken out here; a dynamic group cannot (its rule puts the member back),
+  // so the exclusion has to hold on the policies (⚡ ②); a member nested
+  // deeper than one child is said, with the group to open in Entra.
+  // waves: T28's wave rows (role "wave", audience, region, id, name).
+  const DYN = (g) => (g.groupTypes || []).some((t) => /dynamic/i.test(t)) || !!g.membershipRule;
+  async function scanWaves(base, waves, opt, onStatus) {
+    const say = (m) => { if (onStatus) onStatus(m); };
+    const G = (base && base.groups) || {};
+    const failed = [];
+    const SEL = { user: "id,displayName,userPrincipalName", device: "id,deviceId,displayName" };
+    const transitive = (gid, kind, full) => Graph.readAll(`/groups/${enc(gid)}/transitiveMembers/microsoft.graph.${kind}?$select=${full ? SEL[kind] : "id"}&$count=true&$top=999`, { scopes: GS(), headers: EV, retry: true });
+    const direct = (gid, kind) => Graph.readAll(`/groups/${enc(gid)}/members/microsoft.graph.${kind}?$select=id&$top=999`, { scopes: GS(), retry: true });
+    const children = (gid) => Graph.readAll(`/groups/${enc(gid)}/members/microsoft.graph.group?$select=id,displayName,groupTypes,membershipRule&$top=999`, { scopes: GS(), retry: true });
+    const obj = (kind, m, via) => ({ kind, id: lc(m.id), name: m.displayName || m.userPrincipalName || m.id, upn: kind === "user" ? m.userPrincipalName || "" : "", deviceId: kind === "device" ? lc(m.deviceId || "") : "", via: via || null });
+    // the excluded: the direct members the base holds, plus whoever a
+    // nested group brings (named per member when one nested group holds them)
+    const excluded = { user: new Map(), device: new Map() };
+    const nested = { user: [], device: [] };
+    for (const kind of ["user", "device"]) {
+      const g = G[kind];
+      if (!g) continue;
+      for (const m of (kind === "user" ? base.users : base.devices) || []) excluded[kind].set(lc(m.id), obj(kind, m));
+      say(`Reading everyone ${g.displayName} holds, nested groups included…`);
+      try {
+        const [all, subs] = await Promise.all([transitive(g.id, kind, true), children(g.id)]);
+        nested[kind] = (subs || []).map((x) => ({ id: lc(x.id), name: x.displayName || x.id, dynamic: DYN(x) }));
+        const extra = (all || []).filter((m) => !excluded[kind].has(lc(m.id)));
+        // which nested group holds them — read when there is more than one
+        let holder = new Map();
+        if (extra.length && nested[kind].length > 1) {
+          const r = await Graph.pool(nested[kind], (s) => transitive(s.id, kind, false), 4);
+          r.forEach((x, i) => { if (!x.error) for (const m of x.value || []) if (!holder.has(lc(m.id))) holder.set(lc(m.id), nested[kind][i].name); });
+        } else if (extra.length && nested[kind].length === 1) holder = { get: () => nested[kind][0].name, has: () => true };
+        for (const m of extra) excluded[kind].set(lc(m.id), obj(kind, m, holder.get(lc(m.id)) || "a nested group"));
+      } catch (e) { failed.push(`${g.displayName}: ${msg(e).slice(0, 160)}`); }
+    }
+    const ws = (waves || []).filter((w) => w && w.role === "wave" && w.id && (w.audience === "user" || w.audience === "device"));
+    const rows = new Map();
+    const rowOf = (kind, m) => { const k = `${kind}:${m.id}`; if (!rows.has(k)) rows.set(k, Object.assign({ key: k, routes: [] }, m)); return rows.get(k); };
+    let n = 0;
+    const wr = await Graph.pool(ws, async (w) => {
+      say(`Reading the waves… ${++n} of ${ws.length} (${w.name})`);
+      const ex = excluded[w.audience];
+      if (!ex.size) return { hits: [] };
+      const all = await transitive(w.id, w.audience, false);
+      const hits = (all || []).map((m) => lc(m.id)).filter((id) => ex.has(id));
+      if (!hits.length) return { hits };
+      const [dir, kids] = await Promise.all([direct(w.id, w.audience), children(w.id)]);
+      const kidRows = (kids || []).map((k) => ({ id: lc(k.id), name: k.displayName || k.id, dynamic: DYN(k) }));
+      const kr = await Graph.pool(kidRows, async (k) => {
+        const inside = new Set(((await transitive(k.id, w.audience, false)) || []).map((m) => lc(m.id)));
+        const mine = hits.filter((id) => inside.has(id));
+        if (!mine.length) return null;
+        const own = new Set(((await direct(k.id, w.audience)) || []).map((m) => lc(m.id)));
+        return { k, mine, own };
+      }, 4);
+      const kidFailed = kidRows.filter((k, i) => kr[i].error).map((k) => k.name);
+      return { hits, direct: new Set((dir || []).map((m) => lc(m.id))), kids: kr.filter((x) => !x.error && x.value).map((x) => x.value), kidFailed };
+    }, 3);
+    wr.forEach((x, i) => {
+      const w = ws[i];
+      if (x.error) { failed.push(`${w.name}: ${msg(x.error).slice(0, 160)}`); return; }
+      const v = x.value;
+      if (!v.hits.length) return;
+      if (v.kidFailed && v.kidFailed.length) failed.push(`${w.name}: ${v.kidFailed.join(", ")} could not be read — a route through ${v.kidFailed.length === 1 ? "it" : "them"} is not shown`);
+      const wave = { id: w.id, name: w.name, region: w.region || "", audience: w.audience };
+      for (const id of v.hits) {
+        const row = rowOf(w.audience, excluded[w.audience].get(id));
+        if (v.direct.has(id)) row.routes.push({ wave, group: null, direct: true, dynamic: false, deep: false });
+        for (const k of v.kids) if (k.mine.includes(id)) row.routes.push({ wave, group: { id: k.k.id, name: k.k.name }, direct: k.own.has(id), dynamic: k.k.dynamic, deep: !k.own.has(id) });
+        if (!row.routes.some((r) => r.wave.id === wave.id)) row.routes.push({ wave, group: null, direct: false, dynamic: false, deep: true, unknown: true });
+      }
+    });
+    const out = [...rows.values()].sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "user" ? -1 : 1) || lc(a.name).localeCompare(lc(b.name)));
+    const count = (kind) => out.filter((r) => r.kind === kind).length;
+    return { rows: out, users: count("user"), devices: count("device"), excluded: { users: excluded.user.size, devices: excluded.device.size }, nested, waves: ws.length, failed, readAt: Date.now() };
+  }
+  // The removals: every ticked row's routes through a static group, one
+  // step per group and kind. A dynamic route, a deeper nesting and an
+  // unknown route are left out with the reason.
+  function planScan(rows, ticks) {
+    const T = ticks || new Set((rows || []).map((r) => r.key));
+    const merged = new Map(), order = [];
+    const skipped = [], warnings = [];
+    for (const r of rows || []) {
+      if (!T.has(r.key)) continue;
+      for (const rt of r.routes) {
+        const where = rt.group ? `${rt.wave.name} through ${rt.group.name}` : rt.wave.name;
+        if (rt.unknown) { skipped.push(`${r.name}: in ${rt.wave.name}, but the route in could not be read — open the wave in Entra`); continue; }
+        if (rt.dynamic) { skipped.push(`${r.name}: in ${where} — a dynamic group; its rule would put them back. The exclusion has to hold on the policies (⚡ ②).`); continue; }
+        if (rt.deep) { skipped.push(`${r.name}: in ${where}, nested deeper than that group — take them out of the inner group in Entra`); continue; }
+        const g = rt.group || { id: rt.wave.id, name: rt.wave.name };
+        const k = `${g.id}|${r.kind}`;
+        if (!merged.has(k)) { merged.set(k, { group: g, kind: r.kind, wave: rt.wave.name, ids: [], names: [], objs: [] }); order.push(k); }
+        const m = merged.get(k);
+        if (m.ids.includes(r.id)) continue;
+        m.ids.push(r.id); m.names.push(r.name);
+        m.objs.push(r.kind === "user" ? { id: r.id, displayName: r.name, userPrincipalName: r.upn } : { id: r.id, deviceId: r.deviceId, displayName: r.name });
+      }
+    }
+    const short = (names) => names.length > 4 ? `${names.slice(0, 3).join(", ")} and ${names.length - 3} more` : names.join(", ");
+    const ops = order.map((k) => {
+      const m = merged.get(k);
+      return { type: "remove", key: "exscan", group: { id: m.group.id, name: m.group.name }, ids: m.ids, memberKind: m.kind, objs: m.objs,
+        label: `${short(m.names)} — excluded, out of ${m.wave}`, who: `${m.ids.length} ${m.kind}${m.ids.length === 1 ? "" : "s"}` };
+    });
+    // members, not removals — one member can leave two groups
+    const nU = new Set(ops.filter((x) => x.memberKind === "user").flatMap((x) => x.ids)).size;
+    const nD = new Set(ops.filter((x) => x.memberKind === "device").flatMap((x) => x.ids)).size;
+    if (ops.length) warnings.push("A member taken out of a static country group is not put back by the 👥 / 🔄 sync: an excluded member is held, like a reverted one, for as long as it is in the exclusion group.");
+    return { ops, skipped, warnings, hasRemoval: ops.length > 0, exclusions: true, runKind: "exscan", counts: { users: nU, devices: nD },
+      title: `⊘ Out of the waves — ${[nU ? plural(nU, "user") : "", nD ? plural(nD, "device") : ""].filter(Boolean).join(", ") || "nothing to take out"}` };
+  }
+
   // What a verified run changed, folded into the base the pane holds.
   function patchBase(base, done) {
     if (!base) return;
@@ -646,5 +773,5 @@ const MdeExclude = (() => {
   }
 
   return { scopes, readBase, index, excludedNow, matchLocal, search, lookup, defaultTicks, reachOf, countryGroupsOf, assess, planAdd, planRemove, patchBase, isStale,
-    parseList, matchList, resolveList, listTicks, planAddMany, patchList, MAX_LINES };
+    parseList, matchList, resolveList, listTicks, planAddMany, patchList, MAX_LINES, scanWaves, planScan };
 })();

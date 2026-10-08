@@ -371,10 +371,12 @@ async function run() {
   ok("a country opens to its devices", /WS-FIN-0187/.test($("mvBody").textContent) && /no longer in PVM-UG-CORP-MEM-USERS-NL/.test($("mvBody").textContent));
   const tickMem = (k) => { const b = D.querySelector(`[data-mrmemsel="${k}"]`); b.checked = true; b.dispatchEvent(new w.Event("change", { bubbles: true })); };
   tickMem("de");
-  ok("ticking a country fills the bar — 10680: the static user group beside the device group", /create 2 · add 2 users · add 2 devices · nest 2 groups into Euro/.test($("mvMemSum").textContent), $("mvMemSum").textContent);
+  // 10698: Nina (DE) is in the user exclusion group — held out of INT-SG-U-DEU, so one user, not two
+  ok("ticking a country fills the bar — 10680: the static user group beside the device group; 10698: the excluded user held back", /create 2 · add 1 user · add 2 devices · nest 2 groups into Euro/.test($("mvMemSum").textContent), $("mvMemSum").textContent);
   $("mvMemDry").click();
   ok("the dry run: create → add for INT-SG-D-DEU and INT-SG-U-DEU, then nest both static groups", await until(() => st().plan && st().plan.members, 5000, "members plan") && st().plan.ops.map((o) => o.type).join() === "create,add,create,add,nest,nest"
     && st().plan.ops[4].child.ref === "INT-SG-U-DEU" && st().plan.ops[2].name === "INT-SG-U-DEU");
+  ok("…and the plan says who is held back and why (10698: the ⊘ user exclusion group)", st().plan.warnings.some((x) => /Germany: 1 user is held back, not added — 1 in the ⊘ user exclusion group/.test(x)), JSON.stringify(st().plan.warnings));
   ok("no removals, so a tick confirms", !!$("mvConfirmTick") && $("mvMemApply").disabled);
   $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
   await v2Gates(); $("mvMemApply").click();
@@ -551,6 +553,13 @@ async function run() {
     && w.TUNO_DEMO_GRAPH.T.GROUPS.find((g) => g.displayName === "INT-SG-D-MDE-Exclusion")._devices.includes("33333333-0000-4000-8000-000000000101") && !demoG(35)._devices.includes("33333333-0000-4000-8000-000000000101"));
   ok("the lists move with the run, and the card reads again", await until(() => st().ex.card && !st().ex.cardLoading && st().ex.card.user.excluded, 10000, "card again")
     && st().ex.base.users.length === 2 && st().ex.base.devices.length === 1 && /Eva Employee/.test($("mvExNow").textContent));
+  // 🔎 In a wave anyway (10698): the run scans the waves again — Eva is
+  // excluded now, yet in the Euro user wave through the dynamic NL group
+  ok("🔎 the scan runs again after the run and finds Eva in the Euro user wave through PVM-UG-CORP-MEM-USERS-NL", await until(() => st().ex.scan && !st().ex.scanBusy && st().ex.scan.rows.length === 1, 10000, "scan after run")
+    && st().ex.scan.rows[0].name === "Eva Employee" && st().ex.scan.rows[0].routes.length === 1 && st().ex.scan.rows[0].routes[0].group.name === "PVM-UG-CORP-MEM-USERS-NL" && st().ex.scan.rows[0].routes[0].dynamic, JSON.stringify(st().ex.scan && st().ex.scan.rows));
+  ok("…the card under Excluded now says so: 1 excluded user in a wave, the route dynamic — nothing to take out here", $("mvExNow").nextElementSibling === $("mvExScan") && /1 excluded user and 0 excluded devices is in a wave/.test($("mvExScan").textContent)
+    && /dynamic — cannot be taken out/.test($("mvExScan").textContent) && $("mvExScanDry").disabled && /take 0 members out/.test($("mvExScanDry").textContent), $("mvExScan").textContent.slice(0, 400));
+  ok("…and Needs attention carries the finding", st().projectFindings().some((x) => x.id === "exscan" && /1 excluded member is still in a wave/.test(x.title) && x.to === "exclusions"));
   w.MdeRolloutV2Tool._pane("changes");
   D.querySelector(`[data-mrundo="${xr}"]`).click();
   ok("📜 undo: the inverse, a typed REMOVE", await until(() => st().plan && /Undo/.test(st().plan.title), 10000, "undo plan") && st().plan.exclusions && !!$("mvConfirmText") && st().plan.ops.length === 3);
@@ -558,6 +567,7 @@ async function run() {
   await v2Gates(); $("mvMemApply").click();
   ok("…and the tenant is back as it was", await until(() => st().runs.length === xr + 2, 10000, "undo run") && !demoG(37)._users.includes("22222222-0000-4000-8000-000000000002") && demoG(35)._devices.includes("33333333-0000-4000-8000-000000000101")
     && st().ex.base.users.length === 1 && st().ex.base.devices.length === 0);
+  ok("🔎 the undo scans again: nobody excluded is in a wave, no finding", await until(() => st().ex.scan && !st().ex.scanBusy && st().ex.scan.rows.length === 0, 10000, "scan after undo") && !st().projectFindings().some((x) => x.id === "exscan"));
   // Excluded now → take out (Nina)
   w.MdeRolloutV2Tool._pane("exclusions");
   const nsel = D.querySelector("[data-mrexsel]"); nsel.checked = true; nsel.dispatchEvent(new w.Event("change", { bubbles: true }));

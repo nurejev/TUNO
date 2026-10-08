@@ -48,7 +48,10 @@ const MdeRolloutV2Tool = (() => {
     ticks: new Set(), sel: new Set(), keepOld: true,
     // 📋 a list (10651, option A off the mockup): the mode, the pasted text,
     // the looked-up list and its ticks, the running line and the last error
-    mode: "one", listText: "", list: null, lticks: new Set(), listBusy: false, listNote: "", listErr: "" };
+    mode: "one", listText: "", list: null, lticks: new Set(), listBusy: false, listNote: "", listErr: "",
+    // 🔎 in a wave anyway (10698): the scan of the waves for excluded
+    // members, its ticks, the running line and the last error
+    scan: null, scanBusy: false, scanLine: "", scanErr: "", scanSel: new Set() };
   // 🎛 Adjust settings (10657, option B off the mockup): the modes asked for,
   // per matrix row key, and the pane's filter
   const asr = { edits: new Map(), filter: "all" };
@@ -316,6 +319,10 @@ const MdeRolloutV2Tool = (() => {
       if (drift) items.push({ id: "membership", title: `${drift} countries need membership review`, detail: "Review proposed additions, removals, held members and routes into the wave.", to: "members" });
       if (mem.model.unmapped.length) items.push({ id: "unmapped", title: `${mem.model.unmapped.length} source groups have no wave mapping`, detail: "Confirm the mapping or leave them out of scope. Names alone do not authorise placement.", to: "members", unmapped: true });
     }
+    if (ex.scan && ex.scan.rows.length) {
+      const n = ex.scan.rows.length;
+      items.push({ id: "exscan", title: `${n} excluded ${n === 1 ? "member is" : "members are"} still in a wave`, detail: "Excluded, yet in a wave through a nested group or as a direct member: nothing reaches them once ⚡③ ran. Review the route and take them out of the static groups.", to: "exclusions" });
+    }
     return items;
   }
   function projectAttention(compact) {
@@ -370,7 +377,7 @@ const MdeRolloutV2Tool = (() => {
   }
   function projectExceptions() {
     const n = exNow(), sm = csModel();
-    return `<h3>Every exception has a purpose.</h3><p>Choose the intended outcome, review who it affects, then follow the existing dry run, backup and apply steps.</p><div class="t28-intents"><section class="t28-panel"><h4>Exclude from new policies</h4><p>Keep a person or device out of the new set. Review whether to keep old-policy targeting; exclusion alone does not prove old protection.</p><p class="mini">${n ? `${n.users} users · ${n.devices} devices currently excluded${n.half ? ` · ${n.half} partial pairs` : ""}` : "Exclusions loading / unavailable — see Data details"}</p><button class="btn primary" data-mrpane="exclusions">Review an exclusion</button><p class="mini">One at a time · pasted list · CSV · remove exclusion</p></section><section class="t28-panel"><h4>Return to old policies / resume rollout</h4><p>A return adds a hold and removes mapped country memberships. Check old coverage and other routes first. Resuming is a separate reviewed change.</p><p class="mini">${sm ? `${sm.revertUsers.size} users · ${sm.revertDevices.size} devices in return holds` : "Return holds loading / unavailable — see Data details"}</p><button class="btn primary" data-mrpane="revert">Review a return or resume</button><p class="mini">One at a time · list / CSV · group members · reason · bulk confirmation</p></section></div><p class="t28-callout">Completion has three parts: group change verified → device report received → outcome reviewed. An assignment change alone does not establish protection.</p>`;
+    return `<h3>Every exception has a purpose.</h3><p>Choose the intended outcome, review who it affects, then follow the existing dry run, backup and apply steps.</p><div class="t28-intents"><section class="t28-panel"><h4>Exclude from new policies</h4><p>Keep a person or device out of the new set. Review whether to keep old-policy targeting; exclusion alone does not prove old protection.</p><p class="mini">${n ? `${n.users} users · ${n.devices} devices currently excluded${n.half ? ` · ${n.half} partial pairs` : ""}${ex.scan ? ex.scan.rows.length ? ` · <b style="color:var(--off)">${ex.scan.rows.length} in a wave anyway</b>` : " · none in a wave" : ""}` : "Exclusions loading / unavailable — see Data details"}</p><button class="btn primary" data-mrpane="exclusions">Review an exclusion</button><p class="mini">One at a time · pasted list · CSV · remove exclusion</p></section><section class="t28-panel"><h4>Return to old policies / resume rollout</h4><p>A return adds a hold and removes mapped country memberships. Check old coverage and other routes first. Resuming is a separate reviewed change.</p><p class="mini">${sm ? `${sm.revertUsers.size} users · ${sm.revertDevices.size} devices in return holds` : "Return holds loading / unavailable — see Data details"}</p><button class="btn primary" data-mrpane="revert">Review a return or resume</button><p class="mini">One at a time · list / CSV · group members · reason · bulk confirmation</p></section></div><p class="t28-callout">Completion has three parts: group change verified → device report received → outcome reviewed. An assignment change alone does not establish protection.</p>`;
   }
   const projectHistoryKey = () => `tuno.t28.project.history.${tenantKey()}`;
   function projectLoadHistory() {
@@ -1281,7 +1288,7 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. A device with no primary user takes its Entra owner's country, else the ISO3 its name starts with. A primary user in no country group of the table (10659) — often a DELETED user, whose UPN Entra renamed to <code>&lt;object id&gt;&lt;old UPN&gt;</code> — is looked up: a deleted one by the old UPN (the live account), a live one by id. The device then takes the live account's country group when it is in one, else the ISO3 its name starts with (BGD…, IDN…, PHL…), else the user's usage location; what none of those places is listed under 🕳 with the reason.</p>
       <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). The Windows devices the waves do not reach — the count — and, listed but not counted, a country's users with no Windows device by Intune primary user: they are in the user wave through their country group (the list says so, or that the group is not nested yet), the card says which other devices Intune has for them, and a Windows device they get later joins the country device group at the next 👥 read → Apply. <b>🔎 Find their logons in Defender</b> asks Defender advanced hunting (<code>DeviceLogonEvents</code>, 30 days, one query per 200 users; matched by on-premises SID or account name) which devices they logged on to, and says what each is: in Intune under another primary user (it follows that person's country), in Entra but not Intune (no wave reaches it), or Defender only (no Entra object). Read-only; it needs <code>ThreatHunting.Read.All</code> and Security Reader, and ⧉ Copy the KQL gives the same query for the Defender portal. The devices counted: a country's devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
       <p style="margin:0 0 8px"><b>Pilot members</b> (👥 → 🧪). One row per person in the pilot groups (⚙️): a pilot user, or the Intune primary user of a pilot device, with every Windows device of theirs and the country and wave they belong to. <b>Ready for the wave</b>: tick a person whose country is known and the plan takes them and their devices out of every pilot group and puts each device in its country device group (created first when missing; a device leaves its pilot group only once its add read back clean; a ⊘ excluded device is taken out of the pilot but never added). Until the country is nested in its wave they are ordinary members of it — the old policies reach them again — and then they move with everybody else. <b>⚠ Before their waves go live</b> lists the policies that cover a pilot group but not the wave: fix those before nesting the country. Members with no person to follow (no primary user, not in Intune, a nested group) are listed and never planned.</p>
-      <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, on the rail). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves that country route and 👥 keeps it out. Review other routes and old-policy coverage; verify the device outcome afterwards. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half).</p>
+      <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, on the rail). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves that country route and 👥 keeps it out. Review other routes and old-policy coverage; verify the device outcome afterwards. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half). <b>🔎 In a wave anyway</b> (10698, under Excluded now; Mihai: "excluded users never get in the wave through another nested group"): every read of the exclusion groups also scans the waves — who the groups hold, transitively (a group nested in an exclusion group counts, and its members say which), matched against every wave's transitive members; a hit names the route in (a direct member, or through which nested group: a country group, a 🧪 test group), and whether that group is static (can be taken out here, typed REMOVE) or dynamic (its rule would put the member back — the exclusion has to hold on the policies, ⚡ ②). The 👥 / 🔄 sync holds an excluded user out of the static country user groups from this build, as it held an excluded device out of the device groups since 10639, so a sync never puts them back; both exclusion groups are read transitively there too. The finding "excluded members are still in a wave" sits under Needs attention.</p>
       <p style="margin:0 0 8px"><b>🔄 Country groups</b> (10679). The waves nest <b>static</b> groups only: per country a user group <code>INT-SG-U-&lt;ISO3&gt;</code> beside the device group <code>INT-SG-D-&lt;ISO3&gt;</code>, the code being the device group's own (the ⚙️ table). Both static groups are <b>created, filled and nested in 👥 Wave members</b>, side by side (10680) — 🔄 creates nothing. <b>⇄ Swap</b>, per wave, for a country an earlier build nested through its dynamic <code>PVM-UG-CORP-MEM-USERS-*</code> group: tops the static user group up, nests it, reads back that every user of the dynamic group is in it, and only then takes the dynamic group out of the wave — no policy moves. <b>Sync</b> keeps both pairs from the sources (users: transitive members; devices: 👥's primary-user rule): adds ticked, leavers never ticked, and whoever is in the Revert groups held back — a re-include takes a tick per row and a confirm line naming the count and the wave. A member of Revert that no source holds any more is offered for the Revert clean-up. The head shows the drift (read now) and the last sync (this browser), in the warning colour after 14 days.</p>
       <p style="margin:0 0 8px"><b>↩ Revert</b> (10679). A user, a device or the pair (the default) leaves its wave: into <code>INT-SG-U-MDE-Revert</code> / <code>INT-SG-D-MDE-Revert</code> first, then — only once that read back — out of its static country group, with a reason kept with the run. The dry run shows per policy which new ones drop off and which old ones take over, and warns on neither (a gap) or both (a conflict). A user still reached through a dynamic group is refused until their wave is swapped. The Revert groups are assigned to nothing: they are the held-back list, in the tenant. <b>📋 The list</b> (10685) does many at once: ＋ Add on a search card, a pasted list or .csv, or a group's members — each entry the pair, one reason, one dry run with the per-policy view counted, and a confirm line naming the counts and the waves before ④ Apply. <b>Reverted now</b> puts members back (into their country group, then out of Revert). An excluded member (⊘) stays in the wave and skips the new policies; a reverted one is out of the wave.</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
@@ -2640,7 +2647,7 @@ const MdeRolloutV2Tool = (() => {
       await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory, ...(mcfg().useDefenderLogons ? Graph.SCOPES.hunting : [])])]);
       const waves = [...memWaves().values()].flatMap((w) => [w.user, w.device]).filter(Boolean);
       if (!projectValid(epoch)) return;
-      const nextInput = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; projectLine("members", m); }, new Set(cfg.lookup.map(lc)), exGroups().device, cfg.pilotGroups);
+      const nextInput = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; projectLine("members", m); }, new Set(cfg.lookup.map(lc)), exGroups().device, cfg.pilotGroups, exGroups().user);
       if (!projectValid(epoch)) return;
       mem.input = nextInput;
       // 🔄 / ↩ (10679): the static user groups and the Revert pair, read
@@ -2682,7 +2689,7 @@ const MdeRolloutV2Tool = (() => {
     if (!r.uRead) return `<span class="muted" title="${esc(cs.error || "")}">not read</span>`;
     if (!r.userGroupStatic) return `<span class="au-op delete" title="${esc(r.iso3Source)}">no code</span>`;
     const name = `<b>${esc(r.userGroupStatic)}</b>`;
-    const held = r.uHeld ? ` <span class="muted" title="In ${esc(mcfg().revertUser)} — held back">· ${r.uHeld} held</span>` : "";
+    const held = r.uHeld ? ` <span class="muted" title="Held back — ${esc([r.uHeld - (r.uExcluded || 0) ? `${r.uHeld - (r.uExcluded || 0)} in ${mcfg().revertUser} (↩ Revert)` : "", r.uExcluded ? `${r.uExcluded} in the ⊘ user exclusion group` : ""].filter(Boolean).join(", "))}">· ${r.uHeld} held</span>` : "";
     if (r.batch && !r.batch.finished) return `${name} ${r.sug ? chip("au-op create", "exists") : chip("gu-how priv", "batch 1 creates it")}<div class="mini">🧪 filled by batches · <b>${r.batch.inCount}</b> of ${r.batch.N} in${held}</div>`;
     if (!r.sug) return `${name} ${chip("gu-how priv", "to create")}<div class="mini">${r.uWant.size ? `<span style="color:var(--on);font-weight:700">+${r.uWant.size}</span> to fill` : `<span class="muted">no users to put in it</span>`}${held}</div>`;
     const ok = !r.uAdd.length && !r.uRemove.length;
@@ -3185,6 +3192,8 @@ const MdeRolloutV2Tool = (() => {
         ? "Likely impact: an added member gets the new MDE policies at its next Intune check-in (the old ones leave once ⚡③ excluded the wave); a removed one goes back to the old set. Reverted members stay out unless re-included with the confirm. Way back: 📜 Undo — the inverse of what was written."
         : p.runKind === "testmembers"
         ? "Likely impact: at their next Intune check-in the added users and devices get what the wave is assigned — the new MDE policies, and once ⚡③ excluded the wave, no longer the old ones. A member moved to live changes nothing on the device: the same wave through the nested country group, only the test route goes. A test member taken out completely goes back to whatever their country gives them. The test group is not a country group: no 👥 / 🔄 sync adds to it or takes from it. Way back: 📜 Undo — the inverse of what was written (a group this run created is left in place, empty after the undo)."
+        : p.runKind === "exscan"
+        ? "Likely impact: out of the group, the member leaves the wave — at its next Intune check-in the new MDE policies stop reaching it (they excluded it already) and, once ⚡③ excluded the wave from the old ones, the old set reaches it again, which is what the exclusion is for. The 👥 / 🔄 sync holds an excluded member out of the static country groups, so a sync does not put it back; a 🧪 test group is not synced at all. Way back: 📜 Undo — the inverse of what was written — or take the member out of the exclusion group."
         : p.runKind === "revert"
         ? "Likely impact: at the next Intune check-in the new MDE policies come off and the old ones apply — ASR sits at “not configured” until the old policy lands. A member leaves its country group only once it is in Revert (read back), so a sync never takes it back in by accident. Way back: ↩ Back into the wave under Reverted now, or 📜 Undo."
         : p.pilotsReady
@@ -3290,6 +3299,9 @@ const MdeRolloutV2Tool = (() => {
         else { const can = MdeExclude.listTicks(ex.list); for (const k of [...ex.lticks]) if (!can.has(k) && exListLocked(k)) ex.lticks.delete(k); }
       }
       if (p.exclusions) { ex.sel.clear(); if (!p.bulk && ex.card) setTimeout(() => exPick(ex.card.pick, true), 0); }
+      // 🔎 (10698): the waves are scanned again after any exclusion run, and
+      // after one of the scan's own — the tenant's answer, not the plan's
+      if (p.exclusions && ex.base && exScanWaves().length) setTimeout(() => exScan(), 0);
       else if (p.pilotsReady) mem.pilSel.clear();
       else if (p.pins) { if (mem.unpin) mem.unpin.clear(); }
       else if (p.skips) { if (mem.skipEdits) mem.skipEdits.clear(); }
@@ -3763,7 +3775,10 @@ const MdeRolloutV2Tool = (() => {
       const next = await MdeExclude.readBase(exGroups(), (m) => { const el = $("mvExProg"); if (el) el.textContent = m; projectLine("exclusions", m); });
       if (!projectValid(epoch)) return;
       ex.base = next;
+      ex.scan = null; ex.scanErr = ""; ex.scanSel = new Set();
       projectSource("exclusions", (next.failed || []).length ? "partial" : "ready", (next.failed || []).join("; "));
+      // 🔎 (10698): every read of the exclusion groups scans the waves for them
+      if (exScanWaves().length) setTimeout(() => exScan(), 0);
     } catch (e) { if (!projectValid(epoch)) return; ex.base = null; ex.error = GroupUse.shortErr(e, 300); projectSource("exclusions", "failed", ex.error); }
     finally { if (projectValid(epoch)) { ex.loading = false; render(); } }
   }
@@ -3810,6 +3825,63 @@ const MdeRolloutV2Tool = (() => {
     const p = MdeExclude.planRemove(rows, exGroups());
     plan = Object.assign(p, { members: true, title: `Out of the exclusion groups — ${plural(rows.length, "row")}` });
     renderMemPlan();
+  }
+  // ------------------------------------------ 🔎 in a wave anyway (10698) --
+  // Mihai: "make sure that there is check that excluded users never (in a
+  // nested exclusion group) never gets in the wave through a other nested
+  // group. it should be removed or there should be a option in the
+  // exclusion overview to do a scan check and remove the users." Scanned
+  // after every read of the exclusion groups, and again on the button; the
+  // rows found are ticked, the dry run takes them out of the static groups.
+  const exScanWaves = () => waveRows.filter((w) => w.role === "wave" && w.id);
+  async function exScan() {
+    if (!ex.base || ex.scanBusy) return;
+    const epoch = project.epoch;
+    ex.scanBusy = true; ex.scanErr = ""; ex.scanLine = "Scanning the waves…"; render();
+    try {
+      await Graph.ensureScopes(MdeExclude.scopes());
+      const r = await MdeExclude.scanWaves(ex.base, exScanWaves(), exOpt(), (m) => { ex.scanLine = m; const el = $("mvExScanProg"); if (el) el.textContent = m; });
+      if (!projectValid(epoch)) return;
+      ex.scan = r;
+      ex.scanSel = new Set(r.rows.map((x) => x.key));
+    } catch (e) { if (!projectValid(epoch)) return; ex.scanErr = GroupUse.shortErr(e, 300); }
+    finally { if (projectValid(epoch)) { ex.scanBusy = false; ex.scanLine = ""; render(); } }
+  }
+  function exScanDryRun() {
+    if (busy || !ex.scan) return;
+    const rows = ex.scan.rows.filter((r) => ex.scanSel.has(r.key));
+    if (!rows.length) return;
+    planAnchor = "mvExScan"; clearPlan(); seatPlan();
+    const p = MdeExclude.planScan(rows, ex.scanSel);
+    plan = Object.assign(p, { members: true });
+    renderMemPlan();
+  }
+  function exScanHtml() {
+    if (!ex.base) return "";
+    const S = ex.scan;
+    const head = (body) => `<div class="list-card" id="mvExScan" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h4 style="margin:0">🔎 In a wave anyway</h4>
+        <span class="mini muted">${S ? `${esc(plural(S.excluded.users, "excluded user"))} · ${esc(plural(S.excluded.devices, "excluded device"))} · ${esc(plural(S.waves, "wave"))} scanned ${esc(new Date(S.readAt).toLocaleTimeString())}` : ""} <button class="btn" id="mvExScanGo"${ex.scanBusy ? " disabled" : ""}>${ex.scanBusy ? "Scanning…" : S ? "↻ Scan again" : "🔎 Scan the waves"}</button></span></div>
+      <p class="mini muted" style="margin:6px 0 0">An excluded user or device — a member of a group nested in the exclusion groups counts too — should not be in a wave: the new policies exclude it, and once ⚡③ excluded the wave from the old ones, nothing reaches it. The scan reads every wave's members, nested groups included, and names the route in. A route through a static group can be taken out here; a dynamic group's rule would put the member back.</p>
+      ${ex.scanBusy ? `<p class="mini" id="mvExScanProg" style="margin:8px 0 0">${esc(ex.scanLine || "Scanning the waves…")}</p>` : ""}
+      ${ex.scanErr ? `<div class="gu-fail" style="margin-top:8px"><b>${esc(ex.scanErr)}</b></div>` : ""}
+      ${body}</div>`;
+    if (!S) return head(!exScanWaves().length ? `<p class="mini muted" style="margin:8px 0 0">The waves are not known yet — read the policies and wave groups first.</p>` : "");
+    const routeHtml = (rt) => {
+      const where = rt.group ? `<b>${esc(rt.wave.name)}</b> <span class="muted">through</span> ${esc(rt.group.name)}` : `<b>${esc(rt.wave.name)}</b> <span class="muted">(direct member)</span>`;
+      const tag = rt.unknown ? chip("gu-how priv", "route not read") : rt.dynamic ? chip("au-op delete", "dynamic — cannot be taken out") : rt.deep ? chip("gu-how priv", "nested deeper — open in Entra") : chip("au-op create", "static — can be taken out");
+      return `<div>${where} ${tag}</div>`;
+    };
+    const rows = S.rows.map((r) => `<tr class="${ex.scanSel.has(r.key) ? "mr-selrow" : ""}"><td><input type="checkbox" data-mrexscansel="${esc(r.key)}"${ex.scanSel.has(r.key) ? " checked" : ""} aria-label="select"></td>
+      <td class="mini">${r.kind === "user" ? "👤" : "💻"} <b>${esc(r.name)}</b>${r.upn && r.upn !== r.name ? `<div class="muted">${esc(r.upn)}</div>` : ""}${r.via ? `<div class="muted">excluded through ${esc(r.via)}</div>` : ""}</td>
+      <td class="mini">${r.routes.map(routeHtml).join("")}</td></tr>`).join("");
+    const canOut = MdeExclude.planScan(S.rows.filter((r) => ex.scanSel.has(r.key)), ex.scanSel);
+    const n = canOut.counts.users + canOut.counts.devices;
+    return head(`${S.failed.length ? `<div class="gu-fail" style="margin-top:8px"><b>Partly scanned:</b><span class="why">${S.failed.map(esc).join("<br>")}</span></div>` : ""}
+      ${S.rows.length ? `<p class="mini" style="margin:8px 0 0;color:var(--off)"><b>${esc(plural(S.users, "excluded user"))} and ${esc(plural(S.devices, "excluded device"))} ${S.users + S.devices === 1 ? "is" : "are"} in a wave.</b></p>
+        <div style="overflow-x:auto;margin-top:8px"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:34%"><col></colgroup><thead><tr><th></th><th>Who</th><th>In the wave through</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="tb-actions" style="margin-top:8px"><button class="btn primary" id="mvExScanDry"${n && !busy ? "" : " disabled"}>② Dry run — take ${esc(plural(n, "member"))} out</button><span class="mini muted">Out of the static groups only. A removal is typed: REMOVE. From this build the 👥 / 🔄 sync holds excluded users and devices out of the country groups, so they are not put back.</span></div>`
+        : `<p class="mini" style="margin:8px 0 0;color:var(--on)"><b>No excluded user or device is in a wave.</b>${S.nested.user.length || S.nested.device.length ? ` <span class="muted">Nested in the exclusion groups: ${esc([...S.nested.user, ...S.nested.device].map((g) => g.name).join(", "))}.</span>` : ""}</p>`}`);
   }
   const gName = (id) => names.get(lc(id)) || (ex.card && ex.card.names.get(lc(id))) || id;
   const shortDate = (iso) => { const t = Date.parse(iso || ""); return Number.isFinite(t) ? new Date(t).toLocaleDateString() : "never"; };
@@ -4048,13 +4120,13 @@ const MdeRolloutV2Tool = (() => {
         <span class="muted">${esc(h.type === "user" ? h.upn : (h.primary ? `primary user ${h.primary}` : h.managed ? "no primary user" : "not in Intune"))}</span>
         <span class="mr-exr">${h.type === "user" ? `${plural(h.devices, "Windows device")}` : esc(h.os || "")}${h.excluded ? ` · <b style="color:var(--on)">excluded</b>` : ""}${h.stale ? " · stale" : ""}</span></button>`).join("");
     const modes = `<div class="mr-fixwith"><span class="seg" role="group" aria-label="One at a time or a list"><button type="button" class="${ex.mode === "list" ? "" : "active"}" data-mrexmode="one">🔎 One at a time</button><button type="button" class="${ex.mode === "list" ? "active" : ""}" data-mrexmode="list">📋 A list</button></span><span class="mini muted">${ex.mode === "list" ? "UPN · e-mail · device name — one per line, or , ;" : "name · UPN · e-mail · device name"}</span></div>`;
-    if (ex.mode === "list") return `<div class="list-card mr-stickyhost" style="margin-top:0">${modes}${intro}${warn}${exListHtml()}</div>${exNowHtml()}`;
+    if (ex.mode === "list") return `<div class="list-card mr-stickyhost" style="margin-top:0">${modes}${intro}${warn}${exListHtml()}</div>${exNowHtml()}${exScanHtml()}`;
     return `<div class="list-card mr-stickyhost" style="margin-top:0">${modes}${intro}${warn}
       <div class="mr-exsearch"><input id="mvExQ" type="search" placeholder="Search a user or device…" value="${esc(ex.q)}" autocomplete="off" spellcheck="false" aria-label="Search a user or device"><button class="btn primary" id="mvExGo"${ex.searching ? " disabled" : ""}>${ex.searching ? "Searching…" : "Search"}</button></div>
       ${ex.note ? `<p class="mini muted" style="margin:6px 0 0">${esc(ex.note)}</p>` : ""}
       ${hits ? `<div class="mr-exresults">${hits}</div>` : ""}
       ${exCardHtml()}
-    </div>${exNowHtml()}`;
+    </div>${exNowHtml()}${exScanHtml()}`;
   }
   function openExclusions() {
     pane = "exclusions"; view.cat = null; view.state = null; view.q = "";
@@ -4718,6 +4790,9 @@ const MdeRolloutV2Tool = (() => {
       if (t.id === "mvExGo") { exSearch(); return; }
       if (t.id === "mvExDry") { exDryRun(); return; }
       if (t.id === "mvExRemDry") { exRemoveDryRun(); return; }
+      // 🔎 in a wave anyway (10698)
+      if (t.id === "mvExScanGo") { if (plan && !busy && planAnchor === "mvExScan") clearPlan(); exScan(); return; }
+      if (t.id === "mvExScanDry") { exScanDryRun(); return; }
       // 📋 a list (10651)
       const xm = t.closest("[data-mrexmode]"); if (xm) {
         if (ex.mode !== xm.dataset.mrexmode) { ex.mode = xm.dataset.mrexmode; if (plan && !busy && (planAnchor === "mvExCard" || planAnchor === "mvExList")) clearPlan(); render(); const f = $(ex.mode === "list" ? "mvExListText" : "mvExQ"); if (f) f.focus(); }
@@ -4963,6 +5038,7 @@ const MdeRolloutV2Tool = (() => {
       if (t.dataset && t.dataset.mrtmrem) { const k = t.dataset.mrtmrem; t.checked ? tm.rem.delete(k) : tm.rem.add(k); if (plan && !busy && planAnchor === "mvTmPanel") clearPlan(); render(); return; }
       if (t.dataset.mrrvsel) { t.checked ? rv.sel.add(t.dataset.mrrvsel) : rv.sel.delete(t.dataset.mrrvsel); clearPlan(); render(); return; }
       if (t.dataset.mrexsel) { t.checked ? ex.sel.add(t.dataset.mrexsel) : ex.sel.delete(t.dataset.mrexsel); clearPlan(); render(); return; }
+      if (t.dataset.mrexscansel) { t.checked ? ex.scanSel.add(t.dataset.mrexscansel) : ex.scanSel.delete(t.dataset.mrexscansel); if (plan && !busy && planAnchor === "mvExScan") clearPlan(); render(); return; }
       if (t.id === "mvExKeep") { ex.keepOld = t.checked; clearPlan(); render(); return; }
       if (t.dataset.mrexltick) { t.checked ? ex.lticks.add(t.dataset.mrexltick) : ex.lticks.delete(t.dataset.mrexltick); clearPlan(); render(); return; }
       if (t.id === "mvExListAll") { const can = exListCan(); if (t.checked) can.forEach((k) => ex.lticks.add(k)); else ex.lticks.clear(); clearPlan(); render(); return; }

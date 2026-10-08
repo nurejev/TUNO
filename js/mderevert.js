@@ -146,9 +146,14 @@ const MdeRevert = (() => {
       const user = { add: [], leave: [], held: [], heldIn: [] };
       // a pilot in batches fills its static group batch by batch (10681)
       const batchOpen = !!(r.batch && !r.batch.finished);
+      // ⊘ (10698): a user in the exclusion group is held like a reverted one
+      // — still in the static group, they are listed to leave; not in it,
+      // they are not offered (they come back by leaving ⊘, not by 🔄)
+      const exU = input.excludedUsers || new Map();
       for (const u of src) {
-        if (batchOpen && !have.has(u.id) && !X.revertUsers.has(u.id)) continue;
-        if (X.revertUsers.has(u.id)) { if (have.has(u.id)) user.heldIn.push(u); else user.held.push(Object.assign({ reason: (reasons[u.id] || {}).reason || "" }, u)); }
+        if (batchOpen && !have.has(u.id) && !X.revertUsers.has(u.id) && !exU.has(u.id)) continue;
+        if (X.revertUsers.has(u.id)) { if (have.has(u.id)) user.heldIn.push(Object.assign({ why: "reverted" }, u)); else user.held.push(Object.assign({ reason: (reasons[u.id] || {}).reason || "" }, u)); }
+        else if (exU.has(u.id)) { if (have.has(u.id)) user.heldIn.push(Object.assign({ why: "excluded" }, u)); }
         else if (!have.has(u.id)) user.add.push(u);
       }
       for (const id of have) if (!srcIds.has(id)) user.leave.push({ id, upn: upnOf(id) });
@@ -206,7 +211,7 @@ const MdeRevert = (() => {
       if (r.dg) for (const d of r.device.add) out.push({ key: `add|d|${r.key}|${d.id}`, dir: "add", kind: "device", row: r, id: d.id, name: d.name, group: r.deviceGroupName });
       for (const u of r.user.leave) out.push({ key: `leave|u|${r.key}|${u.id}`, dir: "leave", kind: "user", row: r, id: u.id, name: u.upn, group: r.userGroupName, why: `no longer in ${r.source.name}` });
       for (const d of r.device.leave) out.push({ key: `leave|d|${r.key}|${d.id}`, dir: "leave", kind: "device", row: r, id: d.id, name: d.name, group: r.deviceGroupName, why: "its primary user is no longer in the country" });
-      for (const u of r.user.heldIn) out.push({ key: `heldin|u|${r.key}|${u.id}`, dir: "heldin", kind: "user", row: r, id: u.id, name: u.upn, group: r.userGroupName, why: "in Revert, yet still in the country group" });
+      for (const u of r.user.heldIn) out.push({ key: `heldin|u|${r.key}|${u.id}`, dir: "heldin", kind: "user", row: r, id: u.id, name: u.upn, group: r.userGroupName, why: u.why === "excluded" ? "⊘ excluded — kept on the old set" : "in Revert, yet still in the country group" });
       for (const d of r.device.heldIn) out.push({ key: `heldin|d|${r.key}|${d.id}`, dir: "heldin", kind: "device", row: r, id: d.id, name: d.name, group: r.deviceGroupName, why: d.why === "reverted" ? "in Revert, yet still in the country group" : "⊘ excluded — kept on the old set" });
       if (r.ug) for (const u of r.user.held) out.push({ key: `reinc|u|${r.key}|${u.id}`, dir: "reinc", kind: "user", row: r, id: u.id, name: u.upn, group: r.userGroupName, reason: u.reason, wave: w.userName || r.region });
       if (r.dg) for (const d of r.device.held) out.push({ key: `reinc|d|${r.key}|${d.id}`, dir: "reinc", kind: "device", row: r, id: d.id, name: d.name, group: r.deviceGroupName, reason: d.reason, wave: w.deviceName || r.region });
@@ -312,7 +317,7 @@ const MdeRevert = (() => {
       if (r.batchOpen) { skipped.push(`${tag}: a pilot in batches — 🧪 finish it in 👥 first`); continue; }
       if (!r.userGroupName) { skipped.push(`${tag}: ${r.why || "no ISO3 code"}`); continue; }
       if (!r.wave || !r.wave.user) { skipped.push(`${tag}: ${(r.wave && r.wave.userName) || "its user wave"} does not exist`); continue; }
-      if (r.user.held.length || r.user.heldIn.length) { skipped.push(`${tag}: ${plural(r.user.held.length + r.user.heldIn.length, "user")} of the source ${r.user.held.length + r.user.heldIn.length === 1 ? "is" : "are"} in ${cfg.revertUser} — the wave's membership would change; sort that out in 🔄 first`); continue; }
+      if (r.user.held.length || r.user.heldIn.length) { skipped.push(`${tag}: ${plural(r.user.held.length + r.user.heldIn.length, "user")} of the source ${r.user.held.length + r.user.heldIn.length === 1 ? "is" : "are"} held (${cfg.revertUser} or ⊘ excluded) — the wave's membership would change; sort that out in 🔄 first`); continue; }
       const who = `${r.country} · swap`;
       const wave = { id: lc(r.wave.user.id), name: r.wave.user.displayName };
       if (!r.ug) { skipped.push(`${tag}: ${r.userGroupName} does not exist — create & fill it in 👥 Wave members first`); continue; }

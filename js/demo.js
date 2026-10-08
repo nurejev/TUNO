@@ -1922,8 +1922,9 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
     return M.coll((g._devices || []).map((aad) => { const d = T.DEVICES.find((x) => x.azureADDeviceId === aad); return { id: aad, deviceId: aad, displayName: d ? d.deviceName : aad }; }));
   }
+  // (10698: with the kind and the rule — T28's ⊘ scan asks for them)
   m = /^\/groups\/([^/]+)\/members\/microsoft\.graph\.group$/.exec(path);
-  if (m) return M.coll(T.GROUPS.filter((g) => (g.memberOf || []).includes(m[1])).map((g) => ({ id: g.id, displayName: g.displayName })));
+  if (m) return M.coll(T.GROUPS.filter((g) => (g.memberOf || []).includes(m[1])).map((g) => ({ id: g.id, displayName: g.displayName, groupTypes: g.groupTypes || [], membershipRule: g.membershipRule || null })));
   m = /^\/groups\/([^/]+)\/transitiveMembers\/microsoft\.graph\.group$/.exec(path);
   if (m) return M.coll(T.GROUPS.filter((g) => (g.memberOf || []).includes(m[1])).map((g) => ({ id: g.id, displayName: g.displayName })));
   m = /^\/groups\/([^/]+)\/transitiveMembers$/.exec(path);
