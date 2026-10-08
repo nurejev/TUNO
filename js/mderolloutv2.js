@@ -3782,12 +3782,20 @@ const MdeRolloutV2Tool = (() => {
     } catch (e) { if (!projectValid(epoch)) return; ex.base = null; ex.error = GroupUse.shortErr(e, 300); projectSource("exclusions", "failed", ex.error); }
     finally { if (projectValid(epoch)) { ex.loading = false; render(); } }
   }
+  // 10699 (Mihai: "it keeps holding the latest search"): every search
+  // starts fresh — the previous hit's card, its ticks and the plan under it
+  // go with the previous results; so does emptying the box.
+  function exClearCard() {
+    ex.card = null; ex.cardError = ""; ex.cardLoading = false; ex.ticks = new Set();
+    if (plan && !busy && planAnchor === "mvExCard") clearPlan();
+  }
   async function exSearch() {
     const input = $("mvExQ");
     ex.q = input ? input.value : ex.q;
     if (!ex.base) await exRead();
     if (!ex.base || ex.searching) return;
-    ex.searching = true; ex.note = ""; render();
+    exClearCard();
+    ex.searching = true; ex.note = ""; ex.results = null; render();
     try {
       const r = await MdeExclude.search(ex.q, ex.base, exOpt());
       ex.results = r.results;
@@ -4885,6 +4893,7 @@ const MdeRolloutV2Tool = (() => {
     });
     body.addEventListener("keydown", (e) => {
       if (e.target.id === "mvExQ" && e.key === "Enter") { e.preventDefault(); exSearch(); return; }
+      if (e.target.id === "mvExQ" && e.key === "Escape") { e.target.value = ""; ex.q = ""; ex.results = null; ex.note = ""; exClearCard(); render(); return; }
       if (e.target.id === "mvTmQ" && e.key === "Enter") { e.preventDefault(); tmSearch(); return; }
       if (e.target.id === "mvRvQ" && e.key === "Enter") { e.preventDefault(); rvSearch(); return; }
       if (e.target.id === "mvRvGroup" && e.key === "Enter") { e.preventDefault(); rvListGroup(); return; }
@@ -4908,7 +4917,6 @@ const MdeRolloutV2Tool = (() => {
       e.preventDefault(); exListFile(f);
     });
     body.addEventListener("input", (e) => {
-      if (e.target.id === "mvExQ") { ex.q = e.target.value; return; }
       if (e.target.id === "mvLdQ") {
         ld.q = e.target.value;
         const pos = e.target.selectionStart;
@@ -4932,6 +4940,8 @@ const MdeRolloutV2Tool = (() => {
         return;
       }
       if (e.target.id === "mvRvReason") { rv.reason = e.target.value; if (plan && plan.runKind === "revert" && !busy) clearPlan(); return; }
+      // ⊘ (10699): the box emptied (its ✕, or every character deleted) — the hits and the card go
+      if (e.target.id === "mvExQ") { ex.q = e.target.value; if (!ex.q.trim() && (ex.results || ex.card || ex.note)) { ex.results = null; ex.note = ""; exClearCard(); render(); const q = $("mvExQ"); if (q) q.focus(); } return; }
       if (e.target.id === "mvExtQ") { ext.q = e.target.value; const b = $("mvExtGo"); if (b && !ext.searching) { const pasted = MdeEdgeExt.fromInput(ext.q); b.disabled = !pasted && !TunoAddons.hasRoute(); b.textContent = pasted ? "Look it up" : "Search the store"; } return; }
       if (e.target.id === "mvExListText") {
         ex.listText = e.target.value;

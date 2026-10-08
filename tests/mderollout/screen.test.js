@@ -560,6 +560,14 @@ async function run() {
   ok("…the card under Excluded now says so: 1 excluded user in a wave, the route dynamic — nothing to take out here", $("mvExNow").nextElementSibling === $("mvExScan") && /1 excluded user and 0 excluded devices is in a wave/.test($("mvExScan").textContent)
     && /dynamic — cannot be taken out/.test($("mvExScan").textContent) && $("mvExScanDry").disabled && /take 0 members out/.test($("mvExScanDry").textContent), $("mvExScan").textContent.slice(0, 400));
   ok("…and Needs attention carries the finding", st().projectFindings().some((x) => x.id === "exscan" && /1 excluded member is still in a wave/.test(x.title) && x.to === "exclusions"));
+  // 10699 (Mihai: "it keeps holding the latest search"): a new search drops
+  // the previous card with the previous hits; emptying the box drops both
+  $("mvExQ").value = "nina"; $("mvExQ").dispatchEvent(new w.Event("input", { bubbles: true }));
+  $("mvExQ").dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  ok("a new search starts fresh: Eva's card is gone while Nina's hits come", !st().ex.card && !$("mvExCard")
+    && await until(() => st().ex.results && st().ex.results.some((r) => r.type === "user" && r.displayName === "Nina Nieuw"), 10000, "search nina") && !st().ex.card && !$("mvExCard"));
+  $("mvExQ").value = ""; $("mvExQ").dispatchEvent(new w.Event("input", { bubbles: true }));
+  ok("the box emptied: the hits go too, Excluded now stays", !st().ex.results && !D.querySelector(".mr-exresults") && !!$("mvExNow") && !!$("mvExScan"));
   w.MdeRolloutV2Tool._pane("changes");
   D.querySelector(`[data-mrundo="${xr}"]`).click();
   ok("📜 undo: the inverse, a typed REMOVE", await until(() => st().plan && /Undo/.test(st().plan.title), 10000, "undo plan") && st().plan.exclusions && !!$("mvConfirmText") && st().plan.ops.length === 3);
