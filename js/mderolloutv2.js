@@ -59,7 +59,15 @@ const MdeRolloutV2Tool = (() => {
   // 🧪 Test members per wave (10688, option A off the mockup): the region
   // whose panel is open, each region's test groups as read, the list looked
   // up from a CSV / paste, its ticks, and the current members ticked out
-  const tm = { region: null, test: new Map(), loading: false, error: "", text: "", note: "", busy: false, list: [], ticks: new Set(), rem: new Set(), misses: [] };
+  // 10696 (Mihai: "the others are testuser per wave with option in and later
+  // take all or one out of the wave and to live. or out completely" —
+  // option B off the mockup, NL Breda kept as it is): the card lives as a
+  // row per wave in 👥 Membership & pilots, adds by search first (q, hits,
+  // searching) and CSV second (csv open), and takes members out two ways —
+  // `live` (to live: out of the test groups, kept in the wave through a
+  // nested country group) and `rem` (out completely). `all`: every region's
+  // test groups read once after 👥's read.
+  const tm = { region: null, test: new Map(), loading: false, error: "", text: "", note: "", busy: false, list: [], ticks: new Set(), rem: new Set(), live: new Set(), misses: [], q: "", hits: null, searching: false, csv: false, all: false, allAt: 0 };
   // 📡 Landing (10689, option A off the mockup canvas): Intune's check-in
   // status per new policy, joined to the wave members — the model, when it
   // was read, the running line, the region and the filter shown, the search
@@ -621,7 +629,7 @@ const MdeRolloutV2Tool = (() => {
     mem.left = false; mem.leftCountry = null; mem.leftReason = null; mem.pil = false; mem.pilState = null; mem.pilSel.clear();
     mem.logons.clear(); mem.looked.clear(); mem.logBusy = ""; mem.logError = "";
     Object.assign(dv, { busy: false, status: "", at: null, idx: null, prev: null, prevAt: null, error: "" });
-    Object.assign(tm, { region: null, loading: false, error: "", text: "", note: "", busy: false, list: [], misses: [] }); tm.test.clear(); tm.ticks.clear(); tm.rem.clear();
+    Object.assign(tm, { region: null, loading: false, error: "", text: "", note: "", busy: false, list: [], misses: [], q: "", hits: null, searching: false, csv: false, all: false, allAt: 0 }); tm.test.clear(); tm.ticks.clear(); tm.rem.clear(); tm.live.clear();
     Object.assign(ex, { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "" });
     ex.ticks.clear(); ex.sel.clear(); ex.lticks.clear();
     Object.assign(ex, { mode: "one", listText: "", list: null, listBusy: false, listNote: "", listErr: "", keepOld: true }); planAnchor = null;
@@ -931,7 +939,8 @@ const MdeRolloutV2Tool = (() => {
       let testCell = `<span class="mini muted">—</span>`;
       if (w.role === "wave") {
         const t = tm.test.get(w.region), side = t && t[w.audience];
-        const btn = w.audience === "user" ? `<div><button class="btn" type="button" data-mrtest="${esc(w.region)}">🧪 Test members${tm.region === w.region ? " ▴" : " ▾"}</button></div>` : "";
+        // 10696: the card lives in 👥 — this column points at it
+        const btn = w.audience === "user" ? `<div><button class="btn" type="button" data-mrtestgo="${esc(w.region)}">🧪 Test members in 👥 →</button></div>` : "";
         testCell = side ? (side.group ? `<b>${plural(side.members.length, w.audience)}</b> in <code>${esc(side.name)}</code>${side.nested ? "" : ` <span style="color:var(--report)">· not nested</span>`}` : `<span class="muted">no test group yet</span>`) + btn
           : btn || `<span class="muted">—</span>`;
       }
@@ -958,7 +967,7 @@ const MdeRolloutV2Tool = (() => {
       <p class="mini muted" style="margin:0 0 10px">The rollout's groups, from the ⚙️ naming rules: per region a <b>device</b> wave for the <code>- D -</code> policies and a <b>user</b> wave for the <code>- U -</code> ones, plus one device and one user <b>exclusion</b> group to exclude from the new policies. A missing one can be created here as an <b>assigned (static) security group</b> — empty, not mail-enabled, not role-assignable — the same payload T22 creates, <b>owned by you</b>: Graph does not make an admin the owner of a security group they create, so you are named owner in the create and the owners are read back. Membership is yours to fill (Entra, or 🔄 T22). Each group is looked up again by name right before it is created, so a group made meanwhile is never made twice.</p>
       <p class="mini" style="margin:0 0 10px;color:var(--report)">⚠ Intune does not exclude a user group from a policy assigned to device groups, or the reverse — it does not evaluate user-to-device relationships (Microsoft Learn, assignment support matrix). So the ⚔️ pane excludes the wave of the old policy's kind: a device-targeted old policy gets the region's device wave, even when the new policy included the user wave.</p>
       <div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:23%"><col style="width:10%"><col style="width:14%"><col style="width:17%"><col style="width:16%"><col></colgroup><thead><tr><th></th><th>Group</th><th>Status</th><th>For · kind</th><th title="New policies of this group's kind (or whose name does not say) that include it — or, for an exclusion group, exclude it">New policies</th><th>Old to exclude it</th><th title="Users and devices put in this wave ahead of their country, through a test group nested in it">🧪 Test members</th></tr></thead><tbody>${rows}</tbody></table></div>
-      ${tm.region ? tmPanelHtml() : ""}
+
       <div class="tb-actions" style="margin-top:12px">
         <label class="chk" style="margin:0"><input type="checkbox" id="mvWaveOk"${nSel ? "" : " disabled"}> Create ${plural(nSel, "group")} in this tenant</label>
         <button class="btn primary" id="mvWaveCreate" disabled>🌊 Create the selected groups</button>
@@ -998,6 +1007,18 @@ const MdeRolloutV2Tool = (() => {
     return null;
   }
   const tmCtx = () => ({ cfg: mcfg(), region: tm.region, countryRegion: tmCountryRegion });
+  // every wave's test groups, once 👥 has read (the row in the members
+  // table counts them); a region already read is kept
+  async function tmReadAll() {
+    if (tm.all || !waveRows.length) return;
+    tm.all = true;
+    try {
+      await Graph.ensureScopes(Graph.SCOPES.groups);
+      for (const r of MdeTest.regions(waveRows)) if (!tm.test.has(r)) tm.test.set(r, await MdeTest.read(waveRows, r, () => {}));
+      tm.allAt = Date.now();
+    } catch (e) { tm.error = GroupUse.shortErr(e, 300); tm.all = false; }
+    finally { if (pane === "members") render(); }
+  }
   async function tmRead(region) {
     tm.loading = true; tm.error = ""; render();
     try {
@@ -1017,10 +1038,41 @@ const MdeRolloutV2Tool = (() => {
   }
   function tmOpen(region) {
     if (tm.region === region) { tm.region = null; render(); return; }
-    Object.assign(tm, { region, error: "", text: "", note: "", list: [], misses: [] });
-    tm.ticks.clear(); tm.rem.clear();
+    Object.assign(tm, { region, error: "", text: "", note: "", list: [], misses: [], q: "", hits: null, csv: false });
+    tm.ticks.clear(); tm.rem.clear(); tm.live.clear();
     if (plan && !busy && planAnchor === "mvTmPanel") clearPlan();
     tmRead(region);
+  }
+  // 🌊's column: to the row in 👥, opened
+  function tmGo(region) {
+    pane = "members"; mem.region = region; mem.unmapped = false; mem.left = false; mem.pil = false;
+    if (tm.region !== region) tmOpen(region); else render();
+    const el = $("mvTmPanel"); if (el && el.scrollIntoView) el.scrollIntoView({ block: "start" });
+  }
+  // the live state of the open region's members, from 👥's rows
+  const tmLive = (region) => MdeTest.liveOf(tm.test.get(region), mem.model ? mem.model.rows : []);
+  // 🔎 search first (⊘'s search): a user or a device by name
+  async function tmSearch() {
+    const input = $("mvTmQ"); if (input) tm.q = input.value;
+    if (!tm.region || tm.searching || String(tm.q).trim().length < 2) return;
+    tm.searching = true; tm.error = ""; render();
+    try {
+      if (!ex.base) await exRead();
+      if (!ex.base) throw new Error(ex.error || "The Intune device list could not be read.");
+      await Graph.ensureScopes(MdeExclude.scopes());
+      const r = await MdeExclude.search(tm.q, ex.base, exOpt());
+      tm.hits = r.results || [];
+      tm.note = r.note || (!tm.hits.length ? `Nothing found for “${r.term}”.` : "");
+    } catch (e) { tm.hits = []; tm.error = GroupUse.shortErr(e, 240); }
+    finally { tm.searching = false; render(); const q = $("mvTmQ"); if (q) q.focus(); }
+  }
+  // ＋ a hit joins the list the way a CSV line does — one lookup, the same entry
+  async function tmAddHit(key) {
+    const h = (tm.hits || []).find((x) => x.key === key);
+    if (!h || tm.busy) return;
+    tm.text = h.type === "user" ? (h.upn || h.mail || h.displayName) : h.name;
+    tm.hits = (tm.hits || []).filter((x) => x.key !== key);
+    await tmLookup();
   }
   async function tmLookup() {
     const t = $("mvTmText"); if (t) tm.text = t.value;
@@ -1041,6 +1093,7 @@ const MdeRolloutV2Tool = (() => {
       tm.misses = L.items.filter((it) => !it.card);
       tm.note = `${plural(added.length, "line")} found${tm.misses.length ? ` · ${tm.misses.length} not` : ""}${parsed.truncated ? ` · only the first ${parsed.max} of ${parsed.total} looked up` : ""}${L.failed.length ? ` · partly read: ${L.failed.slice(0, 2).join("; ")}` : ""}.`;
       if (!parsed.truncated) tm.text = "";
+      tm.csv = tm.csv && !!tm.text;
       if (plan && !busy && planAnchor === "mvTmPanel") clearPlan();
     } catch (e) { tm.error = GroupUse.shortErr(e, 300); tm.note = ""; }
     finally { tm.busy = false; render(); }
@@ -1060,52 +1113,101 @@ const MdeRolloutV2Tool = (() => {
     const t = tm.test.get(tm.region);
     if (!t) return;
     planAnchor = "mvTmPanel"; clearPlan(); seatPlan();
-    const p = MdeTest.plan(t, tm.list, tm.ticks, tm.rem, tm.region);
+    const live = tmLive(tm.region), L = new Map();
+    for (const id of tm.live) L.set(id, live.get(id) || { live: false, group: "" });
+    const p = MdeTest.plan(t, tm.list, tm.ticks, tm.rem, tm.region, L);
     plan = Object.assign(p, { members: true });
     renderMemPlan();
   }
-  function tmPanelHtml() {
+  // 🧪 the card (10696, option B — the Breda pilot's look): the region's test
+  // groups with their nesting state, the members with their route into the
+  // wave and the two ways out, the list being added with ticks, the search
+  // box first and the CSV folded behind it, then ② Dry run.
+  function tmRowHtml(rg) {
+    const r = rg.region, t = tm.test.get(r), N = MdeTest.names(waveRows, r);
+    const open = tm.region === r;
+    const side = (a) => { const x = t && t[a]; return !N[a].name ? `<span class="muted">no ${a} wave</span>` : !t ? `<span class="muted">${tm.all ? "reading…" : "not read"}</span>` : !x.group ? `<code>${esc(N[a].name)}</code> <span class="muted">not created yet</span>` : `<code>${esc(x.name)}</code> ${x.nested ? chip("au-op create", "nested") : `<span style="color:var(--report)">not nested</span>`}`; };
+    const live = t ? tmLive(r) : new Map();
+    const nLive = [...live.values()].filter((v) => v.live).length;
+    const pending = [tm.region === r && tm.ticks.size ? `${tm.ticks.size} to add` : "", tm.region === r && tm.live.size ? `${tm.live.size} → live` : "", tm.region === r && tm.rem.size ? `${tm.rem.size} out` : ""].filter(Boolean).join(" · ");
+    return `<tr class="mr-testrow${open ? " mr-selrow" : ""}"><td><span title="The wave's test group — the pilot of this wave; the waves themselves are the batches">🧪</span></td>
+      <td><a href="#" data-mrtest="${esc(r)}"><b>🧪 Test members · ${esc(r)} ${open ? "▴" : "▾"}</b></a> <span class="gu-how priv" title="Users and devices put in this wave ahead of their country, through the test groups nested in it">ahead of their country</span><div class="mini muted">${esc(N.user.name || "")}${N.device.name ? ` · ${esc(N.device.name)}` : ""}</div></td>
+      <td class="mini" style="text-align:right">${t && t.user ? t.user.members.length.toLocaleString() : "—"}</td>
+      <td class="mini" style="text-align:right">${t && t.device ? t.device.members.length.toLocaleString() : "—"}</td>
+      <td class="mini">${side("user")}</td>
+      <td class="mini">${side("device")}</td>
+      <td class="mini">${pending ? `<b>${esc(pending)}</b>` : nLive ? `${nLive} covered by a live country · <a href="#" data-mrtest="${esc(r)}">move to live →</a>` : t ? `<span class="muted">—</span>` : ""}</td></tr>${open ? `<tr><td colspan="7" style="padding:0 8px 12px 34px">${tmCard()}</td></tr>` : ""}`;
+  }
+  function tmCard() {
     const r = tm.region, t = tm.test.get(r), N = MdeTest.names(waveRows, r);
-    const sideHtml = (a) => {
+    const live = tmLive(r);
+    const groups = ["user", "device"].map((a) => {
       const side = t && t[a];
-      if (!N[a].name) return `<p class="mini muted" style="margin:4px 0">No ${a} wave for ${esc(r)} in ⚙️.</p>`;
-      if (!t) return `<p class="mini muted" style="margin:4px 0"><code>${esc(N[a].name)}</code> — ${tm.loading ? "reading…" : "not read"}</p>`;
-      const head = `<p class="mini" style="margin:6px 0 4px"><b>${a === "user" ? "👤" : "💻"} <code>${esc(side.name)}</code></b> — ${side.dupes ? `<span style="color:var(--off)">${side.dupes} groups share this name</span>`
-        : side.group ? `${plural(side.members.length, a)} · ${side.nested ? `nested in ${esc(side.wave.name)}` : `<span style="color:var(--report)">not nested in ${esc(side.wave ? side.wave.name : "the wave")} yet — the dry run nests it</span>`}`
-        : `<span class="muted">not created yet — the first apply creates it and nests it in ${esc(side.wave ? side.wave.name : "the wave")}</span>`}${side.wave && !side.wave.exists ? ` · <span style="color:var(--off)">${esc(side.wave.name)} does not exist — create it above first</span>` : ""}</p>`;
-      const rows = side.members.map((m) => `<label class="chk" style="display:inline-flex;gap:6px;margin:2px 10px 2px 0"><input type="checkbox" data-mrtmrem="${esc(m.id)}"${tm.rem.has(m.id) ? "" : " checked"}> ${esc(m.name)}${m.upn && m.upn !== m.name ? ` <span class="muted">${esc(m.upn)}</span>` : ""}</label>`).join("");
-      return head + (rows ? `<div class="mini" style="margin:0 0 4px">${rows}</div>` : "");
-    };
-    const parsed = MdeTest.parse(tm.text);
+      if (!N[a].name) return `<span class="mini muted">No ${a} wave for ${esc(r)} in ⚙️.</span>`;
+      if (!t) return `<span class="mini muted"><code>${esc(N[a].name)}</code> — ${tm.loading ? "reading…" : "not read"}</span>`;
+      return `<span class="mini">${a === "user" ? "👤" : "💻"} <code>${esc(side.name)}</code> ${side.dupes ? `<span style="color:var(--off)">${side.dupes} groups share this name</span>`
+        : side.group ? (side.nested ? chip("au-op create", `nested in ${side.wave.name}`) : `<span style="color:var(--report)">not nested in ${esc(side.wave ? side.wave.name : "the wave")} yet — the dry run nests it</span>`)
+        : `<span class="muted">not created yet — the first apply creates it and nests it in ${esc(side.wave ? side.wave.name : "the wave")}</span>`}${side.wave && !side.wave.exists ? ` · <span style="color:var(--off)">${esc(side.wave.name)} does not exist — create it in 🌊 first</span>` : ""}</span>`;
+    }).join("");
+    // the members: their route into the wave, and the two ways out
+    const members = t ? [...(t.user ? t.user.members.map((m) => Object.assign({ kind: "user" }, m)) : []), ...(t.device ? t.device.members.map((m) => Object.assign({ kind: "device" }, m)) : [])] : [];
+    const nMovable = members.filter((m) => live.get(m.id) && live.get(m.id).live).length;
+    const nAhead = members.length - nMovable;
+    const memberRows = members.map((m) => {
+      const v = live.get(m.id);
+      const route = v ? (v.live ? `test group <b>and</b> <code>${esc(v.group)}</code> ${chip("au-op create", "live")}` : `test group · <code>${esc(v.group)}</code> holds ${m.kind === "user" ? "them" : "it"} but is not nested yet`) : `test group only${mem.model ? " — in no country group of the table" : ""}`;
+      const state = tm.live.has(m.id) ? chip("au-op update", "→ live") : tm.rem.has(m.id) ? chip("au-op delete", "out") : v && v.live ? `<span class="muted">covered — can move to live</span>` : v ? `<span class="muted">ahead of ${esc(v.country)}</span>` : `<span class="muted">ahead</span>`;
+      const acts = tm.live.has(m.id) || tm.rem.has(m.id)
+        ? `<button class="btn" type="button" data-mrtmkeep="${esc(m.id)}">keep in test</button>`
+        : `${v && v.live ? `<button class="btn" type="button" data-mrtmlive="${esc(m.id)}" title="Out of the test group; in the wave through ${esc(v.group)}">→ live</button> ` : ""}<button class="btn" type="button" data-mrtmout="${esc(m.id)}" title="Out of the test group and so out of the wave — back to the old policies">out</button>`;
+      return `<tr${tm.live.has(m.id) || tm.rem.has(m.id) ? ' class="mr-selrow"' : ""}><td class="mini">${m.kind === "user" ? "👤" : "💻"}</td><td><b>${esc(m.name)}</b>${m.upn && m.upn !== m.name ? ` <span class="mini muted">${esc(m.upn)}</span>` : ""}</td><td class="mini">${v ? esc(v.country) : "—"}</td><td class="mini">${route}</td><td class="mini">${state}</td><td class="mini" style="text-align:right;white-space:nowrap">${acts}</td></tr>`;
+    }).join("");
+    // the list being added (search hits taken, CSV lines looked up)
     const flag = (x, kind) => [x.already ? chip("au-op create", "already a test member") : "", x.avd ? chip("au-op delete", "-vdi- · out of scope") : "", x.revert ? chip("au-op update", "in ↩ Revert") : "", x.excluded ? chip("gu-how priv", "in ⊘ Exclusion") : "",
       kind === "device" && x.stale ? chip("gu-how priv", "no sync lately") : "", kind === "device" && x.problem ? `<span class="mini" style="color:var(--off)">${esc(x.problem)}</span>` : ""].filter(Boolean).join(" ");
     const tk = (key, on, dis, label) => `<input type="checkbox" data-mrtmtick="${esc(key)}"${on ? " checked" : ""}${dis ? " disabled" : ""} aria-label="${esc(label)}">`;
-    const rows = tm.list.map((e) => {
+    const addRows = tm.list.map((e) => {
       const u = e.user;
       const uCell = u ? `${tk(MdeTest.userKey(u), tm.ticks.has(MdeTest.userKey(u)), !MdeTest.tickable.user(u), u.name)} <b>${esc(u.name)}</b> <span class="muted">${esc(u.upn)}</span> ${flag(u, "user")}` : `<span class="muted">— a device line</span>`;
       const dCell = e.devices.length ? e.devices.map((d) => `<div>${tk(MdeTest.devKey(d), tm.ticks.has(MdeTest.devKey(d)), !MdeTest.tickable.device(d), d.name)} ${esc(d.name)} ${flag(d, "device")}</div>`).join("") : `<span class="muted">no Windows device</span>`;
-      return `<tr><td class="mini"><code>${esc(e.line)}</code></td><td class="mini">${uCell}${e.note ? `<div style="color:var(--report)">⚠ ${esc(e.note)}</div>` : ""}</td><td class="mini">${dCell}</td></tr>`;
+      return `<tr class="mr-selrow"><td class="mini">＋</td><td class="mini">${uCell}${e.note ? `<div style="color:var(--report)">⚠ ${esc(e.note)}</div>` : ""}</td><td class="mini muted">—</td><td class="mini">${dCell}</td><td class="mini">${chip("au-op update", "to add")}</td><td class="mini" style="text-align:right"><button class="btn" type="button" data-mrtmdrop="${esc(e.key)}">drop</button></td></tr>`;
     }).join("");
-    const missWhy = (it) => it.kind === "many" ? `${it.count} ${it.what} answer to it` : it.kind === "notwin" ? `not a Windows device (${it.note})` : it.kind === "listed" ? `already listed with ${it.note}` : it.kind === "error" ? `not read: ${it.note}` : it.line.includes("@") ? "no user has this UPN or e-mail" : "no device in Intune or Entra has this name";
-    const nTick = tm.ticks.size, nRem = tm.rem.size;
-    return `<div class="ep-brief" id="mvTmPanel" style="margin:12px 0 0">
-      <h4 style="margin:0 0 4px">🧪 Test members · ${esc(r)} <span class="mini muted" style="font-weight:400">— into ${[N.user.name, N.device.name].filter(Boolean).map((n) => `<code>${esc(n)}</code>`).join(" / ")}, nested in the waves</span></h4>
-      ${sideHtml("user")}${sideHtml("device")}
+    const missWhy = (it) => it.kind === "many" ? `${it.count} ${it.what} answer to it` : it.kind === "notwin" ? `not a Windows device (${it.note})` : it.kind === "listed" ? `already listed with ${it.note}` : it.kind === "error" ? `not read: ${it.note}` : it.line.includes("@") ? "no user has this UPN or e-mail" : "no device in Intune has this name";
+    // the search's hits
+    const hits = tm.hits === null ? "" : `<div class="mr-tmhits">${tm.hits.length ? tm.hits.map((h) => h.type === "user"
+      ? `<div class="mr-tmhit"><span>👤 <b>${esc(h.displayName)}</b> <span class="mini muted">${esc(h.upn || h.mail || "")}${h.devices ? ` · ${plural(h.devices, "Windows device")}` : " · no Windows device in Intune"}${h.excluded ? " · ⊘ excluded" : ""}</span></span><button class="btn" type="button" data-mrtmhit="${esc(h.key)}"${tm.busy ? " disabled" : ""}>＋ Add${h.devices ? " with devices" : ""}</button></div>`
+      : `<div class="mr-tmhit"><span>💻 <b>${esc(h.name)}</b> <span class="mini muted">${esc(h.os || "")}${h.primary ? ` · ${esc(h.primary)}` : ""}${h.stale ? " · no sync lately" : ""}${MdeMembers.isAvdName(h.name) ? ` · <span style="color:var(--off)">-vdi- · out of scope</span>` : ""}</span></span>${MdeMembers.isAvdName(h.name) ? "" : `<button class="btn" type="button" data-mrtmhit="${esc(h.key)}"${tm.busy ? " disabled" : ""}>＋ Add the device</button>`}</div>`).join("")
+      : `<span class="mini muted">${esc(tm.note || "Nothing found.")}</span>`}</div>`;
+    const parsed = MdeTest.parse(tm.text);
+    const nTick = tm.ticks.size, nRem = tm.rem.size, nLive = tm.live.size;
+    const dryLabel = [nTick ? plural(nTick, "addition") : "", nLive ? `${nLive} → live` : "", nRem ? `${nRem} out` : ""].filter(Boolean).join(" · ") || "nothing to write";
+    return `<div class="mr-batch mr-tmcard" id="mvTmPanel">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between"><b>🧪 Test members · ${esc(r)}</b><span class="mini muted">the wave's pilot — in ahead of their country, later to live or out</span></div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 8px">${groups}</div>
+      ${t ? `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px"><div><div class="mini muted">In the test</div><b>${plural(t.user ? t.user.members.length : 0, "user")} · ${plural(t.device ? t.device.members.length : 0, "device")}</b> <span class="mini muted">· ${nMovable} covered by a live country · ${nAhead} ahead</span><div class="mr-meter"><i style="width:${members.length ? Math.round(100 * nMovable / members.length) : 0}%"></i></div></div>${mem.model ? "" : `<span class="mini muted">👥 has not read the countries — the route of each member is unknown until it has</span>`}</div>` : ""}
       <p class="mini muted" id="mvTmProg" style="margin:4px 0">${esc(tm.loading || tm.busy ? tm.note : "")}</p>
       ${tm.error ? `<div class="gu-fail"><b>${esc(tm.error)}</b></div>` : ""}
-      <p class="mini" style="margin:10px 0 4px"><b>Add from a CSV</b> — a <code>UserPrincipalName</code> (or UPN / Mail) column, a <code>DeviceName</code> column, or both; or one value per line. A user brings their Windows devices, each with a tick.</p>
+      ${members.length || addRows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:34px"><col style="width:30%"><col style="width:12%"><col><col style="width:16%"><col style="width:150px"></colgroup><thead><tr><th></th><th>Member</th><th>Country</th><th>Route into the wave</th><th>State</th><th></th></tr></thead><tbody>${memberRows}${addRows ? `<tr><td colspan="6" class="mini muted" style="background:var(--soft)">Being added — a user brings their Windows devices, each with a tick</td></tr>${addRows}` : ""}</tbody></table></div>` : t ? `<p class="mini muted" style="margin:0">Nobody in the test yet.</p>` : ""}
+      ${nMovable > 1 && !tm.live.size ? `<div class="tb-actions" style="margin-top:6px"><button class="btn" type="button" id="mvTmLiveAll">→ live: all ${nMovable} covered by a live country</button></div>` : ""}
+      <div class="mr-tmadd">
+        <input class="btn" id="mvTmQ" type="search" placeholder="🔎 Add — a user (name, UPN, e-mail) or a device name" value="${esc(tm.q)}" autocomplete="off" spellcheck="false" aria-label="Search a user or a device to add"${tm.searching ? " disabled" : ""}>
+        <button class="btn primary" type="button" id="mvTmSearch"${tm.searching || !t ? " disabled" : ""}>${tm.searching ? "Searching…" : "Search"}</button>
+        <button class="btn" type="button" id="mvTmCsv" aria-expanded="${tm.csv}">⭱ CSV / paste ${tm.csv ? "▴" : "▾"}</button>
+      </div>
+      ${hits}
+      ${tm.csv ? `<div class="mr-tmcsv"><p class="mini" style="margin:8px 0 4px">A <code>UserPrincipalName</code> (or UPN / Mail) column, a <code>DeviceName</code> column, or both; or one value per line.</p>
       <textarea id="mvTmText" class="mr-exlisttext" rows="4" spellcheck="false" autocomplete="off" placeholder="UserPrincipalName,DeviceName&#10;anna.bakker@contoso.com,NLD5CD5502ZZQ&#10;jan.devries@contoso.com," aria-label="Test users and devices">${esc(tm.text)}</textarea>
       <div class="tb-actions" style="margin-top:8px;align-items:center">
         <label class="btn mr-exfile" title="A .csv with a UPN / Mail and/or DeviceName column, or a .txt with one per line">⭱ Load .csv / .txt<input type="file" id="mvTmFile" accept=".csv,.txt,text/csv,text/plain"></label>
-        <button class="btn primary" id="mvTmLookup"${tm.busy || !parsed.lines.length || !t ? " disabled" : ""}>${tm.busy ? "Looking up…" : `🔎 Look up · ${plural(parsed.lines.length, "line")}`}</button>
-        ${tm.note && !tm.busy && !tm.loading ? `<span class="mini muted">${esc(tm.note)}</span>` : ""}</div>
+        <button class="btn primary" id="mvTmLookup" type="button"${tm.busy || !parsed.lines.length || !t ? " disabled" : ""}>${tm.busy ? "Looking up…" : `🔎 Look up · ${plural(parsed.lines.length, "line")}`}</button>
+        ${tm.note && !tm.busy && !tm.loading && tm.hits === null ? `<span class="mini muted">${esc(tm.note)}</span>` : ""}</div></div>` : ""}
       ${tm.misses.length ? `<details style="margin-top:8px"><summary class="mini"><b style="color:var(--report)">${plural(tm.misses.length, "line")} not found</b></summary><ul class="mini" style="margin:6px 0 0">${tm.misses.map((it) => `<li><code>${esc(it.line)}</code> — ${esc(missWhy(it))}</li>`).join("")}</ul></details>` : ""}
-      ${rows ? `<div style="overflow-x:auto;margin-top:8px"><table class="cg-table"><colgroup><col style="width:22%"><col style="width:38%"><col></colgroup><thead><tr><th>Line</th><th>User</th><th>Devices</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
       <div class="tb-actions" style="margin-top:10px;align-items:center">
-        <button class="btn primary" id="mvTmDry"${busy || !t || (!nTick && !nRem) ? " disabled" : ""}>② Dry run — ${plural(nTick, "addition")}${nRem ? ` · ${nRem} out` : ""}</button>
-        ${tm.list.length ? `<button class="btn" id="mvTmClear">Clear the list</button>` : ""}
-        <button class="btn" id="mvTmReread"${tm.loading ? " disabled" : ""}>↻ Read the test groups again</button></div>
-      <p class="mini muted" style="margin:8px 0 0">-vdi- devices are never added. A member of ↩ Revert starts unticked; a member of ⊘ Exclusion is said — in the wave, still skipping the new policies. Unticking a current test member takes it out (typed REMOVE). Dry run, group backup and ④ Apply as in 👥, every write read back, undo in 📜.</p>
+        <button class="btn primary" id="mvTmDry" type="button"${busy || !t || (!nTick && !nRem && !nLive) ? " disabled" : ""}>② Dry run — ${esc(dryLabel)}</button>
+        ${tm.list.length ? `<button class="btn" id="mvTmClear" type="button">Clear the list</button>` : ""}
+        <button class="btn" id="mvTmReread" type="button"${tm.loading ? " disabled" : ""}>↻ Read the test groups again</button>
+        ${t ? `<button class="btn" id="mvTmCsvOut" type="button">⭳ CSV of the test members</button>` : ""}</div>
+      <p class="mini muted" style="margin:8px 0 0"><b>→ live</b> takes a member out of the test groups and changes nothing on the device: the same wave through the nested country group — offered only when that group holds them (the pilot's rule). <b>Out</b> takes them out of the wave altogether, back to the old policies (typed REMOVE). -vdi- devices are never added; a member of ⊘ Exclusion is said — in the wave, still skipping the new policies. Dry run, group backup and ④ Apply as in 👥, every write read back, undo in 📜.</p>
     </div>`;
   }
 
@@ -1190,6 +1292,7 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>🎛 Adjust settings</b> (under Policies). One row per ASR rule and new-set policy carrying it, with its mode now and 🦠 T15's MDE baseline beside it. Change a mode (or <b>Set shown to baseline</b>), ② Dry run: each policy is read fresh and a rule whose mode moved since the read is left out as drifted. ③ the backup (the policies and all their settings, as read), confirm, ④ Apply: each policy is re-read, skipped if it changed since the dry run, written as a whole with only the chosen modes changed (the settings catalog takes a policy's settings only as a whole-policy PUT), and read back. Only the new set's settings-catalog policies, only a rule the policy already carries — a rule no new policy carries is listed, never created. Old and out-of-scope policies (AVD among them) are never edited here. Warn is not offered for the two rules that do not support it (LSASS, Office code injection). The run and its undo land in 📜.</p>
       <p style="margin:0 0 8px"><b>🧩 Edge extensions</b> (under Policies). The new set's settings-catalog policy that carries Edge's <b>Installed silently</b> list (the force list: on every user the policy reaches, not removable by them, and it wins over the block list) or its <b>Exempt from the block list</b> list (users may install those themselves). Each row is named by the Edge Add-ons store from its ID, through a lookup route set on the pane — the store sends no CORS headers, so a page here cannot call it: a self-hosted instance forwards a path, or a relay URL is set (its host must also be in the page's connect-src). Without a route the pane runs in paste mode: an ID, an Edge store link or a Chrome Web Store link (which gets the Chrome update URL behind the ID) is always accepted, with the name as typed or as the list gave it, marked unverified. The two Edge Copilot components OIB ships in the force list are 🔒 built-in and kept; an ID the store answers 404 to is ⚠ a finding, never a guess. 📋 the approved list (TSV / CSV with a header, or one name per line; kept per tenant in this browser) is matched to the store by name — a unique hit names a row, several hits ask for a pick, none asks for the ID — and added in one go as exempt or silent, rows moved one by one. ② Dry run reads the policy fresh, lists every change with what the reached users get, the likely impact and the way back; ③ the backup (the policy and all its settings), confirm, ④ Apply: re-read and skipped as drifted when it changed, written as a whole with only the two collections changed, read back; the run and its undo in 📜. Taking a live silent install away is a recorded risk: Edge uninstalls it from every reached user.</p>
       <p style="margin:0 0 8px"><b>📡 Landing</b> (Waves → Verification, 10689). Did the new set land: Intune's own check-in status per new policy — the report behind the portal's <i>View report</i>, one per policy; since 10694 the read tries the documented forms in order on the first policy (the cached report as Microsoft Learn's example has it, then with the policy base types in its filter, then <code>getConfigurationPolicyNonComplianceReport</code>, the report action T12's device read uses) and keeps the one the tenant answers — a refusal is said once, with Intune's own words, never once per policy — joined to the waves' members, so every member of a wave a policy includes is expected to report it (minus the policy's excluded groups). Per policy and per wave: landed / expected with the conflicts, errors, pending and <b>no status</b> counted; per member a chip per policy and a verdict. A conflict is explained by T12's setting-level read (the setting) and the ⚔️ pairs (the old policy the device is also in conflict on). <i>Pending</i> and <i>no status</i> are things to watch, not failures: Intune's status lags the device, and a fresh wave can take a day to fill in. Reads only; 📑 Landing check saves it as a report with a CSV.</p>
+      <p style="margin:0 0 8px"><b>🧪 Test members</b> (10696, the wave's pilot). Since the batches are the waves themselves, there are no pilot groups per country any more (NL Breda's batches stay as they are); the wave's test groups — <code>INT-SG-U-WAVE-&lt;region&gt;-Test</code> and <code>-D-</code>, nested in the waves — hold whoever goes in ahead of their country. In 👥 Membership &amp; pilots every wave's table starts with its 🧪 Test members row; the card under it shows the groups with their nesting state, every member with the country group that holds them and whether that group is nested (the route into the wave), and adds by a search first (a user by name, UPN or e-mail brings their Windows devices with a tick each; a device by name comes alone) or a CSV behind ⭱. Two ways out: <b>→ live</b> takes a member out of the test groups and changes nothing on the device — the same wave through the nested country group — and is offered only when that group holds them (all at once for everyone covered); <b>out</b> takes them out of the wave altogether, back to the old policies (typed REMOVE). ② Dry run, the backup and ④ Apply as in 👥, every write read back, undo in 📜. 🌊 Wave groups &amp; tests' column points here.</p>
       <p style="margin:0 0 8px"><b>Reading the tenant</b> (10695). Opening T28 or ↻ Refresh project reads five sources in order — policies and wave groups, country members and return holds, exclusions and the devices in Intune, the check-in status, the device conflicts — and the strip under the data line shows them as steps: the one being read lit with its live line and its own bar, the finished ones ticked with what they found and their time, an overall bar, the elapsed time; folded to one row of ticks once every source is in, a partial or refused source with Intune's answer. On the rail every area carries a dot: pulsing with the name of the source it still waits for, green when everything it shows is in, amber when a source came back partial. Browsing stays possible during a read; nothing is read that was not read before.</p>
       <p style="margin:0"><b>Temporary.</b> Built for one rollout, beta only, never promoted — listed under Help's "Staying on this channel".</p>
     </div></div>`;
@@ -2554,6 +2657,7 @@ const MdeRolloutV2Tool = (() => {
       } catch (e) { if (!projectValid(epoch)) return; cs.extra = null; cs.error = `The static country groups and the Revert groups could not be read: ${GroupUse.shortErr(e, 240)}`; }
       if (!projectValid(epoch)) return;
       memCompute();
+      if (!tm.all) setTimeout(() => tmReadAll(), 0);
       const errors = [...(mem.model.failed || []), ...(cs.extra ? cs.extra.failed || [] : []), cs.error].filter(Boolean);
       projectSource("members", errors.length ? "partial" : "ready", errors.join("; "));
       if (!mem.region && mem.model.regions.length) mem.region = mem.model.regions[0].region;
@@ -3003,7 +3107,10 @@ const MdeRolloutV2Tool = (() => {
     const meter = (label, name, a, b, extra) => `<div><div class="mini muted">${esc(name || label)}</div><b>${a} of ${b}</b> <span class="mini muted">${extra}</span><div class="mr-meter"><i style="width:${pct(a, b)}%"></i></div></div>`;
     const selectable = inTenant.filter((r) => !(r.inSync && r.ugNested && r.dgNested) && !r.migrated);
     const allOn = selectable.length && selectable.every(memRowSel);
-    const rows = inTenant.map((r) => {
+    // 🧪 (10696): the wave's test group is a row of its own, first — the
+    // pilot of this wave, the card under it on a click
+    const testRow = rg.wave && (rg.wave.user || rg.wave.device) ? tmRowHtml(rg) : "";
+    const rows = testRow + inTenant.map((r) => {
       const done = r.inSync && r.ugNested && r.dgNested;
       return `<tr class="${memRowSel(r) ? "mr-selrow" : ""}"><td>${r.migrated ? `<span title="Migrated into ${esc(r.parentCountry)} — in the wave through it">—</span>` : done ? `<span title="In sync and in both waves">✓</span>` : `<input type="checkbox" data-mrmemsel="${esc(r.key)}"${memRowSel(r) ? " checked" : ""} aria-label="select">`}</td>
         <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a>${r.pilot ? ` <span class="gu-how priv" title="A pilot group: it goes into the wave before the rest of the region. It may overlap a country group; its devices then sit in both device groups.">${r.migrated ? `🧪 migrated into ${esc(r.parentCountry)}` : `🧪 pilot${r.batch && !r.batch.finished ? " · in batches" : ""}`}</span>` : ""}${(() => { const kids = r.pilot ? [] : inTenant.filter((c) => c.pilot && c.parentKey === r.key && c.batch && !c.migrated && !(c.outsideParent || []).length); return kids.length ? ` <span class="gu-how" title="Going live brings every user of the pilot in through this group; the plan then takes the pilot's own route down">🧪 going live migrates ${esc(kids.map((c) => c.country).join(", "))}</span>` : ""; })()}<div class="mini muted">${esc(r.userGroupName)}</div></td>
@@ -3077,7 +3184,7 @@ const MdeRolloutV2Tool = (() => {
         : p.runKind === "groupsync"
         ? "Likely impact: an added member gets the new MDE policies at its next Intune check-in (the old ones leave once ⚡③ excluded the wave); a removed one goes back to the old set. Reverted members stay out unless re-included with the confirm. Way back: 📜 Undo — the inverse of what was written."
         : p.runKind === "testmembers"
-        ? "Likely impact: at their next Intune check-in the added users and devices get what the wave is assigned — the new MDE policies, and once ⚡③ excluded the wave, no longer the old ones. A test member taken out goes back to whatever their country gives them. The test group is not a country group: no 👥 / 🔄 sync adds to it or takes from it. Way back: 📜 Undo — the inverse of what was written (a group this run created is left in place, empty after the undo)."
+        ? "Likely impact: at their next Intune check-in the added users and devices get what the wave is assigned — the new MDE policies, and once ⚡③ excluded the wave, no longer the old ones. A member moved to live changes nothing on the device: the same wave through the nested country group, only the test route goes. A test member taken out completely goes back to whatever their country gives them. The test group is not a country group: no 👥 / 🔄 sync adds to it or takes from it. Way back: 📜 Undo — the inverse of what was written (a group this run created is left in place, empty after the undo)."
         : p.runKind === "revert"
         ? "Likely impact: at the next Intune check-in the new MDE policies come off and the old ones apply — ASR sits at “not configured” until the old policy lands. A member leaves its country group only once it is in Revert (read back), so a sync never takes it back in by accident. Way back: ↩ Back into the wave under Reverted now, or 📜 Undo."
         : p.pilotsReady
@@ -3161,7 +3268,7 @@ const MdeRolloutV2Tool = (() => {
           return !(keys.length && keys.every(done));
         });
         [...tm.ticks].forEach((k) => { if (done(k)) tm.ticks.delete(k); });
-        tm.rem.clear();
+        tm.rem.clear(); tm.live.clear();
         setTimeout(() => tmRead(p.region), 0);
       }
       // 👥 runs move "last synced" too (10682): every country whose steps all read back clean
@@ -4429,7 +4536,17 @@ const MdeRolloutV2Tool = (() => {
       const st = t.closest("[data-mrstate]"); if (st) { view.state = st.dataset.mrstate || null; render(); return; }
       const ss = t.closest("[data-mrstatus]"); if (ss) { view.status = ss.dataset.mrstatus; render(); return; }
       if (t.closest("[data-mrdvread]")) { readDevices(); return; }
-      const tmb = t.closest("[data-mrtest]"); if (tmb) { tmOpen(tmb.dataset.mrtest); return; }
+      const tmb = t.closest("[data-mrtest]"); if (tmb) { e.preventDefault(); tmOpen(tmb.dataset.mrtest); return; }
+      const tmg = t.closest("[data-mrtestgo]"); if (tmg) { tmGo(tmg.dataset.mrtestgo); return; }
+      if (t.id === "mvTmSearch") { tmSearch(); return; }
+      if (t.id === "mvTmCsv") { tm.csv = !tm.csv; render(); if (tm.csv) { const ta = $("mvTmText"); if (ta) ta.focus(); } return; }
+      const tmh = t.closest("[data-mrtmhit]"); if (tmh) { tmAddHit(tmh.dataset.mrtmhit); return; }
+      const tml = t.closest("[data-mrtmlive]"); if (tml) { tm.live.add(tml.dataset.mrtmlive); tm.rem.delete(tml.dataset.mrtmlive); if (plan && !busy && planAnchor === "mvTmPanel") clearPlan(); render(); return; }
+      const tmo = t.closest("[data-mrtmout]"); if (tmo) { tm.rem.add(tmo.dataset.mrtmout); tm.live.delete(tmo.dataset.mrtmout); if (plan && !busy && planAnchor === "mvTmPanel") clearPlan(); render(); return; }
+      const tmk = t.closest("[data-mrtmkeep]"); if (tmk) { tm.live.delete(tmk.dataset.mrtmkeep); tm.rem.delete(tmk.dataset.mrtmkeep); if (plan && !busy && planAnchor === "mvTmPanel") clearPlan(); render(); return; }
+      const tmd = t.closest("[data-mrtmdrop]"); if (tmd) { const e2 = tm.list.find((x) => x.key === tmd.dataset.mrtmdrop); if (e2) { if (e2.user) tm.ticks.delete(MdeTest.userKey(e2.user)); e2.devices.forEach((d) => tm.ticks.delete(MdeTest.devKey(d))); tm.list = tm.list.filter((x) => x !== e2); } if (plan && !busy && planAnchor === "mvTmPanel") clearPlan(); render(); return; }
+      if (t.id === "mvTmLiveAll") { for (const id of MdeTest.movable(tm.test.get(tm.region), tmLive(tm.region))) { tm.live.add(id); tm.rem.delete(id); } if (plan && !busy && planAnchor === "mvTmPanel") clearPlan(); render(); return; }
+      if (t.id === "mvTmCsvOut") { const tt = tm.test.get(tm.region); if (tt) { const live = tmLive(tm.region); const rows = [["Kind", "Name", "UPN", "Country", "CountryGroup", "Route", "TestGroup"]]; for (const a of ["user", "device"]) for (const m of (tt[a] ? tt[a].members : [])) { const v = live.get(m.id); rows.push([a, m.name, m.upn || "", v ? v.country : "", v ? v.group : "", v ? (v.live ? "test group and live country group" : "test group; country group not nested") : "test group only", tt[a].name]); } download(`MDE-rollout-test-members-${tm.region}-${stamp()}.csv`, rows.map((r2) => r2.map((c) => /[",\r\n;]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : String(c)).join(",")).join("\r\n"), "text/csv"); } return; }
       if (t.id === "mvTmLookup") { tmLookup(); return; }
       if (t.id === "mvTmDry") { tmDry(); return; }
       if (t.id === "mvTmClear") { tm.list = []; tm.ticks.clear(); tm.misses = []; tm.note = ""; if (plan && !busy && planAnchor === "mvTmPanel") clearPlan(); render(); return; }
@@ -4684,6 +4801,7 @@ const MdeRolloutV2Tool = (() => {
     });
     body.addEventListener("keydown", (e) => {
       if (e.target.id === "mvExQ" && e.key === "Enter") { e.preventDefault(); exSearch(); return; }
+      if (e.target.id === "mvTmQ" && e.key === "Enter") { e.preventDefault(); tmSearch(); return; }
       if (e.target.id === "mvRvQ" && e.key === "Enter") { e.preventDefault(); rvSearch(); return; }
       if (e.target.id === "mvRvGroup" && e.key === "Enter") { e.preventDefault(); rvListGroup(); return; }
       if (e.target.id === "mvRvListText") { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); rvListPaste(); } return; }
@@ -4722,6 +4840,7 @@ const MdeRolloutV2Tool = (() => {
         if (b && !rv.listBusy) { b.textContent = `＋ Add · ${plural(n, "line")}`; b.disabled = !n; }
         return;
       }
+      if (e.target.id === "mvTmQ") { tm.q = e.target.value; return; }
       if (e.target.id === "mvTmText") {
         tm.text = e.target.value;
         const b = $("mvTmLookup"), n = MdeTest.parse(tm.text).lines.length;

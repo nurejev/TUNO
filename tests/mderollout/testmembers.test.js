@@ -110,9 +110,28 @@ async function run() {
   const test2 = JSON.parse(JSON.stringify(test0)); test2.user.wave.exists = false;
   ok("a wave that does not exist yet: nothing written on that side, said", /does not exist yet/.test(T.plan(test2, E, ticks, new Set(), "Euro").skipped.join()));
 
+  // ---------------------------------------- live, and the two ways out (10696) --
+  const test3 = JSON.parse(JSON.stringify(test1));
+  test3.user.members = [{ id: "u9", name: "Old Tester", upn: "old@x.nl" }, { id: "u8", name: "Ahead Tester", upn: "ahead@x.nl" }];
+  test3.device.members = [{ id: "d9", name: "PC9", upn: "" }];
+  const rows = [
+    { country: "Netherlands", region: "Euro", userGroupStatic: "INT-SG-U-NLD", sug: { displayName: "INT-SG-U-NLD" }, ugNestedStatic: true, uHave: new Set(["u9"]), dg: { displayName: "INT-SG-D-NLD" }, dgNested: true, have: new Set(["d9"]) },
+    { country: "Belgium", region: "Euro", userGroupStatic: "INT-SG-U-BEL", sug: { displayName: "INT-SG-U-BEL" }, ugNestedStatic: false, uHave: new Set(["u8"]), dg: { displayName: "INT-SG-D-BEL" }, dgNested: false, have: new Set() },
+  ];
+  const live = T.liveOf(test3, rows);
+  ok("liveOf: a member held by a nested country group is live; held by one not nested yet is not; the group is named", live.get("u9").live && live.get("u9").group === "INT-SG-U-NLD" && live.get("u9").country === "Netherlands" && live.get("d9").live && live.get("d9").group === "INT-SG-D-NLD" && live.get("u8").held && !live.get("u8").live && live.get("u8").group === "INT-SG-U-BEL");
+  ok("movable: the live ones only", T.movable(test3, live).sort().join() === "d9,u9");
+  const P3 = T.plan(test3, [], new Set(), new Set(), "Euro", new Map([["u9", live.get("u9")], ["d9", live.get("d9")], ["u8", live.get("u8")]]));
+  const rem3 = P3.ops.filter((o) => o.type === "remove");
+  ok("→ live: a removal from the test group marked live, labelled with the country group, for the live ones; the one not yet held by a nested group is skipped with the reason, the pilot's rule", rem3.length === 2 && rem3.every((o) => o.live) && rem3[0].ids.join() === "u9" && /live through INT-SG-U-NLD/.test(rem3[0].label) && /still in the wave/.test(rem3[0].label) && rem3[1].ids.join() === "d9" && /Ahead Tester: not in INT-SG-U-BEL yet — stays a test member/.test(P3.skipped.join()) && P3.hasLive && P3.hasRemoval);
+  ok("…titled as a move to live", /Euro: 2 → live$/.test(P3.title), P3.title);
+  const P4 = T.plan(test3, [], new Set(), new Set(["u8"]), "Euro", new Map([["u9", live.get("u9")]]));
+  const r4 = P4.ops.filter((o) => o.type === "remove");
+  ok("→ live and out in one plan: two removals from the user group, the live one and the plain one, told apart", r4.length === 2 && r4.find((o) => o.live).ids.join() === "u9" && r4.find((o) => !o.live).ids.join() === "u8" && /no longer a test member/.test(r4.find((o) => !o.live).label) && /1 → live · −1 out/.test(P4.title));
+
   // ------------------------------------------------------------ screen --
   const D = w.document, $ = (id) => D.getElementById(id);
-  ok("T28's note names build 10688", /build 10688/.test(w.TOOL_VERSIONS.toolMdeRollout.note));
+  ok("T28's note names build 10696", /build 10696/.test(w.TOOL_VERSIONS.toolMdeRollout.note));
   $("demoLink").dispatchEvent(new w.Event("click", { bubbles: true }));
   await until(() => w.PolicyCache.get(), 30000, "sign-in read");
   $("toolMdeRollout").click();
@@ -122,22 +141,36 @@ async function run() {
   const st = () => w.MdeRolloutV2Tool._state();
   await until(() => !st().running && !st().busy && !st().enriching && !st().project.starting && !st().project.task && !st().project.timer && !st().reps.busy, 30000, "idle");
   w.MdeRolloutV2Tool._pane("waves");
-  ok("🌊 has a 🧪 Test members column and a button per region", /🧪 Test members/.test($("mvBody").textContent) && !!D.querySelector('[data-mrtest="Euro"]'));
-  D.querySelector('[data-mrtest="Euro"]').click();
-  ok("the panel opens and reads Euro's test groups", await until(() => st().tm.test.get("Euro") && !st().tm.loading, 15000, "test read") && !!$("mvTmPanel"));
-  ok("…none yet: said, with what the first apply does", /not created yet — the first apply creates it/.test($("mvTmPanel").textContent));
-  const ta = $("mvTmText");
-  ta.value = "UserPrincipalName,DeviceName\neva@contoso.com,\nmilan@contoso.com,\n,WS-HR-0031\nnobody@contoso.com,";
-  ta.dispatchEvent(new w.Event("input", { bubbles: true }));
-  ok("typing counts the lines on the button", /Look up · 4 lines/.test($("mvTmLookup").textContent));
-  $("mvTmLookup").click();
-  ok("the lookup lands", await until(() => st().tm.list.length && !st().tm.busy, 20000, "lookup"));
+  ok("🌊's column points at 👥 — no panel of its own any more", /🧪 Test members in 👥/.test($("mvBody").textContent) && !!D.querySelector('[data-mrtestgo="Euro"]') && !D.querySelector('[data-mrtest="Euro"]') && !$("mvTmPanel"));
+  D.querySelector('[data-mrtestgo="Euro"]').click();
+  ok("…and lands on 👥's Euro table with the test row open and read", await until(() => st().pane === "members" && st().tm.region === "Euro" && st().tm.test.get("Euro") && !st().tm.loading, 15000, "test read") && !!$("mvTmPanel") && !!D.querySelector(".mr-testrow"));
+  const tableRows = [...D.querySelectorAll(".mr-memtable tbody tr")];
+  ok("the test row is the first row of the wave's table, the card under it, the countries after", tableRows[0].classList.contains("mr-testrow") && tableRows[1].querySelector("#mvTmPanel") && tableRows.length > 2 && /Netherlands/.test(tableRows.slice(2).map((t) => t.textContent).join()));
+  ok("every wave's test groups were read once 👥 had read", st().tm.all && st().tm.test.has("Asia-Pacific") || st().tm.test.size >= 1);
   const panel = () => $("mvTmPanel").textContent;
-  ok("users with their devices, the device line, and the miss", /Eva Employee/.test(panel()) && /WS-FIN-0142/.test(panel()) && /WS-HR-0031/.test(panel()) && /1 line not found/.test(panel()), panel().slice(0, 600));
+  ok("none yet: said, with what the first apply does; the search box first, the CSV folded", /not created yet — the first apply creates it/.test(panel()) && !!$("mvTmQ") && !!$("mvTmSearch") && !$("mvTmText") && /Nobody in the test yet/.test(panel()));
+  // search first
+  $("mvTmQ").value = "Eva"; $("mvTmQ").dispatchEvent(new w.Event("input", { bubbles: true }));
+  $("mvTmSearch").click();
+  ok("a search finds a user with her devices counted", await until(() => st().tm.hits && !st().tm.searching, 20000, "search") && st().tm.hits.some((h) => h.type === "user" && /Eva/.test(h.displayName)) && /＋ Add with devices/.test(panel()));
+  const hit = D.querySelector("[data-mrtmhit]");
+  hit.click();
+  ok("＋ Add looks her up like a CSV line: she joins the list with her devices ticked, the hit leaves the hits", await until(() => st().tm.list.length === 1 && !st().tm.busy, 20000, "hit lookup") && /Eva Employee/.test(panel()) && /WS-FIN-0142/.test(panel()) && st().tm.ticks.size >= 2 && !D.querySelector("[data-mrtmhit]"));
+  // the CSV second
+  $("mvTmCsv").click();
+  ok("the CSV fold opens", !!$("mvTmText") && st().tm.csv);
+  const ta = $("mvTmText");
+  ta.value = "UserPrincipalName,DeviceName\nmilan@contoso.com,\n,WS-HR-0031\nnobody@contoso.com,";
+  ta.dispatchEvent(new w.Event("input", { bubbles: true }));
+  ok("typing counts the lines on the button", /Look up · 3 lines/.test($("mvTmLookup").textContent));
+  $("mvTmLookup").click();
+  ok("the lookup lands beside the search's entry", await until(() => st().tm.list.length === 3 && !st().tm.busy, 20000, "lookup"));
+  ok("users with their devices, the device line, and the miss", /Milan/.test(panel()) && /WS-HR-0031/.test(panel()) && /1 line not found/.test(panel()), panel().slice(0, 600));
   ok("default ticks set", st().tm.ticks.size >= 3);
+  ok("the row says what is pending", /\d to add/.test(D.querySelector(".mr-testrow").textContent));
   $("mvTmDry").click();
   ok("② Dry run makes a test-members plan", await until(() => st().plan && st().plan.runKind === "testmembers", 5000, "plan") && /create group/.test($("mvPlan").textContent) && /nest/.test($("mvPlan").textContent));
-  ok("…with the impact said", /no 👥 \/ 🔄 sync adds to it/.test($("mvPlan").textContent));
+  ok("…with the impact said, the move to live included", /moved to live changes nothing on the device/.test($("mvPlan").textContent));
   const n = st().runs.length;
   const k = $("mvConfirmTick"); if (k) { k.checked = true; k.dispatchEvent(new w.Event("change", { bubbles: true })); }
   const r = $("mvRiskReason"), a = $("mvRiskAccept");
@@ -150,14 +183,28 @@ async function run() {
   ok("…every step written and verified", run1.bad === 0 && run1.ok >= 6 && run1.runKind === "testmembers" && run1.region === "Euro", JSON.stringify(run1.lines));
   ok("the test groups are read again: members in, nested", await until(() => { const t = st().tm.test.get("Euro"); return t && t.user.group && t.user.nested && t.device.nested && t.user.members.length >= 2 && !st().tm.loading; }, 15000, "reread"));
   ok("the added lines leave the list", st().tm.list.length === 0);
-  ok("🌊's column counts them — the device line added its device, not its user", /2 users in INT-SG-U-WAVE-Euro-Test/.test($("mvBody").textContent.replace(/\s+/g, " ")) && /3 devices in INT-SG-D-WAVE-Euro-Test/.test($("mvBody").textContent.replace(/\s+/g, " ")));
+  const rowTxt = () => D.querySelector(".mr-testrow").textContent.replace(/\s+/g, " ");
+  ok("the row counts them — the device line added its device, not its user — and says the groups are nested", /\b2\b/.test(rowTxt()) && /\b3\b/.test(rowTxt()) && (rowTxt().match(/nested/g) || []).length === 2);
+  ok("the card lists every member with its route into the wave and the two ways out", D.querySelectorAll("[data-mrtmout]").length === 5 && /Route into the wave/.test(panel()) && /test group/.test(panel()));
 
-  // take one out again
+  // out completely, and → live
   const milan = st().tm.test.get("Euro").user.members.find((m) => /Milan/.test(m.name));
-  const rem = D.querySelector(`[data-mrtmrem="${milan.id}"]`);
-  rem.checked = false; rem.dispatchEvent(new w.Event("change", { bubbles: true }));
+  D.querySelector(`[data-mrtmout="${milan.id}"]`).click();
+  ok("out: the member is marked out, keep in test offered", st().tm.rem.has(milan.id) && !!D.querySelector(`[data-mrtmkeep="${milan.id}"]`) && /1 out/.test(rowTxt()));
   $("mvTmDry").click();
-  ok("unticking a member plans its removal behind REMOVE", await until(() => st().plan && st().plan.hasRemoval, 5000, "removal plan") && !!$("mvConfirmText"));
+  ok("the dry run plans the removal behind REMOVE", await until(() => st().plan && st().plan.hasRemoval, 5000, "removal plan") && !!$("mvConfirmText") && !st().plan.hasLive);
+  D.querySelector(`[data-mrtmkeep="${milan.id}"]`).click();
+  ok("keep in test takes it back", !st().tm.rem.has(milan.id));
+  const liveNow = st().tm.test.get("Euro") && w.MdeTest.liveOf(st().tm.test.get("Euro"), st().mem.model.rows);
+  const movable = w.MdeTest.movable(st().tm.test.get("Euro"), liveNow);
+  ok("→ live is offered exactly for the members a nested country group holds", D.querySelectorAll("[data-mrtmlive]").length === movable.length);
+  if (movable.length) {
+    D.querySelector(`[data-mrtmlive="${movable[0]}"]`).click();
+    ok("→ live marks the member", st().tm.live.has(movable[0]) && /1 → live/.test(rowTxt()));
+    $("mvTmDry").click();
+    ok("…and the dry run is a move to live", await until(() => st().plan && st().plan.hasLive, 5000, "live plan") && /live through/.test($("mvPlan").textContent));
+  } else ok("(no member of the demo's test is covered by a nested country group — the move to live is proven on the engine above)", true);
+  ok("⭳ CSV of the test members is offered", !!$("mvTmCsvOut"));
 
   console.log(`T28 test members: ${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;

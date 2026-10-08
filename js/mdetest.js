@@ -170,13 +170,50 @@ const MdeTest = (() => {
   // can a row be ticked at all
   const tickable = { user: (u) => !u.already, device: (d) => !!d.objId && !d.avd && !d.already };
 
+  // -------------------------------------------------------------- live --
+  // (10696, Mihai 8 Oct: "the other batches will be in the waves. so no
+  // pilot groups per country anymore" — the wave's test group is the pilot,
+  // the waves are the batches.) A test member is in the wave through the
+  // test group; once their country's static group is nested AND holds them,
+  // they are in the wave twice and the test route is the second one — the
+  // move to live takes them out of the test groups and changes nothing on
+  // the device. `rows` are 👥's country rows (uHave: the static user group's
+  // members, have: the device group's; ugNestedStatic / dgNested: the group
+  // is in its wave). Per member id: { country, group, held, live } — held:
+  // the country group has them; live: and that group is nested.
+  function liveOf(test, rows) {
+    const out = new Map();
+    const put = (id, r, a) => {
+      const group = a === "user" ? (r.userGroupStatic || (r.sug && r.sug.displayName) || "") : (r.dg ? r.dg.displayName : r.deviceGroupName || "");
+      const nested = a === "user" ? !!r.ugNestedStatic : !!r.dgNested;
+      const prev = out.get(id);
+      if (prev && prev.live) return;
+      out.set(id, { country: r.country, region: r.region, group, held: true, live: nested });
+    };
+    for (const r of rows || []) {
+      for (const id of r.uHave || []) if (test && test.user && test.user.members.some((m) => m.id === lc(id))) put(lc(id), r, "user");
+      for (const id of r.have || []) if (test && test.device && test.device.members.some((m) => m.id === lc(id))) put(lc(id), r, "device");
+    }
+    return out;
+  }
+  // the ids a move to live may take out: held by a nested country group
+  const movable = (test, live) => [...(live || new Map()).entries()].filter(([, v]) => v.live).map(([id]) => id);
+
   // -------------------------------------------------------------- plan --
   // test: read(); list: entries(); ticks: Set of u:/d: keys; remove: Set of
-  // member ids to take out of the test groups.
-  function plan(test, list, ticks, remove, region) {
+  // member ids to take out of the test groups (out of the wave, back to the
+  // old policies); live: Map of member id → { country, group } for the ones
+  // moving to live (out of the test groups, kept in the wave through their
+  // country group) — only ids liveOf() marks live are taken, the rest are
+  // skipped with the reason, the pilot's rule.
+  function plan(test, list, ticks, remove, region, live) {
     const ops = [], skipped = [], warnings = [];
     const key = `test:${region}`, who = `🧪 ${region}`;
-    const T = ticks || new Set(), R = remove || new Set();
+    const T = ticks || new Set(), R = new Set(remove || []), L = live || new Map();
+    for (const [id, v] of L.entries()) {
+      if (v && v.live) R.add(id);
+      else skipped.push(`${(test && [test.user, test.device].flatMap((x) => x ? x.members : []).find((m) => m.id === id) || { name: id }).name}: not in ${v && v.group ? v.group : "a nested country group"} yet — stays a test member until it is`);
+    }
     const byKind = { user: new Map(), device: new Map() };
     for (const e of list || []) {
       if (e.user && T.has(userKey(e.user))) {
@@ -211,9 +248,14 @@ const MdeTest = (() => {
         const size = (side.members.length - outs.length) + adds.length;
         ops.push({ type: "nest", key, who, parent: { id: side.wave.id, name: side.wave.name }, child: ref, kind: a, size });
       }
-      if (outs.length) {
-        ops.push({ type: "remove", key, who, group: { id: side.group.id, name: side.group.name }, ids: outs.map((m) => m.id), memberKind: a,
-          label: `${outs.map((m) => m.name).join(", ")} — no longer a test member`, objs: outs.map((m) => ({ id: m.id, displayName: m.name, userPrincipalName: m.upn || undefined })) });
+      const toLive = outs.filter((m) => L.has(m.id) && L.get(m.id).live), toOut = outs.filter((m) => !(L.has(m.id) && L.get(m.id).live));
+      if (toLive.length) {
+        ops.push({ type: "remove", key, who, group: { id: side.group.id, name: side.group.name }, ids: toLive.map((m) => m.id), memberKind: a, live: true,
+          label: `${toLive.map((m) => `${m.name} (live through ${L.get(m.id).group})`).join(", ")} — out of the test group, still in the wave`, objs: toLive.map((m) => ({ id: m.id, displayName: m.name, userPrincipalName: m.upn || undefined })) });
+      }
+      if (toOut.length) {
+        ops.push({ type: "remove", key, who, group: { id: side.group.id, name: side.group.name }, ids: toOut.map((m) => m.id), memberKind: a,
+          label: `${toOut.map((m) => m.name).join(", ")} — no longer a test member`, objs: toOut.map((m) => ({ id: m.id, displayName: m.name, userPrincipalName: m.upn || undefined })) });
       }
     }
     const ex = (list || []).flatMap((e) => [e.user && T.has(userKey(e.user)) && e.user.excluded ? e.user.name : "", ...e.devices.filter((d) => T.has(devKey(d)) && d.excluded).map((d) => d.name)]).filter(Boolean);
@@ -221,10 +263,11 @@ const MdeTest = (() => {
     const rv = (list || []).flatMap((e) => [e.user && T.has(userKey(e.user)) && e.user.revert ? e.user.name : "", ...e.devices.filter((d) => T.has(devKey(d)) && d.revert).map((d) => d.name)]).filter(Boolean);
     if (rv.length) warnings.push(`${rv.join(", ")} ${rv.length === 1 ? "is" : "are"} in ↩ Revert and ticked anyway: a test member reaches the wave through the test group, whatever Revert says.`);
     const nU = byKind.user.size, nD = byKind.device.size;
-    const nOut = ops.filter((x) => x.type === "remove").reduce((n, x) => n + x.ids.length, 0);
-    const title = `🧪 Test members — ${region}: ${[nU ? `+${plural(nU, "user")}` : "", nD ? `+${plural(nD, "device")}` : "", nOut ? `−${nOut}` : ""].filter(Boolean).join(" · ") || "no change"}`;
-    return { ops, skipped, warnings, hasRemoval: ops.some((x) => x.type === "remove"), runKind: "testmembers", title, region };
+    const nLive = ops.filter((x) => x.type === "remove" && x.live).reduce((n, x) => n + x.ids.length, 0);
+    const nOut = ops.filter((x) => x.type === "remove" && !x.live).reduce((n, x) => n + x.ids.length, 0);
+    const title = `🧪 Test members — ${region}: ${[nU ? `+${plural(nU, "user")}` : "", nD ? `+${plural(nD, "device")}` : "", nLive ? `${nLive} → live` : "", nOut ? `−${nOut} out` : ""].filter(Boolean).join(" · ") || "no change"}`;
+    return { ops, skipped, warnings, hasRemoval: ops.some((x) => x.type === "remove"), hasLive: nLive > 0, runKind: "testmembers", title, region };
   }
 
-  return { SUFFIX, DESCRIPTION, names, regions, waveOf, parse, read, entries, defaultTicks, tickable, plan, userKey, devKey };
+  return { SUFFIX, DESCRIPTION, names, regions, waveOf, parse, read, entries, defaultTicks, tickable, liveOf, movable, plan, userKey, devKey };
 })();

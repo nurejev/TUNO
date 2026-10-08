@@ -110,3 +110,15 @@
 @media (prefers-reduced-motion: reduce) { #t28Workspace2 .t28-dot.wait { animation:none; } #t28Workspace2 .t28-bar > i { transition:none; } }
 @media (max-width:1000px) { #t28Workspace2 .t28-steps { grid-template-columns:repeat(3,minmax(0,1fr)); } #t28Workspace2 .mr-navigation .ep-node { justify-content:flex-start; } }
 @media (max-width:650px) { #t28Workspace2 .t28-steps { grid-template-columns:1fr 1fr; } }
+
+/* 10696: 🧪 Test members as a row per wave in 👥 (option B — the Breda pilot's
+   card), the search box first and the CSV folded behind it. */
+#screen-mderollout .mr-testrow td { background:var(--soft); }
+#screen-mderollout .mr-tmcard { margin:8px 0 0; }
+#screen-mderollout .mr-tmadd { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:center; margin-top:10px; }
+#screen-mderollout .mr-tmadd input { min-width:0; text-align:left; }
+#screen-mderollout .mr-tmhits { border:1px dashed var(--border); border-radius:8px; padding:6px 10px; margin-top:8px; }
+#screen-mderollout .mr-tmhit { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:4px 0; }
+#screen-mderollout .mr-tmhit + .mr-tmhit { border-top:1px solid var(--border); }
+#screen-mderollout .mr-tmcsv { margin-top:8px; }
+@media (max-width:650px) { #screen-mderollout .mr-tmadd { grid-template-columns:1fr; } }
