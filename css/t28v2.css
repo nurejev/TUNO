@@ -67,3 +67,46 @@
    bar should be (app.css's own .gu-bar note). 📡 Landing's member card
    carried two: the chips sat over the table's first rows, a gap above. */
 #screen-mderollout .list-card .toolbar { position:static; margin:0 0 6px; padding:0; box-shadow:none; background:transparent; }
+
+/* 10695: the reading strip (option C off the mockup — A's strip, B's dots).
+   The five automatic sources as steps under the data line while a read
+   runs, folded to one row of ticks when every source is in. */
+#t28Workspace2 .t28-strip { margin:12px 0 0; padding:12px 14px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+#t28Workspace2 .t28-strip.done { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:8px 14px; }
+#t28Workspace2 .t28-strip.done small { color:var(--muted); font-variant-numeric:tabular-nums; }
+#t28Workspace2 .t28-strip-top { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+#t28Workspace2 .t28-strip-top b { display:flex; align-items:center; gap:10px; font-size:14px; }
+#t28Workspace2 .t28-strip-top small { color:var(--muted); font-variant-numeric:tabular-nums; }
+#t28Workspace2 .t28-spin { width:16px; height:16px; margin:0; border-width:2px; flex:none; }
+#t28Workspace2 .t28-steps { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+#t28Workspace2 .t28-step { border:1px solid var(--border); border-radius:8px; padding:8px 10px; min-width:0; }
+#t28Workspace2 .t28-step .n { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; }
+#t28Workspace2 .t28-step .n i { width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-style:normal; flex:none; border:1px solid var(--border); color:var(--muted); }
+#t28Workspace2 .t28-step.done .n i { background:var(--on); border-color:var(--on); color:#fff; }
+#t28Workspace2 .t28-step.part .n i { background:var(--report); border-color:var(--report); color:#fff; }
+#t28Workspace2 .t28-step.now { border-color:var(--green); background:var(--soft); }
+#t28Workspace2 .t28-step.now .n i { border:0; }
+#t28Workspace2 .t28-step .d { font-size:11px; color:var(--muted); margin-top:4px; overflow-wrap:anywhere; }
+#t28Workspace2 .t28-step.now .d { color:var(--ink); }
+#t28Workspace2 .t28-step .t28-why { color:var(--report); }
+#t28Workspace2 .t28-bar { height:6px; border-radius:3px; background:var(--border); overflow:hidden; margin-top:6px; }
+#t28Workspace2 .t28-bar.all { margin-top:10px; }
+#t28Workspace2 .t28-bar > i { display:block; height:100%; background:var(--green); border-radius:3px; transition:width .4s ease; }
+#t28Workspace2 .t28-ticks { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--muted); min-width:0; }
+#t28Workspace2 .t28-ticks span { overflow-wrap:anywhere; }
+#t28Workspace2 .t28-ticks span.ok::before { content:"✓ "; color:var(--on); font-weight:700; }
+#t28Workspace2 .t28-ticks span.part::before { content:"! "; color:var(--report); font-weight:700; }
+#t28Workspace2 .t28-ticks span.off::before { content:"– "; }
+/* the rail's dots: what an area still waits for, or how its sources ended */
+#t28Workspace2 .mr-navigation .ep-node { justify-content:space-between; gap:2px 8px; flex-wrap:wrap; }
+#t28Workspace2 .mr-navigation .ep-node > span:first-child { min-width:0; }
+#t28Workspace2 .t28-dotw.w { flex-basis:100%; }
+#t28Workspace2 .t28-dotw { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:400; color:var(--muted); white-space:nowrap; flex:none; }
+#t28Workspace2 .t28-dot { width:7px; height:7px; border-radius:50%; display:inline-block; background:var(--muted); }
+#t28Workspace2 .t28-dot.ok { background:var(--on); }
+#t28Workspace2 .t28-dot.bad { background:var(--report); }
+#t28Workspace2 .t28-dot.wait { background:var(--report); animation:t28pulse 1.4s ease-in-out infinite; }
+@keyframes t28pulse { 50% { opacity:.25; } }
+@media (prefers-reduced-motion: reduce) { #t28Workspace2 .t28-dot.wait { animation:none; } #t28Workspace2 .t28-bar > i { transition:none; } }
+@media (max-width:1000px) { #t28Workspace2 .t28-steps { grid-template-columns:repeat(3,minmax(0,1fr)); } #t28Workspace2 .mr-navigation .ep-node { justify-content:flex-start; } }
+@media (max-width:650px) { #t28Workspace2 .t28-steps { grid-template-columns:1fr 1fr; } }

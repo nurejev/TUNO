@@ -80,7 +80,7 @@ const MdeRolloutV2Tool = (() => {
   let running = false, busy = false, enriching = "";
   let filterList = null;       // all assignment filters, for the bar
 
-  const prog = (m) => TunoProgress.show("mvBody", "mvProg", m);
+  const prog = (m) => { TunoProgress.show("mvBody", "mvProg", m); projectLine("policies", m); };
   // THE PLAN PANEL IS ONE NODE, held here for the life of the page. It is
   // seated under the active pane on every render; holding the reference
   // means clearing or re-rendering the body can never destroy it (the warm
@@ -120,7 +120,104 @@ const MdeRolloutV2Tool = (() => {
   const memberReadScopes = () => [...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory, ...(mcfg().useDefenderLogons ? Graph.SCOPES.hunting : [])])];
   const projectValid = (epoch) => epoch === project.epoch;
   function projectSource(key, state, error) {
-    project.sources[key] = { state, error: error || "", at: Date.now(), runs: runs.length };
+    // 10695: when the read started and its live line ride along, for the
+    // reading strip — a terminal state keeps the start, so the strip can say
+    // how long the read took
+    const prev = project.sources[key], now = Date.now();
+    project.sources[key] = { state, error: error || "", at: now, runs: runs.length,
+      startedAt: state === "reading" || !prev || !prev.startedAt ? now : prev.startedAt, line: state === "reading" ? "" : (prev && prev.line) || "" };
+    if (state === "reading" && !project.readStart) project.readStart = now;
+    projectTick();
+  }
+  // ---------------------------------------------- the reading strip (10695) --
+  // Mihai, 8 Oct: "t28 needs to have visual reading presentation when
+  // reading the tenant. now is just a small easy overlookt text on top" —
+  // option C off the mockup (A's strip in the main column, B's dots on the
+  // rail): the five automatic sources as steps in reading order under the
+  // data line, the one being read lit with its live line and its own
+  // n-of-N bar, the finished ones ticked with what they found and their
+  // time, an overall bar; folded to one row of ticks once every source is
+  // in. The live lines are the ones each read already emits — nothing new
+  // is read. On the rail every area carries a dot: pulsing with the name of
+  // the source it still waits for, green when everything it shows is in,
+  // amber when a source came back partial or could not be read.
+  const PROJECT_STEPS = [["policies", "Policies & wave groups"], ["members", "Country members"], ["exclusions", "Exclusions & devices"], ["landing", "Check-in status"], ["devices", "Device conflicts"]];
+  const AREA_DEPS = { overview: ["members", "landing"], wavehome: ["members", "landing"], new: ["policies", "devices"], exceptionhome: ["exclusions", "members"], journal: [] };
+  const SRC_WORD = { policies: "policies", members: "members", exclusions: "exclusions", landing: "status", devices: "conflicts" };
+  const projectChainBusy = () => project.starting || running || !!project.task || !!project.timer || mem.loading || ex.loading || ld.busy || dv.busy;
+  const TERMINAL = /^(ready|partial|failed|consent)$/;
+  const stepState = (key) => { const s = project.sources[key]; if (s) return s.state; return projectChainBusy() && !project.attempted.has(key) ? "queued" : "notread"; };
+  // "12 of 43" in a live line → 12/43
+  const lineFrac = (line) => { const m = /(\d[\d,.]*)(?:\s+of\s+|\s*\/\s*)(\d[\d,.]*)/.exec(line || ""); if (!m) return null; const n = Number(m[1].replace(/[,.]/g, "")), of = Number(m[2].replace(/[,.]/g, "")); return of > 0 ? Math.min(1, n / of) : null; };
+  const mmss = (ms) => { const t = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
+  // what a finished source found, in one short line; what a queued one will ask
+  function stepSummary(key) {
+    const s = project.sources[key];
+    const terminal = s && TERMINAL.test(s.state);
+    if (key === "policies") return terminal && model ? `${model.newP.length} new · ${model.oldP.length} old · ${waveRows.filter((w) => w.exists).length} waves` : "policies, assignments and the wave groups";
+    if (key === "members") { if (terminal && mem.model) { const todo = mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false)).length; return `${plural(mem.model.rows.length, "country", "countries")} · ${plural(mem.model.managedCount || 0, "Windows device")}${todo ? ` · ${todo} to review` : ""}`; } return `${plural(projectCountryRows().length, "country", "countries")} to read`; }
+    if (key === "exclusions") { const n = terminal ? exNow() : null; return n ? `${n.users} users · ${n.devices} devices excluded${n.half ? ` · ${n.half} half` : ""}` : "the exclusion groups and the devices in Intune"; }
+    if (key === "landing") { if (terminal && ld.model) return `${plural(ld.model.readRows, "status row")} · ${plural(ld.model.summary.devices, "device")} and ${plural(ld.model.summary.users, "user")} in the waves${ld.model.shape && ld.model.shape !== "cached" ? ` · via ${MdeLanding.SHAPE_LABEL[ld.model.shape] || ld.model.shape}` : ""}`; return model ? `${plural(model.newP.filter((P) => P.state === "assigned").length, "policy", "policies")} to ask` : "one report per new policy"; }
+    if (key === "devices") { if (terminal && dv.idx) { const c = devCounts(); const on = c ? [...c.values()].filter((x) => !x.unknown && x.n > 0).length : 0; return `${on ? `${plural(on, "pair")} on devices` : "no pair on devices"}${dv.idx.failed.size ? ` · ${dv.idx.failed.size} unreadable` : ""}`; } return model ? `${plural(pairs.filter(M.needsAction).length, "pair")} to ask Intune about` : "the device conflict reports"; }
+    return "";
+  }
+  function projectStrip() {
+    if (!project.active) return "";
+    const states = PROJECT_STEPS.map(([k]) => stepState(k));
+    const busy = projectChainBusy() || states.some((st) => st === "reading" || st === "queued");
+    const start = project.readStart || Date.now();
+    const sources = PROJECT_STEPS.map(([k]) => project.sources[k]).filter(Boolean);
+    const end = sources.length ? Math.max(...sources.map((x) => x.at)) : start;
+    if (!busy) {
+      // folded: one row of ticks, a partial or refused source with its answer
+      const ticks = PROJECT_STEPS.map(([k, label]) => { const st = stepState(k), s = project.sources[k]; const cls = st === "ready" ? "ok" : st === "notread" ? "off" : "part"; const txt = st === "ready" ? `${label} ${shortTime(s.at)}` : st === "notread" ? `${label} — not read` : `${label} ${shortTime(s.at)} — ${projectStatus(k)}${s.error ? `: ${s.error}` : ""}`; return `<span class="${cls}" title="${esc(txt)}">${esc(txt)}</span>`; }).join("");
+      return `<div class="t28-strip done" role="status"><div class="t28-ticks">${ticks}</div><small>${sources.length ? esc(mmss(end - start)) : ""}</small></div>`;
+    }
+    let done = 0, frac = 0, current = "";
+    const steps = PROJECT_STEPS.map(([k, label], i) => {
+      const st = stepState(k), s = project.sources[k];
+      const terminal = TERMINAL.test(st);
+      if (terminal) done++;
+      const cls = st === "reading" ? "now" : st === "ready" ? "done" : terminal ? "part" : "";
+      const glyph = st === "reading" ? '<span class="spinner t28-spin"></span>' : st === "ready" ? "✓" : terminal ? "!" : String(i + 1);
+      let detail;
+      if (st === "reading") { const f = lineFrac(s.line); if (f !== null) frac = f; current = label; detail = `<div class="d" data-prjline="${k}">${esc(s.line || "Reading…")}</div><div class="t28-bar"><i data-prjbar="${k}" style="width:${f === null ? 8 : Math.max(4, Math.round(f * 100))}%"></i></div>`; }
+      else if (terminal) detail = `<div class="d">${esc(stepSummary(k))} · ${esc(shortTime(s.at))}${s.startedAt ? ` · ${esc(mmss(s.at - s.startedAt))}` : ""}${st !== "ready" ? `<br><span class="t28-why">${esc(projectStatus(k))}${s.error ? `: ${esc(s.error)}` : ""}</span>` : ""}</div>`;
+      else detail = `<div class="d">${esc(st === "queued" ? stepSummary(k) : "not read")}</div>`;
+      return `<div class="t28-step ${cls}"><div class="n"><i>${glyph}</i>${esc(label)}</div>${detail}</div>`;
+    }).join("");
+    const pct = Math.round(((done + frac) / PROJECT_STEPS.length) * 100);
+    return `<div class="t28-strip" role="status" aria-live="polite"><div class="t28-strip-top"><b><span class="spinner t28-spin"></span> Reading the tenant${current ? ` — ${esc(current)}` : ""}</b><small>started ${esc(shortTime(start))} · <span data-prjelapsed>${esc(mmss(Date.now() - start))}</span> so far · ${done} of ${PROJECT_STEPS.length} in</small></div><div class="t28-steps">${steps}</div><div class="t28-bar all"><i data-prjall style="width:${Math.max(2, pct)}%"></i></div></div>`;
+  }
+  // A live line from a read: the strip's step and bars move without a render.
+  function projectLine(key, msg) {
+    const s = project.sources[key];
+    if (!s || s.state !== "reading") return;
+    s.line = msg || "";
+    const el = document.querySelector(`[data-prjline="${key}"]`);
+    if (el) el.textContent = s.line || "Reading…";
+    const f = lineFrac(s.line);
+    const bar = document.querySelector(`[data-prjbar="${key}"]`);
+    if (bar) bar.style.width = `${f === null ? 8 : Math.max(4, Math.round(f * 100))}%`;
+    const all = document.querySelector("[data-prjall]");
+    if (all) { const done = PROJECT_STEPS.filter(([k]) => TERMINAL.test(stepState(k))).length; all.style.width = `${Math.max(2, Math.round(((done + (f || 0)) / PROJECT_STEPS.length) * 100))}%`; }
+  }
+  // the elapsed time ticks once a second while a read runs
+  function projectTick() {
+    const busy = project.active && projectChainBusy();
+    if (busy && !project.ticker) project.ticker = setInterval(() => { const el = document.querySelector("[data-prjelapsed]"); if (el && project.readStart) el.textContent = mmss(Date.now() - project.readStart); if (!projectChainBusy()) { clearInterval(project.ticker); project.ticker = null; } }, 1000);
+    if (!busy && project.ticker) { clearInterval(project.ticker); project.ticker = null; }
+  }
+  // the rail's dot for an area: what it still waits for, or how its sources ended
+  function areaDot(areaId) {
+    if (!project.active) return "";
+    const deps = AREA_DEPS[areaId] || [];
+    const states = deps.map((k) => [k, stepState(k)]);
+    const waiting = states.find(([, st]) => st === "reading" || st === "queued");
+    if (waiting) return `<small class="t28-dotw w"><i class="t28-dot wait"></i>${esc(SRC_WORD[waiting[0]])}</small>`;
+    const bad = states.find(([, st]) => st !== "ready");
+    if (bad) return `<small class="t28-dotw w"><i class="t28-dot bad"></i>${esc(bad[1] === "notread" ? "not read" : projectStatus(bad[0]).toLowerCase())}</small>`;
+    return `<small class="t28-dotw"><i class="t28-dot ok"></i></small>`;
   }
   function projectStatus(key) {
     const s = project.sources[key];
@@ -159,6 +256,7 @@ const MdeRolloutV2Tool = (() => {
     if (project.starting || running || busy || project.task || mem.loading || ex.loading || ld.busy || dv.busy || reps.busy) return;
     project.active = true; project.starting = true;
     const epoch = project.epoch;
+    project.readStart = Date.now();
     projectSource("policies", "reading"); render();
     const scopes = [...new Set([...PolicyCache.scopesNeeded(), ...Graph.SCOPES.groups])];
     try {
@@ -167,6 +265,7 @@ const MdeRolloutV2Tool = (() => {
       if (interactive) await Graph.ensureScopes([...new Set([...scopes, ...memberReadScopes(), ...MdeExclude.scopes(), ...Graph.SCOPES.config, ...Graph.SCOPES.devices])]);
       if (!projectValid(epoch)) return;
       project.attempted.clear(); project.reportToken = "";
+      for (const k of ["members", "exclusions", "landing", "devices"]) delete project.sources[k];
       await run(!interactive && !!(PolicyCache.get() || PolicyCache.reading()));
     } catch (e) { if (projectValid(epoch)) { projectSource("policies", "failed", GroupUse.shortErr(e, 240)); render(); } }
     finally { if (projectValid(epoch)) { project.starting = false; render(); projectQueue(); } }
@@ -182,7 +281,7 @@ const MdeRolloutV2Tool = (() => {
   }
   function projectNav() {
     const area = projectArea();
-    return `<div class="t28-nav-title">MDE project</div>${PROJECT_AREAS.map((a) => `<button type="button" class="ep-node${area === a ? " active" : ""}" data-mrpane="${a.id}"${area === a ? ' aria-current="page"' : ""}>${a.icon} ${a.label}</button>`).join("")}
+    return `<div class="t28-nav-title">MDE project</div>${PROJECT_AREAS.map((a) => `<button type="button" class="ep-node${area === a ? " active" : ""}" data-mrpane="${a.id}"${area === a ? ' aria-current="page"' : ""}><span>${a.icon} ${a.label}</span>${areaDot(a.id)}</button>`).join("")}
       <div class="t28-nav-foot"><button class="ep-node${pane === "rules" ? " active" : ""}" data-mrpane="rules">⚙️ Project setup</button><button class="ep-node${pane === "how" ? " active" : ""}" data-mrpane="how">❓ Help</button></div>`;
   }
   function projectTabs() {
@@ -511,6 +610,7 @@ const MdeRolloutV2Tool = (() => {
     if (project.timer) clearTimeout(project.timer);
     Object.assign(project, { timer: null, sources: {}, country: null, waveTab: "members", reportToken: "", history: [], savedRuns: 0, historyError: "" });
     project.attempted.clear(); running = false; busy = false; enriching = "";
+    project.readStart = null; if (project.ticker) { clearInterval(project.ticker); project.ticker = null; }
     v2Imported = null; v2AllowLeftOut = false; pane = "overview";
     res = null; model = null; pairs = []; retire = []; waveRows = []; found = null; dupes = [];
     kinds = new Map(); labels = new Map(); names.clear(); sel.clear(); selPairs.clear(); selWaves.clear(); selRename.clear(); open.clear();
@@ -674,7 +774,7 @@ const MdeRolloutV2Tool = (() => {
         for (const P of [pr.N, pr.O]) if (!seen.has(lc(P.id))) { seen.add(lc(P.id)); only.push({ id: P.id, name: P.name }); }
       }
       const read = await ConflictDevices.read({ collectRes: res, only, settings: false, scopes,
-        onStatus: (m) => { dv.status = m; const el = $("mvDevStatus"); if (el) el.textContent = m; } });
+        onStatus: (m) => { dv.status = m; const el = $("mvDevStatus"); if (el) el.textContent = m; projectLine("devices", m); } });
       if (!projectValid(epoch)) return false;
       if (dv.idx) { dv.prev = M.deviceCounts(pairs, dv.idx); dv.prevAt = dv.at; }
       dv.idx = M.deviceIndex(read);
@@ -1090,6 +1190,7 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>🎛 Adjust settings</b> (under Policies). One row per ASR rule and new-set policy carrying it, with its mode now and 🦠 T15's MDE baseline beside it. Change a mode (or <b>Set shown to baseline</b>), ② Dry run: each policy is read fresh and a rule whose mode moved since the read is left out as drifted. ③ the backup (the policies and all their settings, as read), confirm, ④ Apply: each policy is re-read, skipped if it changed since the dry run, written as a whole with only the chosen modes changed (the settings catalog takes a policy's settings only as a whole-policy PUT), and read back. Only the new set's settings-catalog policies, only a rule the policy already carries — a rule no new policy carries is listed, never created. Old and out-of-scope policies (AVD among them) are never edited here. Warn is not offered for the two rules that do not support it (LSASS, Office code injection). The run and its undo land in 📜.</p>
       <p style="margin:0 0 8px"><b>🧩 Edge extensions</b> (under Policies). The new set's settings-catalog policy that carries Edge's <b>Installed silently</b> list (the force list: on every user the policy reaches, not removable by them, and it wins over the block list) or its <b>Exempt from the block list</b> list (users may install those themselves). Each row is named by the Edge Add-ons store from its ID, through a lookup route set on the pane — the store sends no CORS headers, so a page here cannot call it: a self-hosted instance forwards a path, or a relay URL is set (its host must also be in the page's connect-src). Without a route the pane runs in paste mode: an ID, an Edge store link or a Chrome Web Store link (which gets the Chrome update URL behind the ID) is always accepted, with the name as typed or as the list gave it, marked unverified. The two Edge Copilot components OIB ships in the force list are 🔒 built-in and kept; an ID the store answers 404 to is ⚠ a finding, never a guess. 📋 the approved list (TSV / CSV with a header, or one name per line; kept per tenant in this browser) is matched to the store by name — a unique hit names a row, several hits ask for a pick, none asks for the ID — and added in one go as exempt or silent, rows moved one by one. ② Dry run reads the policy fresh, lists every change with what the reached users get, the likely impact and the way back; ③ the backup (the policy and all its settings), confirm, ④ Apply: re-read and skipped as drifted when it changed, written as a whole with only the two collections changed, read back; the run and its undo in 📜. Taking a live silent install away is a recorded risk: Edge uninstalls it from every reached user.</p>
       <p style="margin:0 0 8px"><b>📡 Landing</b> (Waves → Verification, 10689). Did the new set land: Intune's own check-in status per new policy — the report behind the portal's <i>View report</i>, one per policy; since 10694 the read tries the documented forms in order on the first policy (the cached report as Microsoft Learn's example has it, then with the policy base types in its filter, then <code>getConfigurationPolicyNonComplianceReport</code>, the report action T12's device read uses) and keeps the one the tenant answers — a refusal is said once, with Intune's own words, never once per policy — joined to the waves' members, so every member of a wave a policy includes is expected to report it (minus the policy's excluded groups). Per policy and per wave: landed / expected with the conflicts, errors, pending and <b>no status</b> counted; per member a chip per policy and a verdict. A conflict is explained by T12's setting-level read (the setting) and the ⚔️ pairs (the old policy the device is also in conflict on). <i>Pending</i> and <i>no status</i> are things to watch, not failures: Intune's status lags the device, and a fresh wave can take a day to fill in. Reads only; 📑 Landing check saves it as a report with a CSV.</p>
+      <p style="margin:0 0 8px"><b>Reading the tenant</b> (10695). Opening T28 or ↻ Refresh project reads five sources in order — policies and wave groups, country members and return holds, exclusions and the devices in Intune, the check-in status, the device conflicts — and the strip under the data line shows them as steps: the one being read lit with its live line and its own bar, the finished ones ticked with what they found and their time, an overall bar, the elapsed time; folded to one row of ticks once every source is in, a partial or refused source with Intune's answer. On the rail every area carries a dot: pulsing with the name of the source it still waits for, green when everything it shows is in, amber when a source came back partial. Browsing stays possible during a read; nothing is read that was not read before.</p>
       <p style="margin:0"><b>Temporary.</b> Built for one rollout, beta only, never promoted — listed under Help's "Staying on this channel".</p>
     </div></div>`;
   }
@@ -1099,10 +1200,12 @@ const MdeRolloutV2Tool = (() => {
     if (!$("mvBody")) return;
     projectSaveHistory();
     $("mvRun").disabled = projectReadBusy() || busy;
-    $("mvRun").textContent = Object.values(project.sources).some((s) => s.state === "consent") ? "Connect data" : "↻ Refresh project";
+    const inCount = PROJECT_STEPS.filter(([k]) => TERMINAL.test(stepState(k))).length;
+    $("mvRun").textContent = Object.values(project.sources).some((s) => s.state === "consent") ? "Connect data" : project.active && projectChainBusy() ? `⟳ Reading… ${inCount} of ${PROJECT_STEPS.length}` : "↻ Refresh project";
+    projectTick();
     if (!model) {
       const source = project.sources.policies;
-      $("mvBody").innerHTML = `<div class="ep-wrap t28-project"><nav class="ep-rail mr-navigation" aria-label="Project">${railHtml()}</nav><main class="ep-main">${projectSources()}<div class="t28-panel"><h3>Your rollout, in one place.</h3><p>${source && /failed|consent/.test(source.state) ? esc(source.error) : "Loading policies and wave groups automatically. Members and device reports follow."}</p>${source && /failed|consent/.test(source.state) ? '<button class="btn primary" data-project-connect>Connect / retry data</button>' : ""}</div></main></div>`;
+      $("mvBody").innerHTML = `<div class="ep-wrap t28-project"><nav class="ep-rail mr-navigation" aria-label="Project">${railHtml()}</nav><main class="ep-main">${projectSources()}${projectStrip()}<div class="t28-panel"><h3>Your rollout, in one place.</h3><p>${source && /failed|consent/.test(source.state) ? esc(source.error) : "Loading policies and wave groups automatically. Members and device reports follow."}</p>${source && /failed|consent/.test(source.state) ? '<button class="btn primary" data-project-connect>Connect / retry data</button>' : ""}</div></main></div>`;
       return;
     }
     const missing = model.missing.length ? `<div class="list-card" style="margin-top:0;margin-bottom:12px"><p class="mini" style="margin:0;color:var(--report)">⚠ Not in this read: ${model.missing.map((m) => `${esc(m.id)} (${esc(m.error)})`).join("; ")} — policies there are not listed or compared.</p></div>` : "";
@@ -1139,7 +1242,7 @@ const MdeRolloutV2Tool = (() => {
     const pl = planEl();
     if (pl) pl.remove();
     $("mvGlobalExport").hidden = pane === "reports";
-    $("mvBody").innerHTML = `<div class="ep-wrap t28-project"><nav class="ep-rail mr-navigation" aria-label="Project">${railHtml()}</nav><main class="ep-main">${projectSources()}${projectTabs()}${missing}${["overview", "attention", "wavehome", "exceptionhome", "journal", "reports"].includes(pane) ? "" : head}${main}<div id="mvPlanSeat"></div></main></div>`;
+    $("mvBody").innerHTML = `<div class="ep-wrap t28-project"><nav class="ep-rail mr-navigation" aria-label="Project">${railHtml()}</nav><main class="ep-main">${projectSources()}${projectStrip()}${projectTabs()}${missing}${["overview", "attention", "wavehome", "exceptionhome", "journal", "reports"].includes(pane) ? "" : head}${main}<div id="mvPlanSeat"></div></main></div>`;
     if (pl) seatPlan(pl);
     syncSelbar();
     projectQueue();
@@ -2434,13 +2537,13 @@ const MdeRolloutV2Tool = (() => {
       await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory, ...(mcfg().useDefenderLogons ? Graph.SCOPES.hunting : [])])]);
       const waves = [...memWaves().values()].flatMap((w) => [w.user, w.device]).filter(Boolean);
       if (!projectValid(epoch)) return;
-      const nextInput = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; }, new Set(cfg.lookup.map(lc)), exGroups().device, cfg.pilotGroups);
+      const nextInput = await MdeMembers.readInput(mcfg(), waves, (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; projectLine("members", m); }, new Set(cfg.lookup.map(lc)), exGroups().device, cfg.pilotGroups);
       if (!projectValid(epoch)) return;
       mem.input = nextInput;
       // 🔄 / ↩ (10679): the static user groups and the Revert pair, read
       // with the country groups — a reverted device is held like an excluded one
       try {
-        const nextExtra = await MdeRevert.readExtra(mcfg(), MdeMembers.countryRows(mcfg()), (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; });
+        const nextExtra = await MdeRevert.readExtra(mcfg(), MdeMembers.countryRows(mcfg()), (m) => { const el = $("mvMemProg"); if (el) el.textContent = m; projectLine("members", m); });
         if (!projectValid(epoch)) return;
         cs.extra = nextExtra;
         mem.input.reverted = new Set(cs.extra.revertDevices.keys());
@@ -3550,7 +3653,7 @@ const MdeRolloutV2Tool = (() => {
     ex.loading = true; ex.error = ""; projectSource("exclusions", "reading"); render();
     try {
       await Graph.ensureScopes(MdeExclude.scopes());
-      const next = await MdeExclude.readBase(exGroups(), (m) => { const el = $("mvExProg"); if (el) el.textContent = m; });
+      const next = await MdeExclude.readBase(exGroups(), (m) => { const el = $("mvExProg"); if (el) el.textContent = m; projectLine("exclusions", m); });
       if (!projectValid(epoch)) return;
       ex.base = next;
       projectSource("exclusions", (next.failed || []).length ? "partial" : "ready", (next.failed || []).join("; "));
@@ -3875,7 +3978,7 @@ const MdeRolloutV2Tool = (() => {
     if (ld.busy || !model || running) return false;
     const epoch = project.epoch;
     ld.busy = true; ld.error = ""; ld.status = "Reading…"; projectSource("landing", "reading"); render();
-    const say = (m) => { if (!projectValid(epoch)) return; ld.status = m; const el = $("mvLdStatus"); if (el) el.textContent = m; };
+    const say = (m) => { if (!projectValid(epoch)) return; ld.status = m; const el = $("mvLdStatus"); if (el) el.textContent = m; projectLine("landing", m); };
     try {
       const reportScopes = [...new Set([...Graph.SCOPES.config, ...Graph.SCOPES.devices])];
       await Graph.ensureScopes([...new Set([...reportScopes, ...Graph.SCOPES.groups])]);
@@ -4756,7 +4859,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, project, projectFindings }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),
     _pane: (p) => { pane = p; render(); },
   };
 })();
