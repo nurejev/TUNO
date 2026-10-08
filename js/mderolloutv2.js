@@ -70,6 +70,10 @@ const MdeRolloutV2Tool = (() => {
   // `live` (to live: out of the test groups, kept in the wave through a
   // nested country group) and `rem` (out completely). `all`: every region's
   // test groups read once after 👥's read.
+  // 🔎 Is this user in a wave? (10700, option B off the mockup): the box
+  // above the countries table in 👥 — the query, the hits, the picked
+  // object's card and its model (MdeWaveCheck), the running state
+  const wc = { q: "", busy: false, error: "", results: null, note: "", pick: null, card: null, model: null };
   const tm = { region: null, test: new Map(), loading: false, error: "", text: "", note: "", busy: false, list: [], ticks: new Set(), rem: new Set(), live: new Set(), misses: [], q: "", hits: null, searching: false, csv: false, all: false, allAt: 0 };
   // 📡 Landing (10689, option A off the mockup canvas): Intune's check-in
   // status per new policy, joined to the wave members — the model, when it
@@ -1285,7 +1289,7 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>The read.</b> The shared policy read (settings catalog, legacy endpoint security intents, device configurations, administrative templates) — the same one T05, T11, T19 and T26 use — plus the legacy templates' names, the wave groups by name, and each involved group's kind. In scope is what 🧭 T20 classifies as endpoint security, MDE or Edge, plus any policy setting an MDE-area setting (BitLocker, WHfB, App Control…), and custom OMA-URIs under those CSPs. Opening the tool reads nothing: it offers ↻ Read the tenant, and the sign-in read when TUNO already holds one.</p>
       <p style="margin:0 0 8px"><b>Collisions.</b> A new and an old policy collide when both set the same setting (the settingDefinitionId; ASR per rule — a one-rule WIN-SEC policy meets that rule inside an old all-rules policy, including the old "guid=mode" string form). <b>Different value</b> is a conflict Intune reports on the device and resolves by applying neither; <b>same value</b> is double management, harmless until one side changes. A legacy template or ADMX cannot be compared setting by setting and meets the new set by category (<b>other format</b>). Reach is 🔗 T12's verdict — <b>can</b> (shared group or tenant-wide), <b>may</b> (different groups, or a filter), plus <b>staged</b> (the new policy is not assigned yet) and <b>resolved</b> (every group the new policy includes is already excluded from the old one).</p>
       <p style="margin:0 0 8px"><b>The fix.</b> Exclude the new policy's include groups from the old policy. Where the old policy already includes that group, the include is removed instead (an exclusion on an include is a contradiction). Where the new policy is not assigned yet, the existing wave groups of its kind are proposed (a <code>- D -</code> policy's device waves, a <code>- U -</code> policy's user waves), marked planned. Where a wave would be excluded from an old policy of the OTHER kind — Intune's unsupported user ↔ device mix — the same region's twin is proposed instead, and excluding the twin counts as resolved.</p>
-      <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. A device with no primary user takes its Entra owner's country, else the ISO3 its name starts with. A primary user in no country group of the table (10659) — often a DELETED user, whose UPN Entra renamed to <code>&lt;object id&gt;&lt;old UPN&gt;</code> — is looked up: a deleted one by the old UPN (the live account), a live one by id. The device then takes the live account's country group when it is in one, else the ISO3 its name starts with (BGD…, IDN…, PHL…), else the user's usage location; what none of those places is listed under 🕳 with the reason.</p>
+      <p style="margin:0 0 8px"><b>Wave members</b> (👥 pane). The country user groups are nested in the user wave of their region, from the country table under ⚙️. One assigned device group per country (<code>INT-SG-D-&lt;ISO3&gt;</code>) holds the Windows devices whose Intune primary user is in that country group; it is nested in the device wave. Every read shows what the device group is missing and what no longer belongs. A device with no primary user takes its Entra owner's country, else the ISO3 its name starts with. A primary user in no country group of the table (10659) — often a DELETED user, whose UPN Entra renamed to <code>&lt;object id&gt;&lt;old UPN&gt;</code> — is looked up: a deleted one by the old UPN (the live account), a live one by id. The device then takes the live account's country group when it is in one, else the ISO3 its name starts with (BGD…, IDN…, PHL…), else the user's usage location; what none of those places is listed under 🕳 with the reason. <b>🔎 Is this user in a wave?</b> (10700, the box above the countries table; Mihai: "a quick search verification if user is in the wave … these users can't use powershell"): a name, UPN, e-mail or device name — an exact UPN or device name answers at once, a partial name lists the hits — and a card between the box and the table: a verdict line (✔ in the wave · ○ not in a wave · ⚠ mixed when one side is in and the other not, or someone is held in ↩ Revert / ⊘ yet still in a wave), then one row per object — the user and every Windows device Intune lists under them — with the wave, <i>through</i> which group (static country group, pilot, 🧪 test, the dynamic source still nested — one person cannot be taken out of that, ⇄ swap the country first — a direct membership, or a group nested deeper), the hold with Revert's reason, and what reaches them (the policies' answer: in the wave is not yet reached when ⚡ ① has not assigned it). Reads only; ⊘ and ↩ open with the person picked, <i>open country</i> opens the row below.</p>
       <p style="margin:0 0 8px"><b>Left out</b> (👥 → 🕳). The Windows devices the waves do not reach — the count — and, listed but not counted, a country's users with no Windows device by Intune primary user: they are in the user wave through their country group (the list says so, or that the group is not nested yet), the card says which other devices Intune has for them, and a Windows device they get later joins the country device group at the next 👥 read → Apply. <b>🔎 Find their logons in Defender</b> asks Defender advanced hunting (<code>DeviceLogonEvents</code>, 30 days, one query per 200 users; matched by on-premises SID or account name) which devices they logged on to, and says what each is: in Intune under another primary user (it follows that person's country), in Entra but not Intune (no wave reaches it), or Defender only (no Entra object). Read-only; it needs <code>ThreatHunting.Read.All</code> and Security Reader, and ⧉ Copy the KQL gives the same query for the Defender portal. The devices counted: a country's devices with no Entra object or in the device exclusion group, and — for the whole tenant — the Windows devices whose primary user is in no country group of the table, or who have none. A country row's "N users have none" opens it on that country; the CSV has everyone.</p>
       <p style="margin:0 0 8px"><b>Pilot members</b> (👥 → 🧪). One row per person in the pilot groups (⚙️): a pilot user, or the Intune primary user of a pilot device, with every Windows device of theirs and the country and wave they belong to. <b>Ready for the wave</b>: tick a person whose country is known and the plan takes them and their devices out of every pilot group and puts each device in its country device group (created first when missing; a device leaves its pilot group only once its add read back clean; a ⊘ excluded device is taken out of the pilot but never added). Until the country is nested in its wave they are ordinary members of it — the old policies reach them again — and then they move with everybody else. <b>⚠ Before their waves go live</b> lists the policies that cover a pilot group but not the wave: fix those before nesting the country. Members with no person to follow (no primary user, not in Intune, a nested group) are listed and never planned.</p>
       <p style="margin:0 0 8px"><b>Exclusions</b> (⊘ pane, on the rail). Search a user or a device: a user comes with their Windows devices (Intune primary user), a device with its primary user, and each with what reaches it — the in-scope policies whose groups include it and do not exclude it (an exclusion wins over an include of the same kind; assignment filters are not evaluated). Users go into the user exclusion group (the <code>- U -</code> policies), devices into the device one (the <code>- D -</code> policies). Because ⚡③ takes the waves out of the old policies, an excluded wave device would get neither set, so it is also taken out of its country device group: it leaves that country route and 👥 keeps it out. Review other routes and old-policy coverage; verify the device outcome afterwards. A user cannot leave a dynamic country group; the card says what that leaves. <b>Excluded now</b> lists both groups and flags a user whose recent device is not excluded (half). <b>🔎 In a wave anyway</b> (10698, under Excluded now; Mihai: "excluded users never get in the wave through another nested group"): every read of the exclusion groups also scans the waves — who the groups hold, transitively (a group nested in an exclusion group counts, and its members say which), matched against every wave's transitive members; a hit names the route in (a direct member, or through which nested group: a country group, a 🧪 test group), and whether that group is static (can be taken out here, typed REMOVE) or dynamic (its rule would put the member back — the exclusion has to hold on the policies, ⚡ ②). The 👥 / 🔄 sync holds an excluded user out of the static country user groups from this build, as it held an excluded device out of the device groups since 10639, so a sync never puts them back; both exclusion groups are read transitively there too. The finding "excluded members are still in a wave" sits under Needs attention.</p>
@@ -3085,6 +3089,92 @@ const MdeRolloutV2Tool = (() => {
     renderMemPlan();
   }
 
+  // ------------------------------------- 🔎 is this user in a wave? (10700) --
+  // Mihai: "a quick search verification if user is in the wave … these users
+  // can't use powershell. so in t28 … in the memberships and pilots section";
+  // option B off the mockup. Reads only: the search is ⊘'s, the lookup is
+  // ↩'s (transitive and direct groups, what reaches them), the routes are
+  // judged against the waves' children from the 👥 read.
+  function wcCtx() {
+    const G = exGroups();
+    const X = cs.extra;
+    const dynamicIds = new Set(((mem.input && mem.input.countryGroups) || []).filter((g) => (g.groupTypes || []).includes("DynamicMembership")).map((g) => lc(g.id)));
+    const pilotIds = new Set();
+    if (mem.model) for (const r of mem.model.rows) if (r.pilot) { if (r.sug) pilotIds.add(lc(r.sug.id)); if (r.dg) pilotIds.add(lc(r.dg.id)); }
+    return { waves: waveRows, children: mem.input ? mem.input.waveChildren : null, dynamicIds, pilotIds, testSuffix: MdeTest.SUFFIX, names, model,
+      revertUsers: X ? X.revertUsers : null, revertDevices: X ? X.revertDevices : null,
+      revertUserId: X && X.revert && X.revert.user ? lc(X.revert.user.id) : null, revertDeviceId: X && X.revert && X.revert.device ? lc(X.revert.device.id) : null,
+      exUserId: G.user ? lc(G.user.id) : null, exDeviceId: G.device ? lc(G.device.id) : null, reasons: readJson(reasonsKey()) };
+  }
+  async function wcSearch() {
+    const input = $("mvWcQ");
+    wc.q = input ? input.value : wc.q;
+    if (wc.busy || wc.q.trim().length < 2) { wc.note = wc.q.trim().length < 2 ? "Type at least two characters." : ""; render(); return; }
+    wc.busy = true; wc.error = ""; wc.note = ""; wc.results = null; wc.card = null; wc.model = null; wc.pick = null; render();
+    try {
+      if (!ex.base) await exRead();
+      if (!ex.base) throw new Error(ex.error || "The exclusion groups and the devices could not be read.");
+      const r = await MdeExclude.search(wc.q, ex.base, exOpt());
+      const auto = MdeWaveCheck.autoPick(r.results, wc.q);
+      if (auto) { await wcPick(auto, true); wc.results = null; }
+      else { wc.results = r.results; wc.note = [r.failed.length ? `Partly searched — ${r.failed.join("; ")}` : "", !r.results.length ? `Nothing found for “${r.term}”.` : "Pick one:"].filter(Boolean).join(" "); }
+    } catch (e) { wc.error = GroupUse.shortErr(e, 300); }
+    finally { wc.busy = false; render(); }
+  }
+  async function wcPick(pick, inSearch) {
+    if (!ex.base) return;
+    if (!inSearch) { wc.busy = true; wc.error = ""; wc.results = null; wc.note = ""; render(); }
+    try {
+      await Graph.ensureScopes(MdeExclude.scopes());
+      wc.pick = pick;
+      wc.card = await MdeRevert.lookup(pick, ex.base, exOpt());
+      for (const [id, n] of wc.card.names) if (!names.has(id)) names.set(id, n);
+      wc.model = MdeWaveCheck.model(wc.card, wcCtx());
+    } catch (e) { wc.error = GroupUse.shortErr(e, 300); wc.card = null; wc.model = null; }
+    finally { if (!inSearch) { wc.busy = false; render(); } }
+  }
+  const wcClear = () => { wc.results = null; wc.note = ""; wc.card = null; wc.model = null; wc.pick = null; wc.error = ""; };
+  // the country row (👥) a direct group belongs to — to open it under the card
+  function wcCountryKey(row) {
+    if (!mem.model) return null;
+    const ids = new Set((row.kind === "user" ? (wc.card.user && wc.card.user.direct) || [] : ((wc.card.devices.find((d) => d.objId === row.id) || {}).direct) || []).map((g) => g.id));
+    const hit = (x) => (x.sug && ids.has(lc(x.sug.id))) || (x.dg && ids.has(lc(x.dg.id))) || (x.ug && ids.has(lc(x.ug.id)));
+    // the static groups first (they say where the member is placed), a pilot last
+    const r = mem.model.rows.find((x) => !x.pilot && ((x.sug && ids.has(lc(x.sug.id))) || (x.dg && ids.has(lc(x.dg.id))))) || mem.model.rows.find((x) => !x.pilot && hit(x)) || mem.model.rows.find(hit);
+    return r ? { key: r.key, region: r.region, country: r.country } : null;
+  }
+  function wcHtml() {
+    const box = `<div class="mr-wc"><div class="mr-exsearch" style="max-width:640px"><input id="mvWcQ" type="search" placeholder="🔎 Is this user or device in a wave? — name, UPN, e-mail or device name" value="${esc(wc.q)}" autocomplete="off" spellcheck="false" aria-label="Is this user or device in a wave?"><button class="btn primary" id="mvWcGo"${wc.busy ? " disabled" : ""}>${wc.busy ? "Checking…" : "Check"}</button></div>
+      ${wc.note ? `<p class="mini muted" style="margin:6px 0 0">${esc(wc.note)}</p>` : ""}${wc.error ? `<div class="gu-fail" style="margin-top:8px"><b>${esc(wc.error)}</b></div>` : ""}`;
+    const hits = (wc.results || []).map((h, i) => `<button type="button" class="mr-exhit" data-mrwcpick="${i}"><span class="mr-exk${h.type === "device" ? " d" : ""}">${h.type === "user" ? "USER" : "DEVICE"}</span><b>${esc(h.type === "user" ? h.displayName : h.name)}</b><span class="muted">${esc(h.type === "user" ? h.upn : (h.primary ? `primary user ${h.primary}` : h.managed ? "no primary user" : "not in Intune"))}</span></button>`).join("");
+    const M = wc.model;
+    if (!M) return `${box}${hits ? `<div class="mr-exresults">${hits}</div>` : ""}</div>`;
+    const V = M.verdict;
+    const icon = { in: "✔", out: "○", mixed: "⚠", unread: "?" }[V.kind];
+    const throughHtml = (w) => w.through.map((t) => {
+      const chip = t.kind === "dynamic" ? `<span class="gu-how priv" title="The dynamic source is nested in the wave itself; one person cannot be taken out of a dynamic group — ⇄ swap the country to its static group in 🔄 first">dynamic</span>`
+        : t.kind === "direct" ? `<span class="gu-how priv" title="Put straight into the wave group, not through a country group">direct member</span>`
+        : t.kind === "deeper" ? `<span class="gu-how priv" title="The wave holds them through a group that is not one of their direct groups — open the wave in Entra">nested deeper</span>`
+        : `<span class="gu-how" title="A static group: ↩ Revert can take them out">${t.kind === "pilot" ? "static · pilot" : t.kind === "test" ? "static · 🧪 test" : "static"}${t.maybe ? " ?" : ""}</span>`;
+      return `<div>${t.kind === "direct" ? `<span class="muted">—</span>` : esc(t.name)} ${chip}</div>`;
+    }).join("");
+    const rows = M.rows.map((r) => {
+      const who = `${r.kind === "user" ? "👤" : "💻"} <b>${esc(r.name)}</b>${r.upn && r.upn !== r.name && r.kind === "user" ? `<div class="mini muted">${esc(r.upn)}</div>` : ""}${r.kind === "device" ? `<div class="mini muted">${esc([r.os ? `Windows ${r.os}`.replace(/^Windows Windows/, "Windows") : "", r.managed ? `synced ${ago(r.lastSync)}` : "not in Intune", r.stale ? "stale" : ""].filter(Boolean).join(" · "))}</div>` : ""}${r.problem ? `<div class="mini" style="color:var(--off)">${esc(r.problem)}</div>` : ""}`;
+      const inWave = r.unread ? `<span class="muted">not read</span>` : r.waves.length ? r.waves.map((w) => chip("au-op create", w.name)).join(" ") : chip("gu-how priv", "no");
+      const through = r.unread ? "" : r.waves.length ? r.waves.map(throughHtml).join("") : `<span class="muted">—</span>`;
+      const held = [r.held.reverted ? `${chip("au-op other", "↩ Revert")}${r.held.reason ? `<div class="mini muted">“${esc(r.held.reason.reason)}” · ${esc(shortDate(r.held.reason.at))}</div>` : ""}` : "", r.held.excluded ? chip("au-op other", "⊘ excluded") : ""].filter(Boolean).join(" ") || `<span class="muted">—</span>`;
+      const reach = r.reach ? `<b style="color:var(--on)">${r.reach.new}</b> new <span class="muted">· ${r.reach.old} old${r.reach.keptOutOld ? ` · kept out of ${r.reach.keptOutOld} old` : ""}${r.reach.keptOutNew ? ` · kept out of ${r.reach.keptOutNew} new` : ""}${r.reach.filtered ? " · filtered" : ""}</span>` : `<span class="muted">—</span>`;
+      return `<tr><td class="mini">${who}</td><td class="mini">${inWave}</td><td class="mini">${through}</td><td class="mini">${held}</td><td class="mini">${reach}</td></tr>`;
+    }).join("");
+    const c = wcCountryKey(M.rows[0]) || (M.rows[1] ? wcCountryKey(M.rows[1]) : null);
+    const pickAttr = esc(JSON.stringify(wc.pick));
+    return `${box}<div class="list-card mr-wccard" id="mvWcCard" style="margin-top:10px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><b>🔎 ${esc(wc.pick.type === "user" ? wc.pick.displayName : wc.pick.name)}</b><span class="mini muted">read ${esc(new Date(M.readAt).toLocaleTimeString())} · reads only <button class="btn" id="mvWcClose" aria-label="close">✕</button></span></div>
+      <div class="mr-wcverdict ${esc(V.kind)}">${icon} ${esc(V.text)} <span class="mini">— ${esc(V.sub)}</span></div>
+      <div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:26%"><col style="width:18%"><col><col style="width:14%"><col style="width:18%"></colgroup><thead><tr><th>Who</th><th>In wave</th><th>Through</th><th>Held</th><th>Reaches</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="tb-actions" style="margin-top:8px"><button class="btn" data-mrwcgo="exclusions" data-mrwcpick-json="${pickAttr}">⊘ Exclude from new →</button><button class="btn" data-mrwcgo="revert" data-mrwcpick-json="${pickAttr}">↩ Return to old →</button>${c ? `<button class="btn" data-mrwcopen="${esc(c.key)}" data-mrwcregion="${esc(c.region)}">open ${esc(c.country)} ↓</button>` : ""}<span class="mini muted">⊘ and ↩ open with this ${wc.pick.type === "user" ? "person" : "device"} picked.</span></div>
+    </div></div>`;
+  }
   function membersPane() {
     const intro = `<p class="mini muted" style="margin:0 0 10px">Per wave, per country, two <b>static</b> groups: <code>${esc(mcfg().userGroupPrefix)}&lt;ISO3&gt;</code> holding the users of <code>${esc(mcfg().countryPrefix)}…</code> as direct members goes into the user wave, and <code>${esc(mcfg().deviceGroupPrefix)}&lt;ISO3&gt;</code> holding the Windows devices whose <b>Intune primary user</b> is in that country group goes into the device wave. The dynamic country groups are never nested. Both are synced, not filled once: every read shows what to add and what to remove; whoever is in ↩ Revert is held back. The country table is under ⚙️ Naming rules.</p>`;
     if (mem.loading) return `<div class="list-card" style="margin-top:0">${intro}<p class="mini" id="mvMemProg">Reading…</p></div>`;
@@ -3095,7 +3185,7 @@ const MdeRolloutV2Tool = (() => {
     const m = mem.model;
     const regionChip = (rg) => fchip("data-mrmemregion", rg.region, `🌊 ${rg.region} · ${rg.rows.length}`, undefined, !mem.unmapped && mem.region === rg.region);
     const lo = leftCounts(m);
-    const chips = `<div class="toolbar">${m.regions.map(regionChip).join("")}<span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>${fchip("data-mrmemunmapped", "1", `⚠ Not in any wave · ${m.unmapped.length}`, undefined, mem.unmapped)}${fchip("data-mrmemleft", "1", `🕳 Left out · ${lo.total.toLocaleString()}`, undefined, mem.left && !mem.unmapped && !mem.pil)}${m.pilots ? fchip("data-mrpilview", "1", `🧪 Pilots · ${(m.pilots.people || []).length.toLocaleString()}`, undefined, mem.pil) : ""}<button class="btn" id="mvMemRead" style="margin-left:auto">↻ Read again</button><button class="btn" id="mvMemCsv">⭳ CSV</button></div>`;
+    const chips = `<div class="toolbar">${m.regions.map(regionChip).join("")}<span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>${fchip("data-mrmemunmapped", "1", `⚠ Not in any wave · ${m.unmapped.length}`, undefined, mem.unmapped)}${fchip("data-mrmemleft", "1", `🕳 Left out · ${lo.total.toLocaleString()}`, undefined, mem.left && !mem.unmapped && !mem.pil)}${m.pilots ? fchip("data-mrpilview", "1", `🧪 Pilots · ${(m.pilots.people || []).length.toLocaleString()}`, undefined, mem.pil) : ""}<button class="btn" id="mvMemRead" style="margin-left:auto">↻ Read again</button><button class="btn" id="mvMemCsv">⭳ CSV</button></div>${wcHtml()}`;
     const top = `${m.failed.length ? `<div class="gu-fail" style="margin-bottom:10px"><b>Partly read:</b><span class="why">${m.failed.map(esc).join("<br>")}</span></div>` : ""}`;
     if (mem.pil && m.pilots) return `${chips}${top}${pilotsHtml(m)}`;
     if (mem.left && !mem.unmapped) return `${chips}${top}${leftOutHtml(m, lo)}`;
@@ -4731,6 +4821,20 @@ const MdeRolloutV2Tool = (() => {
         else download(`MDE-rollout-${name}-${stamp()}.html`, r.html, "text/html");
         return;
       }
+      // 🔎 is this user in a wave? (10700)
+      if (t.id === "mvWcGo") { wcSearch(); return; }
+      if (t.id === "mvWcClose") { wcClear(); render(); return; }
+      const wp = t.closest("[data-mrwcpick]"); if (wp) { const h = (wc.results || [])[Number(wp.dataset.mrwcpick)]; if (h) wcPick(h); return; }
+      const wg = t.closest("[data-mrwcgo]"); if (wg) {
+        let pk = null; try { pk = JSON.parse(wg.dataset.mrwcpickJson); } catch { pk = wc.pick; }
+        if (!pk) return;
+        const where = wg.dataset.mrwcgo;
+        go(where);
+        if (where === "exclusions") { ex.mode = "one"; ex.q = pk.type === "user" ? pk.upn || pk.displayName : pk.name; exPick(pk); }
+        else { rv.mode = "one"; rv.q = pk.type === "user" ? pk.upn || pk.displayName : pk.name; rvPick(pk); }
+        return;
+      }
+      const wo = t.closest("[data-mrwcopen]"); if (wo) { mem.region = wo.dataset.mrwcregion; mem.unmapped = false; mem.pil = false; mem.left = false; mem.leftCountry = null; mem.open.add(wo.dataset.mrwcopen); render(); const row = document.querySelector(`[data-mrmemopen="${wo.dataset.mrwcopen.replace(/"/g, '\\"')}"]`); if (row && row.scrollIntoView) row.scrollIntoView({ block: "center" }); return; }
       const mr = t.closest("[data-mrmemregion]"); if (mr) { mem.region = mr.dataset.mrmemregion; mem.unmapped = false; mem.pil = false; mem.leftCountry = null; clearPlan(); render(); return; }
       if (t.closest("[data-mrmemunmapped]")) { mem.unmapped = !mem.unmapped; if (mem.unmapped) { mem.left = false; mem.pil = false; } render(); return; }
       // 🕳 left out (10642)
@@ -4893,6 +4997,8 @@ const MdeRolloutV2Tool = (() => {
     });
     body.addEventListener("keydown", (e) => {
       if (e.target.id === "mvExQ" && e.key === "Enter") { e.preventDefault(); exSearch(); return; }
+      if (e.target.id === "mvWcQ" && e.key === "Enter") { e.preventDefault(); wcSearch(); return; }
+      if (e.target.id === "mvWcQ" && e.key === "Escape") { e.target.value = ""; wc.q = ""; wcClear(); render(); return; }
       if (e.target.id === "mvExQ" && e.key === "Escape") { e.target.value = ""; ex.q = ""; ex.results = null; ex.note = ""; exClearCard(); render(); return; }
       if (e.target.id === "mvTmQ" && e.key === "Enter") { e.preventDefault(); tmSearch(); return; }
       if (e.target.id === "mvRvQ" && e.key === "Enter") { e.preventDefault(); rvSearch(); return; }
@@ -4940,6 +5046,7 @@ const MdeRolloutV2Tool = (() => {
         return;
       }
       if (e.target.id === "mvRvReason") { rv.reason = e.target.value; if (plan && plan.runKind === "revert" && !busy) clearPlan(); return; }
+      if (e.target.id === "mvWcQ") { wc.q = e.target.value; if (!wc.q.trim() && (wc.results || wc.card || wc.note)) { wcClear(); render(); const q = $("mvWcQ"); if (q) q.focus(); } return; }
       // ⊘ (10699): the box emptied (its ✕, or every character deleted) — the hits and the card go
       if (e.target.id === "mvExQ") { ex.q = e.target.value; if (!ex.q.trim() && (ex.results || ex.card || ex.note)) { ex.results = null; ex.note = ""; exClearCard(); render(); const q = $("mvExQ"); if (q) q.focus(); } return; }
       if (e.target.id === "mvExtQ") { ext.q = e.target.value; const b = $("mvExtGo"); if (b && !ext.searching) { const pasted = MdeEdgeExt.fromInput(ext.q); b.disabled = !pasted && !TunoAddons.hasRoute(); b.textContent = pasted ? "Look it up" : "Search the store"; } return; }
@@ -5073,7 +5180,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, wc, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),
     _pane: (p) => { pane = p; render(); },
   };
 })();

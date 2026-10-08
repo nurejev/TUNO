@@ -122,3 +122,14 @@
 #screen-mderollout .mr-tmhit + .mr-tmhit { border-top:1px solid var(--border); }
 #screen-mderollout .mr-tmcsv { margin-top:8px; }
 @media (max-width:650px) { #screen-mderollout .mr-tmadd { grid-template-columns:1fr; } }
+
+/* 🔎 Is this user in a wave? (10700, option B): the box above the
+   countries table in 👥, the answer card between the box and the table */
+#screen-mderollout .mr-wc{margin:0 0 10px}
+#screen-mderollout .mr-wc .mr-exsearch{max-width:640px}
+#screen-mderollout .mr-wccard{padding:12px 14px}
+#screen-mderollout .mr-wcverdict{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-weight:700;border-radius:8px;padding:8px 12px;margin:8px 0 10px;background:var(--soft);color:var(--muted)}
+#screen-mderollout .mr-wcverdict .mini{font-weight:400;color:var(--muted)}
+#screen-mderollout .mr-wcverdict.in{background:color-mix(in srgb,var(--on) 14%,var(--surface));color:var(--on)}
+#screen-mderollout .mr-wcverdict.mixed{background:color-mix(in srgb,var(--report) 14%,var(--surface));color:var(--report)}
+#screen-mderollout .mr-wcverdict.out{background:var(--soft);color:var(--muted)}
