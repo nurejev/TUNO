@@ -79,6 +79,13 @@ const MdeRolloutV2Tool = (() => {
   // status per new policy, joined to the wave members — the model, when it
   // was read, the running line, the region and the filter shown, the search
   const ld = { busy: false, status: "", error: "", model: null, at: null, region: null, filter: "problems", q: "" };
+  // 📊 Dashboard (10703, option A off the mockup canvas "T28 · Rollout
+  // dashboard"): the sixth automatic source — every wave's members and
+  // Defender's device inventory (ob) — and the dashboard's own view state:
+  // the wave chip, the open list, the unfolded pairs, all pairs or ten, and
+  // the last model with the key it was computed for
+  const ob = { busy: false, status: "", error: "", read: null, at: null, managed: null };
+  const dash = { region: null, list: "", open: new Set(), allPairs: false, memo: null, memoKey: "" };
   const devCounts = () => (dv.idx ? M.deviceCounts(pairs, dv.idx) : null);
   const open = new Set();      // expanded rows
   let plan = null;             // composed plan + meta
@@ -127,14 +134,14 @@ const MdeRolloutV2Tool = (() => {
     { id: "journal", label: "Journal", icon: "📜", panes: ["journal", "changes", "reports", "recovery"] }
   ];
   const PROJECT_PANES = {
-    overview: "Project overview", attention: "Needs attention", wavehome: "Country workspace", members: "Membership & pilots",
+    overview: "Dashboard", attention: "Needs attention", wavehome: "Country workspace", members: "Membership & pilots",
     countrysync: "Country sync", waves: "Wave groups & tests", landing: "Verification", new: "New policies", old: "Old policies",
     conflicts: "Conflicts", asr: "ASR settings", edgeext: "Edge extensions", retire: "Retirement", out: "Out of scope",
     exceptionhome: "Hold-back & resume", exclusions: "⊘ Exclude from new (legacy)", exmigrate: "⊘→⏸ Migrate exclusions", revert: "⏸ Hold-back", journal: "Project history",
     changes: "Session changes & undo", reports: "Reports", recovery: "Run files & recovery", rules: "Project setup", how: "How it works"
   };
   const projectArea = () => PROJECT_AREAS.find((a) => a.panes.includes(pane));
-  const projectReadBusy = () => project.starting || running || mem.loading || ex.loading || ld.busy || dv.busy || !!reps.busy || !!project.task;
+  const projectReadBusy = () => project.starting || running || mem.loading || ex.loading || ld.busy || dv.busy || ob.busy || !!reps.busy || !!project.task;
   const memberReadScopes = () => [...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory, ...(mcfg().useDefenderLogons ? Graph.SCOPES.hunting : [])])];
   const projectValid = (epoch) => epoch === project.epoch;
   function projectSource(key, state, error) {
@@ -159,10 +166,10 @@ const MdeRolloutV2Tool = (() => {
   // is read. On the rail every area carries a dot: pulsing with the name of
   // the source it still waits for, green when everything it shows is in,
   // amber when a source came back partial or could not be read.
-  const PROJECT_STEPS = [["policies", "Policies & wave groups"], ["members", "Country members"], ["exclusions", "Exclusions & devices"], ["landing", "Check-in status"], ["devices", "Device conflicts"]];
-  const AREA_DEPS = { overview: ["members", "landing"], wavehome: ["members", "landing"], new: ["policies", "devices"], exceptionhome: ["exclusions", "members"], journal: [] };
-  const SRC_WORD = { policies: "policies", members: "members", exclusions: "exclusions", landing: "status", devices: "conflicts" };
-  const projectChainBusy = () => project.starting || running || !!project.task || !!project.timer || mem.loading || ex.loading || ld.busy || dv.busy;
+  const PROJECT_STEPS = [["policies", "Policies & wave groups"], ["members", "Country members"], ["exclusions", "Exclusions & devices"], ["landing", "Check-in status"], ["devices", "Device conflicts"], ["onboarding", "Defender onboarding"]];
+  const AREA_DEPS = { overview: ["members", "landing", "devices", "onboarding"], wavehome: ["members", "landing"], new: ["policies", "devices"], exceptionhome: ["exclusions", "members"], journal: [] };
+  const SRC_WORD = { policies: "policies", members: "members", exclusions: "exclusions", landing: "status", devices: "conflicts", onboarding: "onboarding" };
+  const projectChainBusy = () => project.starting || running || !!project.task || !!project.timer || mem.loading || ex.loading || ld.busy || dv.busy || ob.busy;
   const TERMINAL = /^(ready|partial|failed|consent)$/;
   const stepState = (key) => { const s = project.sources[key]; if (s) return s.state; return projectChainBusy() && !project.attempted.has(key) ? "queued" : "notread"; };
   // "12 of 43" in a live line → 12/43
@@ -177,6 +184,7 @@ const MdeRolloutV2Tool = (() => {
     if (key === "exclusions") { const n = terminal ? exNow() : null; return n ? `${n.users} users · ${n.devices} devices excluded${n.half ? ` · ${n.half} half` : ""}` : "the exclusion groups and the devices in Intune"; }
     if (key === "landing") { if (terminal && ld.model) return `${plural(ld.model.readRows, "status row")} · ${plural(ld.model.summary.devices, "device")} and ${plural(ld.model.summary.users, "user")} in the waves${ld.model.shape && ld.model.shape !== "cached" ? ` · via ${MdeLanding.SHAPE_LABEL[ld.model.shape] || ld.model.shape}` : ""}`; return model ? `${plural(model.newP.filter((P) => P.state === "assigned").length, "policy", "policies")} to ask` : "one report per new policy"; }
     if (key === "devices") { if (terminal && dv.idx) { const c = devCounts(); const on = c ? [...c.values()].filter((x) => !x.unknown && x.n > 0).length : 0; return `${on ? `${plural(on, "pair")} on devices` : "no pair on devices"}${dv.idx.failed.size ? ` · ${dv.idx.failed.size} unreadable` : ""}`; } return model ? `${plural(pairs.filter(M.needsAction).length, "pair")} to ask Intune about` : "the device conflict reports"; }
+    if (key === "onboarding") { if (terminal && ob.read) { const m = dashModel(); return `${plural(m.devices.total, "wave device")} · ${m.devices.known ? `${m.devices.counts.onboarded} onboarded` : "Defender not read"} · ${plural(m.users.total, "wave user")}`; } return "every wave's members and Defender's device inventory"; }
     return "";
   }
   function projectStrip() {
@@ -253,11 +261,14 @@ const MdeRolloutV2Tool = (() => {
     project.timer = setTimeout(() => { project.timer = null; projectReadNext(); }, 0);
   }
   async function projectReadNext() {
-    if (!project.active || project.starting || project.task || !model || (project.sources.policies && /failed|consent/.test(project.sources.policies.state)) || running || busy || plan || mem.loading || ex.loading || ld.busy || dv.busy || reps.busy) return;
+    if (!project.active || project.starting || project.task || !model || (project.sources.policies && /failed|consent/.test(project.sources.policies.state)) || running || busy || plan || mem.loading || ex.loading || ld.busy || dv.busy || ob.busy || reps.busy) return;
     const jobs = [
       ["members", memberReadScopes, memRead], ["exclusions", MdeExclude.scopes, exRead],
       ["landing", () => [...Graph.SCOPES.config, ...Graph.SCOPES.devices, ...Graph.SCOPES.groups], readLanding],
-      ["devices", () => [...Graph.SCOPES.config, ...Graph.SCOPES.devices], readDevices]
+      ["devices", () => [...Graph.SCOPES.config, ...Graph.SCOPES.devices], readDevices],
+      // 10703: Defender's part asks its own scope inside the read, so a
+      // tenant that never granted ThreatHunting.Read.All still gets the waves
+      ["onboarding", () => [...Graph.SCOPES.groups, ...Graph.SCOPES.devices], readOnboarding]
     ];
     const job = jobs.find((j) => !project.attempted.has(j[0]));
     if (!job) { projectReport(); return; }
@@ -271,7 +282,7 @@ const MdeRolloutV2Tool = (() => {
     finally { if (projectValid(epoch)) { project.task = ""; render(); projectQueue(); } }
   }
   async function projectStart(interactive) {
-    if (project.starting || running || busy || project.task || mem.loading || ex.loading || ld.busy || dv.busy || reps.busy) return;
+    if (project.starting || running || busy || project.task || mem.loading || ex.loading || ld.busy || dv.busy || ob.busy || reps.busy) return;
     project.active = true; project.starting = true;
     const epoch = project.epoch;
     project.readStart = Date.now();
@@ -283,13 +294,13 @@ const MdeRolloutV2Tool = (() => {
       if (interactive) await Graph.ensureScopes([...new Set([...scopes, ...memberReadScopes(), ...MdeExclude.scopes(), ...Graph.SCOPES.config, ...Graph.SCOPES.devices])]);
       if (!projectValid(epoch)) return;
       project.attempted.clear(); project.reportToken = "";
-      for (const k of ["members", "exclusions", "landing", "devices"]) delete project.sources[k];
+      for (const k of ["members", "exclusions", "landing", "devices", "onboarding"]) delete project.sources[k];
       await run(!interactive && !!(PolicyCache.get() || PolicyCache.reading()));
     } catch (e) { if (projectValid(epoch)) { projectSource("policies", "failed", GroupUse.shortErr(e, 240)); render(); } }
     finally { if (projectValid(epoch)) { project.starting = false; render(); projectQueue(); } }
   }
   function projectSources() {
-    const labels = { policies: "Policies & wave groups", members: "Country members & return holds", exclusions: "Exclusions & device inventory", landing: "Policy check-in status", devices: "Device conflicts" };
+    const labels = { policies: "Policies & wave groups", members: "Country members & return holds", exclusions: "Exclusions & device inventory", landing: "Policy check-in status", devices: "Device conflicts", onboarding: "Waves & Defender onboarding" };
     const list = Object.keys(labels), blocked = list.some((k) => project.sources[k] && /failed|partial|consent/.test(project.sources[k].state));
     const pending = list.some((k) => !project.sources[k] || project.sources[k].state === "reading");
     const changed = list.some((k) => project.sources[k] && project.sources[k].runs !== runs.length);
@@ -361,11 +372,64 @@ const MdeRolloutV2Tool = (() => {
     const rows = projectCountryRows();
     return `<section class="t28-panel"><div class="t28-panel-head"><h3>Countries & waves</h3><button class="btn" data-mrpane="wavehome">Open workspace →</button></div><div class="t28-table-wrap"><table class="cg-table"><thead><tr><th>Country</th><th>Wave</th><th>Users / devices in static groups</th><th>Evidence</th></tr></thead><tbody>${rows.map((r) => `<tr><td><button class="t28-link" data-project-country="${esc(r.key)}">${esc(r.country)}</button>${r.pilot ? '<span class="mini"> · pilot</span>' : ""}</td><td>${esc(r.region)}</td><td>${mem.model ? `${r.uRead ? r.uHave.size : "?"} / ${r.dg ? r.have.size : "—"}` : "—"}</td><td>${esc(projectCountryState(r))}</td></tr>`).join("")}</tbody></table></div><p class="mini muted">Group membership, policy assignment and reported application are separate checks. Shared members can appear in more than one country.</p></section>`;
   }
+  // 📊 THE DASHBOARD (10703, option A off the mockup canvas "T28 · Rollout
+  // dashboard"): Overview's first page. Four donuts, the waves side by side,
+  // the policy pairs in conflict with how T28 knows — js/mdedash.js draws it
+  // from what the six sources hold; nothing is read here.
+  function dashInput() {
+    const W = ob.read;
+    const sc = MdeDash.waveScope(waveRows);
+    const held = cs.extra ? { users: cs.extra.revertUsers.size, devices: cs.extra.revertDevices.size } : null;
+    return {
+      regions: cfg.waveRegions || [], waveList: [...sc.userWaves, ...sc.deviceWaves],
+      waves: W ? W.members : null, defender: W ? W.defender : null, managed: W ? W.managed : null,
+      landing: ld.model, live: MdeDash.liveOf(waveRows), pairs, newPairs: model ? MdeDash.newPairs(model.newP) : [],
+      newIds: model ? model.newP.map((P) => P.id) : [], policyNames: new Map(model ? model.policies.map((P) => [lc(P.id), P.name]) : []),
+      devIdx: dv.idx, held,
+    };
+  }
+  function dashModel() {
+    const key = [res && res.readAt, ob.at, ld.at, dv.at, cs.extra ? 1 : 0, runs.length, dash.region, JSON.stringify(cfg.waveRegions || [])].join("|");
+    if (dash.memo && dash.memoKey === key) return dash.memo;
+    dash.memoKey = key; dash.memo = MdeDash.model(dashInput(), { region: dash.region });
+    return dash.memo;
+  }
+  // what each card waits for, in the words of the source it waits on
+  function dashStates() {
+    const word = (k, what) => {
+      const st = stepState(k), s = project.sources[k];
+      if (st === "reading") return { text: `Reading ${what}…` };
+      if (st === "queued") return { text: `Queued — ${what} is read after the sources before it.` };
+      if (st === "consent") return { text: `Permission needed for ${what}.`, consent: k, consentText: "Connect data" };
+      if (st === "failed") return { text: `${what[0].toUpperCase()}${what.slice(1)} unavailable${s && s.error ? `: ${s.error}` : "."}`, bad: true };
+      return { text: `${what[0].toUpperCase()}${what.slice(1)} not read.` };
+    };
+    const defender = ob.read && !ob.read.defender
+      ? (ob.read.defenderConsent ? { text: "Defender's device inventory needs ThreatHunting.Read.All (and a Defender role that may run advanced hunting).", consent: "hunting", consentText: "Allow the Defender read" }
+        : { text: `Defender's device inventory unavailable${ob.read.defError ? `: ${ob.read.defError}` : "."}`, bad: true, consent: "hunting", consentText: "Try again" })
+      : word("onboarding", "the waves and Defender's device inventory");
+    const users = ob.read && ob.read.defender && !ob.read.managed ? { text: "The Windows devices in Intune were not read.", bad: true } : defender;
+    return { devices: defender, users, landing: word("landing", "the check-in status") };
+  }
   function projectOverview() {
-    const s = ld.model && ld.model.summary;
-    return `<div class="v2-overview"><div class="t28-title"><div><p class="t28-eyebrow">${esc(tenantName() || "MDE rollout project")}</p><h3>Your rollout, in one place.</h3><p class="mini muted">Review scope, policy changes and device evidence before the next rollout step.</p></div></div>
-      <div class="t28-metrics"><div><strong>${projectCountryRows().length}</strong><span>country / pilot entries</span></div><div><strong>${model ? model.newP.length : "—"}</strong><span>new policies</span></div><div><strong>${s ? s.devices : "—"}</strong><span>devices in verification scope</span></div><div><strong>${s ? s.error + s.conflict : "—"}</strong><span>error / conflict results</span></div></div>
-      <div class="t28-overview-grid">${projectCountryTable()}${projectAttention(true)}</div></div>`;
+    const m = dashModel();
+    const countries = new Map();
+    for (const r of projectCountryRows()) { if (!countries.has(r.region)) countries.set(r.region, []); countries.get(r.region).push({ key: r.key, country: r.country + (r.pilot ? " (pilot)" : "") }); }
+    const head = `<div class="t28-title dash-head"><div><p class="t28-eyebrow">${esc(tenantName() || "MDE rollout project")}</p><h3>Your rollout, in one place.</h3><p class="mini muted">Onboarding, evidence and conflicts for every wave — read automatically when T28 opens.</p></div><div class="tb-actions"><button type="button" class="btn" data-dash-export="html" title="A self-contained page for people without TUNO: the donuts, the waves, the pairs and every list">⭳ Export HTML</button><button type="button" class="btn" data-dash-export="csv">⭳ CSV</button></div></div>`;
+    const ms = project.sources.members;
+    const waveNote = ms && /failed|consent/.test(ms.state) ? `Membership unavailable — the countries' static groups were not read${ms.error ? `: ${ms.error}` : ""}. The waves' own members still count.` : "";
+    return `<div class="v2-overview">${head}${MdeDash.html(m, { app: true, list: dash.list, open: dash.open, allPairs: dash.allPairs, countries, states: dashStates(), input: dashInput(), waveNote })}</div>`;
+  }
+  function dashMeta() {
+    const countries = new Map();
+    for (const r of projectCountryRows()) { if (!countries.has(r.region)) countries.set(r.region, []); countries.get(r.region).push({ key: r.key, country: r.country }); }
+    return { tenant: tenantName(), build: typeof APP_BUILD !== "undefined" ? APP_BUILD.label : "", now: Date.now(), countries,
+      times: [["policies", res && res.readAt], ["waves & Defender", ob.at], ["check-in status", ld.at], ["device conflicts", dv.at]] };
+  }
+  function dashExport(kind) {
+    const m = dashModel(), tag = `${lc(tenantName() || "tenant").replace(/[^a-z0-9]+/g, "-")}${m.region ? `-${lc(m.region).replace(/[^a-z0-9]+/g, "-")}` : ""}`;
+    if (kind === "csv") download(`t28-dashboard-${tag}-${stamp()}.csv`, MdeDash.csv(m), "text/csv");
+    else download(`t28-dashboard-${tag}-${stamp()}.html`, MdeDash.exportHtml(m, dashMeta(), dashInput()), "text/html");
   }
   function projectWave() {
     const rows = projectCountryRows(), row = rows.find((r) => r.key === project.country) || rows[0];
@@ -648,6 +712,8 @@ const MdeRolloutV2Tool = (() => {
     mem.left = false; mem.leftCountry = null; mem.leftReason = null; mem.pil = false; mem.pilState = null; mem.pilSel.clear();
     mem.logons.clear(); mem.looked.clear(); mem.logBusy = ""; mem.logError = "";
     Object.assign(dv, { busy: false, status: "", at: null, idx: null, prev: null, prevAt: null, error: "" });
+    Object.assign(ob, { busy: false, status: "", error: "", read: null, at: null, managed: null });
+    Object.assign(dash, { region: null, list: "", allPairs: false, memo: null, memoKey: "" }); dash.open.clear();
     Object.assign(tm, { region: null, loading: false, error: "", text: "", note: "", busy: false, list: [], misses: [], q: "", hits: null, searching: false, csv: false, all: false, allAt: 0 }); tm.test.clear(); tm.ticks.clear(); tm.rem.clear(); tm.live.clear();
     Object.assign(ex, { base: null, loading: false, error: "", q: "", searching: false, results: null, note: "", card: null, cardLoading: false, cardError: "" });
     ex.ticks.clear(); ex.sel.clear(); ex.lticks.clear();
@@ -800,6 +866,9 @@ const MdeRolloutV2Tool = (() => {
         if (pr.type === "duplicate") continue;
         for (const P of [pr.N, pr.O]) if (!seen.has(lc(P.id))) { seen.add(lc(P.id)); only.push({ id: P.id, name: P.name }); }
       }
+      // 10703: every new policy, paired or not — the 📊 dashboard explains a
+      // device in conflict on a new policy whose partner Intune does not name
+      for (const P of model.newP) if (!seen.has(lc(P.id))) { seen.add(lc(P.id)); only.push({ id: P.id, name: P.name }); }
       const read = await ConflictDevices.read({ collectRes: res, only, settings: false, scopes,
         onStatus: (m) => { dv.status = m; const el = $("mvDevStatus"); if (el) el.textContent = m; projectLine("devices", m); } });
       if (!projectValid(epoch)) return false;
@@ -810,6 +879,35 @@ const MdeRolloutV2Tool = (() => {
       return true;
     } catch (e) { if (!projectValid(epoch)) return false; dv.error = GroupUse.shortErr(e, 250); projectSource("devices", "failed", dv.error); return false; }
     finally { if (projectValid(epoch)) { dv.busy = false; dv.status = ""; render(); } }
+  }
+  // 📊 (10703) the sixth source: every wave's members (transitive — the
+  // live waves and the ones not started) and Defender's device inventory.
+  // The hunting scope is asked on its own, silently: refused, the waves
+  // still count and the dashboard offers the consent.
+  async function readOnboarding(interactive) {
+    if (ob.busy || !model) return false;
+    const epoch = project.epoch;
+    projectSource("onboarding", "reading");
+    ob.busy = true; ob.error = ""; ob.status = "Reading the wave members…"; render();
+    const say = (m) => { if (!projectValid(epoch)) return; ob.status = m; projectLine("onboarding", m); };
+    try {
+      const members = await MdeDash.readWaves(waveRows, { onStatus: say });
+      if (!projectValid(epoch)) return false;
+      const managed = mem.input && (mem.input.managedAll || mem.input.managed) ? (mem.input.managedAll || mem.input.managed) : await MdeLanding.readManaged({ managed: null, onStatus: say });
+      if (!projectValid(epoch)) return false;
+      let defender = null, defError = "", defenderConsent = false;
+      try {
+        const okScope = interactive ? await Graph.ensureScopes(Graph.SCOPES.hunting) : await Graph.silentScopes(Graph.SCOPES.hunting);
+        if (!okScope) defenderConsent = true;
+        else defender = await MdeDash.readDefender({ onStatus: say });
+      } catch (e) { defError = GroupUse.shortErr(e, 240); }
+      if (!projectValid(epoch)) return false;
+      ob.read = { members, managed, defender, defError, defenderConsent }; ob.at = Date.now();
+      const errs = [...(members.errors || []), defenderConsent ? "Defender's device inventory needs ThreatHunting.Read.All — Allow the Defender read on the dashboard." : "", defError ? `Defender's device inventory: ${defError}` : ""].filter(Boolean);
+      projectSource("onboarding", errs.length ? "partial" : "ready", errs.join("; "));
+      return true;
+    } catch (e) { if (!projectValid(epoch)) return false; ob.error = GroupUse.shortErr(e, 250); projectSource("onboarding", "failed", ob.error); return false; }
+    finally { if (projectValid(epoch)) { ob.busy = false; ob.status = ""; render(); } }
   }
   function devCellHtml(pr) {
     const c = devNow && devNow.get(pr.id);
@@ -1312,7 +1410,10 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>🧩 Edge extensions</b> (under Policies). The new set's settings-catalog policy that carries Edge's <b>Installed silently</b> list (the force list: on every user the policy reaches, not removable by them, and it wins over the block list) or its <b>Exempt from the block list</b> list (users may install those themselves). Each row is named by the Edge Add-ons store from its ID, through a lookup route set on the pane — the store sends no CORS headers, so a page here cannot call it: a self-hosted instance forwards a path, or a relay URL is set (its host must also be in the page's connect-src). Without a route the pane runs in paste mode: an ID, an Edge store link or a Chrome Web Store link (which gets the Chrome update URL behind the ID) is always accepted, with the name as typed or as the list gave it, marked unverified. The two Edge Copilot components OIB ships in the force list are 🔒 built-in and kept; an ID the store answers 404 to is ⚠ a finding, never a guess. 📋 the approved list (TSV / CSV with a header, or one name per line; kept per tenant in this browser) is matched to the store by name — a unique hit names a row, several hits ask for a pick, none asks for the ID — and added in one go as exempt or silent, rows moved one by one. ② Dry run reads the policy fresh, lists every change with what the reached users get, the likely impact and the way back; ③ the backup (the policy and all its settings), confirm, ④ Apply: re-read and skipped as drifted when it changed, written as a whole with only the two collections changed, read back; the run and its undo in 📜. Taking a live silent install away is a recorded risk: Edge uninstalls it from every reached user.</p>
       <p style="margin:0 0 8px"><b>📡 Landing</b> (Waves → Verification, 10689). Did the new set land: Intune's own check-in status per new policy — the report behind the portal's <i>View report</i>, one per policy; since 10694 the read tries the documented forms in order on the first policy (the cached report as Microsoft Learn's example has it, then with the policy base types in its filter, then <code>getConfigurationPolicyNonComplianceReport</code>, the report action T12's device read uses) and keeps the one the tenant answers — a refusal is said once, with Intune's own words, never once per policy — joined to the waves' members, so every member of a wave a policy includes is expected to report it (minus the policy's excluded groups). Per policy and per wave: landed / expected with the conflicts, errors, pending and <b>no status</b> counted, and since 10697 <b>⊘ reached though excluded</b> — a member of the ⊘ exclusion group that a policy's assignments do not exclude (⚡ Rollout actions ② puts the groups on every new policy), and an excluded member Intune still reports a state for (the device has to check in; a state newer than the exclusion means the assignment still reaches it); per member a chip per policy and a verdict. A conflict is explained by T12's setting-level read (the setting) and the ⚔️ pairs (the old policy the device is also in conflict on). <i>Pending</i> and <i>no status</i> are things to watch, not failures: Intune's status lags the device, and a fresh wave can take a day to fill in. Reads only; 📑 Landing check saves it as a report with a CSV.</p>
       <p style="margin:0 0 8px"><b>🧪 Test members</b> (10696, the wave's pilot). Since the batches are the waves themselves, there are no pilot groups per country any more (NL Breda's batches stay as they are); the wave's test groups — <code>INT-SG-U-WAVE-&lt;region&gt;-Test</code> and <code>-D-</code>, nested in the waves — hold whoever goes in ahead of their country. In 👥 Membership &amp; pilots every wave's table starts with its 🧪 Test members row; the card under it shows the groups with their nesting state, every member with the country group that holds them and whether that group is nested (the route into the wave), and adds by a search first (a user by name, UPN or e-mail brings their Windows devices with a tick each; a device by name comes alone) or a CSV behind ⭱. Two ways out: <b>→ live</b> takes a member out of the test groups and changes nothing on the device — the same wave through the nested country group — and is offered only when that group holds them (all at once for everyone covered); <b>out</b> takes them out of the wave altogether, back to the old policies (typed REMOVE). ② Dry run, the backup and ④ Apply as in 👥, every write read back, undo in 📜. 🌊 Wave groups &amp; tests' column points here.</p>
-      <p style="margin:0 0 8px"><b>Reading the tenant</b> (10695). Opening T28 or ↻ Refresh project reads five sources in order — policies and wave groups, country members and return holds, exclusions and the devices in Intune, the check-in status, the device conflicts — and the strip under the data line shows them as steps: the one being read lit with its live line and its own bar, the finished ones ticked with what they found and their time, an overall bar, the elapsed time; folded to one row of ticks once every source is in, a partial or refused source with Intune's answer. On the rail every area carries a dot: pulsing with the name of the source it still waits for, green when everything it shows is in, amber when a source came back partial. Browsing stays possible during a read; nothing is read that was not read before.</p>
+      <p style="margin:0 0 8px"><b>Reading the tenant</b> (10695). Opening T28 or ↻ Refresh project reads six sources in order — policies and wave groups, country members and return holds, exclusions and the devices in Intune, the check-in status, the device conflicts, and (since 10703) every wave's members with Defender's device inventory — and the strip under the data line shows them as steps: the one being read lit with its live line and its own bar, the finished ones ticked with what they found and their time, an overall bar, the elapsed time; folded to one row of ticks once every source is in, a partial or refused source with Intune's answer. On the rail every area carries a dot: pulsing with the name of the source it still waits for, green when everything it shows is in, amber when a source came back partial. Browsing stays possible during a read; nothing is read that was not read before.</p>
+      <p style="margin:0 0 8px"><b>📊 Dashboard</b> (Overview, 10703). Four donuts over the project's waves, all from the automatic reads. <b>MDE onboarded · devices</b>: every device-wave member (transitive, the waves not started too; <code>-vdi-</code> left out) against Defender's device inventory — one advanced-hunting query on <code>DeviceInfo</code>, 30 days, matched on the Entra device id, else the short name: Onboarded · Can be onboarded · Not seen by Defender · Unsupported (or insufficient info); an onboarded device whose sensor is not Active is counted as silent. <b>MDE onboarded · users</b>: every user-wave member and their Windows devices by Intune primary user — every device onboarded · some · none · no Windows device. <b>Evidence</b>: of the devices in a live wave (one a new policy includes), how many report a result — Succeeded, Not applicable, Error or Conflict — for every new policy they should get, for some, for none; Pending and no status are waiting, never results. <b>Results</b>: each reporting device's worst state, conflict over error over pending over landed. The same four per wave sit side by side under them, a wave chip narrows the whole page, and each donut opens its list. The Defender query needs ThreatHunting.Read.All (and a Defender role allowed to run advanced hunting); refused, the waves still count and the card offers the consent.</p>
+      <p style="margin:0 0 8px"><b>Policies in conflict</b> (the dashboard). Every new × old pair from the comparison, and two NEW policies that set one setting — one ASR rule — differently, each with how T28 knows. <b>Named by Intune</b>: both policies report Conflict on the device. <b>Matched by T28</b>: Intune reports the conflict on one policy, or only on a collection such as the ASR rules, and names no partner — the single policy that sets one of its settings (per rule) to another value, was compared setting by setting, and shares a target is the partner; settings decide, names never do. <b>Candidates</b>: more than one such policy — listed, not chosen. <b>Predicted</b>: no device has reported it yet, but the settings differ and the two reach (or will reach) the same wave — what the next wave hits; two new policies are only shown when they share a target (the update rings differ on purpose). <b>Unresolved</b>: Intune reports a conflict no Intune policy explains — look at Defender security settings management or GPO. ▾ opens a pair: every setting with both values and the devices. The 🖥 device read now asks for every new policy, so a one-sided report is seen.</p>
+      <p style="margin:0 0 8px"><b>⭳ Export HTML</b> (the dashboard). One self-contained page — the donuts, the waves, every pair with its settings and devices, every list folded — with no script and no sign-in, light or dark by the reader's system, for people who have no TUNO: it is a snapshot that does not update. It names devices and users, so share it like the tenant data it is. <b>⭳ CSV</b>: one row per wave device and wave user with what each answer said.</p>
       <p style="margin:0"><b>Temporary.</b> Built for one rollout, beta only, never promoted — listed under Help's "Staying on this channel".</p>
     </div></div>`;
   }
@@ -4884,6 +4985,13 @@ const MdeRolloutV2Tool = (() => {
       const t = (e.target.closest && e.target.closest(".fi-run, .enca-icon-slot") && e.target.closest("button, a, [role=button]")) || e.target;
       if (t.closest("[data-project-connect]")) { projectStart(true); return; }
       if (t.closest("[data-project-details]")) { project.details = !project.details; render(); return; }
+      // 📊 the dashboard's own controls (10703)
+      const dr = t.closest("[data-dash-region]"); if (dr) { dash.region = dr.dataset.dashRegion || null; dash.list = ""; render(); focusOn(`[data-dash-region="${dr.dataset.dashRegion}"]`); return; }
+      const dl = t.closest("[data-dash-list]"); if (dl) { dash.list = dash.list === dl.dataset.dashList ? "" : dl.dataset.dashList; render(); if (dash.list) focusOn(".dash-list h4"); return; }
+      const dp = t.closest("[data-dash-pair]"); if (dp) { const id = dp.dataset.dashPair; if (dash.open.has(id)) dash.open.delete(id); else dash.open.add(id); render(); focusOn(`[data-dash-pair="${id}"]`); return; }
+      if (t.closest("[data-dash-allpairs]")) { dash.allPairs = true; render(); return; }
+      const de = t.closest("[data-dash-export]"); if (de) { dashExport(de.dataset.dashExport); return; }
+      const dc = t.closest("[data-dash-consent]"); if (dc) { if (dc.dataset.dashConsent === "hunting") readOnboarding(true); else projectStart(true); return; }
       const countryButton = t.closest("[data-project-country]");
       if (countryButton) { project.country = countryButton.dataset.projectCountry; pane = "wavehome"; render(); return; }
       const countryTab = t.closest("[data-project-wtab]");
@@ -5377,7 +5485,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, wc, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),
+    _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, wc, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, ob, dash, dashModel, dashInput, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),
     _pane: (p) => { pane = p; render(); },
     _holdGate: (p) => holdGateOf(p),
   };

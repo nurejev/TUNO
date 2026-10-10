@@ -78,7 +78,7 @@ async function run() {
   ok("the tile opens the V2 screen without changing URL", sansWs(w.location.href) === originalUrl && $("screen-mderollout").classList.contains("active") && !$("t28Workspace2").hidden);
   ok("the screen hook is V2's own", typeof w.TunoScreenHooks["screen-mderollout"] === "function" && !w.TunoScreenHooks["screen-mderollout-v2"]);
   ok("opening starts automatic project reads", st().project.starting || st().running || !!st().model);
-  await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
+  await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 5 && !s.ob.busy && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
   await until(() => st().model, 20000, "V2 model"); await idle();
   ok("V2 starts on the overview", st().pane === "overview" && !!$("mvBody").querySelector(".v2-overview"));
   ok("overview does not invent applied protection", /reported application are separate checks/.test($("mvBody").textContent));
@@ -196,7 +196,7 @@ async function carryOver() {
     store.set("tuno.t28.rules." + tid, oldRaw);
     if (both) { const own = w.MdeRollout.normConfig(null); own.newPrefixes = own.newPrefixes.concat(["WIN-OWN"]); store.set("tuno.t28.v2.rules." + tid, JSON.stringify(own)); }
     $("toolMdeRollout").click();
-    await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
+    await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 5 && !s.ob.busy && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
     await until(() => st().model, 20000, "carry-over read");
     await until(() => !st().running && !st().busy && !st().enriching && !st().project.starting && !st().project.task && !st().project.timer && !st().reps.busy, 15000, "carry-over idle");
     tool._pane("rules");

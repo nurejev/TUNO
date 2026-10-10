@@ -133,3 +133,65 @@
 #screen-mderollout .mr-wcverdict.in{background:color-mix(in srgb,var(--on) 14%,var(--surface));color:var(--on)}
 #screen-mderollout .mr-wcverdict.mixed{background:color-mix(in srgb,var(--report) 14%,var(--surface));color:var(--report)}
 #screen-mderollout .mr-wcverdict.out{background:var(--soft);color:var(--muted)}
+
+/* 📊 Dashboard (10703, option A off the mockup canvas "T28 · Rollout
+   dashboard"): four donuts, the waves side by side, the pairs in conflict.
+   The status colours are the dashboard's own, validated against the light
+   surface (dataviz validator: adjacent CVD and normal-vision separation
+   pass) and stepped for the dark one; a state is never said by colour
+   alone — the glyph and the label sit beside every swatch. The export
+   (MdeDash.CSS) carries the same rules. */
+#t28Workspace2 { --dash-ok:#3f7a24; --dash-warn:#dcaa14; --dash-err:#c8601f; --dash-conf:#a3274f; --dash-none:#a7b5ac; --dash-track:#e4ece6; }
+:root[data-theme="dark"] #t28Workspace2 { --dash-ok:#5fb873; --dash-warn:#d4ad3a; --dash-err:#e07a3a; --dash-conf:#e5629a; --dash-none:#6b7d71; --dash-track:#22362a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="dark"]) #t28Workspace2 { --dash-ok:#5fb873; --dash-warn:#d4ad3a; --dash-err:#e07a3a; --dash-conf:#e5629a; --dash-none:#6b7d71; --dash-track:#22362a; } }
+#t28Workspace2 .dash-head { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:12px; }
+#t28Workspace2 .dash-chips { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 16px; }
+#t28Workspace2 .dash-chips small { font-size:10.5px; opacity:.8; margin-left:4px; }
+#t28Workspace2 .dash-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:12px; }
+@media(max-width:1250px) { #t28Workspace2 .dash-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:650px) { #t28Workspace2 .dash-grid { grid-template-columns:minmax(0,1fr); } }
+#t28Workspace2 .dash-card { display:flex; flex-direction:column; gap:10px; }
+#t28Workspace2 .dash-card h4 { margin:0; font-size:13.5px; line-height:1.35; }
+#t28Workspace2 .dash-donut { position:relative; width:148px; height:148px; margin:0 auto; }
+#t28Workspace2 .dash-svg { display:block; width:148px; height:148px; }
+#t28Workspace2 .dash-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none; }
+#t28Workspace2 .dash-center b { font-size:28px; font-weight:700; letter-spacing:-.5px; line-height:1; }
+#t28Workspace2 .dash-center small { font-size:11.5px; color:var(--muted); margin-top:4px; }
+#t28Workspace2 .dash-leg { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+#t28Workspace2 .dash-leg li { display:grid; grid-template-columns:12px minmax(0,1fr) auto 36px; gap:8px; align-items:center; font-size:12.5px; line-height:1.3; }
+#t28Workspace2 .dash-leg b { text-align:right; font-variant-numeric:tabular-nums; }
+#t28Workspace2 .dash-leg small { text-align:right; color:var(--muted); font-variant-numeric:tabular-nums; }
+#t28Workspace2 .dash-sw { display:block; width:10px; height:10px; border-radius:3px; }
+#t28Workspace2 .dash-src { font-size:11px; color:var(--muted); margin:auto 0 0; border-top:1px solid var(--line); padding-top:8px; line-height:1.5; }
+#t28Workspace2 .dash-wait { color:var(--muted); font-size:12.5px; line-height:1.55; margin:8px 0; }
+#t28Workspace2 .dash-wait.bad { color:var(--report); }
+#t28Workspace2 .dash-hold { font-size:12.5px; margin:4px 0 14px; display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; }
+#t28Workspace2 .dash-table td { vertical-align:top; overflow-wrap:anywhere; }
+#t28Workspace2 .dash-waves td { vertical-align:middle; }
+#t28Workspace2 .dash-cell { display:flex; align-items:center; gap:8px; min-width:110px; }
+#t28Workspace2 .dash-cell b { min-width:34px; text-align:right; font-variant-numeric:tabular-nums; }
+#t28Workspace2 .dash-bar { display:flex; gap:2px; height:10px; flex:1 1 auto; min-width:60px; }
+#t28Workspace2 .dash-bar span { display:block; height:10px; }
+#t28Workspace2 .dash-bar span:first-child { border-radius:4px 0 0 4px; }
+#t28Workspace2 .dash-bar span:last-child { border-radius:0 4px 4px 0; }
+#t28Workspace2 .dash-bar span:only-child { border-radius:4px; }
+#t28Workspace2 .dash-num { white-space:nowrap; font-variant-numeric:tabular-nums; }
+#t28Workspace2 .dash-state { display:inline-block; font-size:11.5px; font-weight:600; padding:2px 9px; border-radius:999px; background:var(--soft); color:var(--muted); white-space:nowrap; }
+#t28Workspace2 .dash-state.live { background:var(--ok-bg); color:var(--green); }
+#t28Workspace2 .dash-countries summary { font-size:11.5px; color:var(--muted); cursor:pointer; margin-top:3px; }
+#t28Workspace2 .dash-countries .t28-link { font-size:12px; padding:2px 6px 2px 0; }
+#t28Workspace2 .dash-pair { display:flex; flex-direction:column; gap:2px; line-height:1.35; min-width:180px; }
+#t28Workspace2 .dash-pair span { color:var(--muted); font-size:12px; }
+#t28Workspace2 .dash-devbar { display:flex; align-items:center; gap:8px; }
+#t28Workspace2 .dash-devbar span { display:block; height:10px; border-radius:0 4px 4px 0; background:var(--dash-conf); }
+#t28Workspace2 .dash-devbar span.none { background:var(--dash-none); }
+#t28Workspace2 .dash-tier { display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; border:1px solid var(--border); white-space:nowrap; background:var(--surface); }
+#t28Workspace2 .dash-tier.named { border-color:var(--ok-bd); background:var(--ok-bg2); color:var(--green); }
+#t28Workspace2 .dash-tier.matched { border-color:var(--blue); background:var(--blue-bg); color:var(--blue); }
+#t28Workspace2 .dash-tier.candidates, #t28Workspace2 .dash-tier.predicted { border-color:var(--warn-bd); background:var(--warn-bg2); color:var(--warn-fg); }
+#t28Workspace2 .dash-tier.unresolved { border-style:dashed; color:var(--muted); }
+#t28Workspace2 .dash-tiers { display:flex; flex-wrap:wrap; gap:6px 16px; font-size:11.5px; color:var(--muted); margin-top:12px; }
+#t28Workspace2 .dash-fold { padding:0 6px; min-height:32px; }
+#t28Workspace2 .dash-conf .dash-table th:first-child, #t28Workspace2 .dash-conf .dash-table td:first-child { width:32px; padding-right:0; }
+#t28Workspace2 .dash-detail td { background:var(--soft2); }
+#t28Workspace2 .dash-foot { margin-top:4px; }

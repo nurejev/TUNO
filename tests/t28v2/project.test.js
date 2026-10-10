@@ -55,7 +55,7 @@ function boot() {
 
 async function run() {
   const { w, store } = boot(), D = w.document, $ = (id) => D.getElementById(id), tool = w.MdeRolloutV2Tool, st = () => tool._state();
-  const idle = () => until(() => st().model && st().project.attempted.size === 4 && !st().project.starting && !st().project.task && !st().project.timer && !st().running && !st().reps.busy, 30000, "automatic project idle");
+  const idle = () => until(() => st().model && st().project.attempted.size === 5 && !st().ob.busy && !st().project.starting && !st().project.task && !st().project.timer && !st().running && !st().reps.busy, 30000, "automatic project idle");
   const click = (sel) => { const el = D.querySelector(sel); if (!el) throw new Error("Missing UI: " + sel); el.click(); };
   $("demoLink").click(); await until(() => w.PolicyCache.get(), 20000, "sign in");
   let reads = 0, writes = 0;
@@ -63,7 +63,7 @@ async function run() {
   w.PolicyCache.refresh = (...args) => { reads++; return refresh(...args); };
   for (const k of ["patch", "del"]) { const f = w.Graph[k]; if (f) w.Graph[k] = (...args) => { writes++; return f(...args); }; }
   $("toolMdeRollout").click(); await idle();
-  ok("all five sources load without a read button", ["policies","members","exclusions","landing","devices"].every((k) => /ready|partial/.test(st().project.sources[k].state)) && !!st().mem.model && !!st().ex.base && !!st().ld.model && !!st().dv.idx);
+  ok("all six sources load without a read button", ["policies","members","exclusions","landing","devices","onboarding"].every((k) => /ready|partial/.test(st().project.sources[k].state)) && !!st().mem.model && !!st().ex.base && !!st().ld.model && !!st().dv.idx);
   ok("opening shares sign-in policies and writes nothing", reads === 0 && writes === 0 && st().runs.length === 0);
   const nav = () => [...D.querySelectorAll(".mr-navigation > [data-mrpane]")].map((e) => e.dataset.mrpane);
   ok("five areas, in approved order", nav().join() === "overview,wavehome,new,exceptionhome,journal");

@@ -101,7 +101,7 @@ async function run() {
     if (b && a && a.disabled && !b.disabled) { b.click(); await until(() => !$("mvMemApply") || !$("mvMemApply").disabled, 10000, "group backup"); }
   }
   const idle = () => until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && !s.running && !s.busy && !s.enriching && !s.project.starting && !s.project.task && !s.project.timer && !s.reps.busy; }, 30000, "idle");
-  await until(() => w.MdeRolloutV2Tool._state().project.attempted.size === 4, 30000, "automatic sources");
+  await until(() => w.MdeRolloutV2Tool._state().project.attempted.size === 5, 30000, "automatic sources");
   await idle();
   ok("opening attaches the sign-in read automatically", !!w.MdeRolloutV2Tool._state().model && reads.refresh === 0 && !offer(), JSON.stringify(reads));
   ok("five project areas replace the flat rail", D.querySelectorAll(".mr-navigation > [data-mrpane]").length === 5);
@@ -948,7 +948,7 @@ async function run() {
   w.PolicyCache.get = () => null; w.PolicyCache.reading = () => false;
   w.dispatchEvent(new w.Event("tuno:signout"));
   w.TunoScreenHooks["screen-mderollout"]();
-  await until(() => st().project.attempted.size === 4, 30000, "cold sources"); await idle();
+  await until(() => st().project.attempted.size === 5, 30000, "cold sources"); await idle();
   ok("cold open automatically reads policies once", !!st().model && fresh === 1);
   w.PolicyCache.get = heldGet; w.PolicyCache.reading = heldReading; w.PolicyCache.refresh = rf;
 

@@ -57,7 +57,7 @@ function boot() {
 
 async function run() {
   const { w } = boot(), D = w.document, $ = (id) => D.getElementById(id), tool = w.MdeRolloutV2Tool, st = () => tool._state();
-  const idle = () => until(() => st().model && st().project.attempted.size === 4 && !st().project.starting && !st().project.task && !st().project.timer && !st().running && !st().reps.busy && !st().ld.busy && !st().dv.busy && !st().mem.loading, 30000, "automatic project idle");
+  const idle = () => until(() => st().model && st().project.attempted.size === 5 && !st().ob.busy && !st().project.starting && !st().project.task && !st().project.timer && !st().running && !st().reps.busy && !st().ld.busy && !st().dv.busy && !st().mem.loading, 30000, "automatic project idle");
   const strip = () => D.querySelector("#mvBody .t28-strip");
   const dots = () => [...D.querySelectorAll("#mvBody .mr-navigation > .ep-node")].map((n) => `${n.dataset.mrpane}:${(n.querySelector(".t28-dot") || { className: "none" }).className.replace("t28-dot", "").trim()}${n.querySelector(".t28-dotw") ? "/" + n.querySelector(".t28-dotw").textContent : ""}`);
   $("demoLink").click(); await until(() => w.PolicyCache.get(), 20000, "sign in");
@@ -73,20 +73,20 @@ async function run() {
   await until(() => st().project.sources.members && st().project.sources.members.state === "reading" && strip(), 20000, "members reading");
   await sleep(30);
   const S = strip();
-  ok("while reading: the strip under the data line, policies ticked with what it found, members lit with its live line and its own bar, the three others queued with what they will ask", !!S && !/done/.test(S.className) && /Reading the tenant — Country members/.test(S.textContent) && S.querySelector(".t28-step.done .n").textContent.includes("Policies & wave groups") && /\d+ new · \d+ old · \d+ waves/.test(S.querySelector(".t28-step.done .d").textContent) && S.querySelector('.t28-step.now [data-prjline="members"]').textContent === "Reading the wave members — 12 of 43 (Euro)…" && S.querySelectorAll(".t28-step:not(.done):not(.now)").length === 3 && /policies to ask/.test(S.textContent) && /pairs? to ask Intune about/.test(S.textContent));
-  ok("…the step's bar and the overall bar follow the live line (12 of 43 of step 2 of 5)", S.querySelector('[data-prjbar="members"]').style.width === "28%" && S.querySelector("[data-prjall]").style.width === `${Math.round(((1 + 12 / 43) / 5) * 100)}%`);
-  ok("…the Refresh button says where the read is", $("mvRun").textContent === "⟳ Reading… 1 of 5" && $("mvRun").disabled);
+  ok("while reading: the strip under the data line, policies ticked with what it found, members lit with its live line and its own bar, the four others queued with what they will ask", !!S && !/done/.test(S.className) && /Reading the tenant — Country members/.test(S.textContent) && S.querySelector(".t28-step.done .n").textContent.includes("Policies & wave groups") && /\d+ new · \d+ old · \d+ waves/.test(S.querySelector(".t28-step.done .d").textContent) && S.querySelector('.t28-step.now [data-prjline="members"]').textContent === "Reading the wave members — 12 of 43 (Euro)…" && S.querySelectorAll(".t28-step:not(.done):not(.now)").length === 4 && /policies to ask/.test(S.textContent) && /pairs? to ask Intune about/.test(S.textContent));
+  ok("…the step's bar and the overall bar follow the live line (12 of 43 of step 2 of 6)", S.querySelector('[data-prjbar="members"]').style.width === "28%" && S.querySelector("[data-prjall]").style.width === `${Math.round(((1 + 12 / 43) / 6) * 100)}%`);
+  ok("…the Refresh button says where the read is", $("mvRun").textContent === "⟳ Reading… 1 of 6" && $("mvRun").disabled);
   ok("…the rail dots: Overview and Waves wait for members, Policies for conflicts, Exceptions for exclusions, Journal is green already", dots().join() === "overview:wait/members,wavehome:wait/members,new:wait/conflicts,exceptionhome:wait/exclusions,journal:ok/");
   // a new live line moves the strip without a render
   const before = $("mvBody").innerHTML.length;
   st().projectLine("members", "Reading the wave members — 40 of 43 (Americas)…");
-  ok("a live line moves the lit step's text and bars in place — no render", strip() === S && S.querySelector('[data-prjline="members"]').textContent === "Reading the wave members — 40 of 43 (Americas)…" && S.querySelector('[data-prjbar="members"]').style.width === "93%" && S.querySelector("[data-prjall]").style.width === `${Math.round(((1 + 40 / 43) / 5) * 100)}%`);
+  ok("a live line moves the lit step's text and bars in place — no render", strip() === S && S.querySelector('[data-prjline="members"]').textContent === "Reading the wave members — 40 of 43 (Americas)…" && S.querySelector('[data-prjbar="members"]').style.width === "93%" && S.querySelector("[data-prjall]").style.width === `${Math.round(((1 + 40 / 43) / 6) * 100)}%`);
   ok("…a line for a source that is not reading is ignored", (st().projectLine("landing", "x"), !S.querySelector('[data-prjline="landing"]')));
   ok("…the elapsed time ticks while a read runs", !!st().project.ticker && /\d:\d\d so far/.test(S.textContent));
   release(); await idle(); await sleep(30);
   const F = strip();
-  ok("finished: the strip folds to one row of ticks with times and the total time, every rail dot green, the button back to Refresh", !!F && /done/.test(F.className) && F.querySelectorAll(".t28-ticks span.ok").length === 5 && /Policies & wave groups \d/.test(F.textContent) && /^\d+:\d\d$/.test(F.querySelector("small").textContent) && dots().join() === "overview:ok/,wavehome:ok/,new:ok/,exceptionhome:ok/,journal:ok/" && $("mvRun").textContent === "↻ Refresh project" && !st().project.ticker);
-  ok("…each source kept when it started and how long it took", ["policies", "members", "exclusions", "landing", "devices"].every((k) => { const s = st().project.sources[k]; return s && s.startedAt && s.at >= s.startedAt; }));
+  ok("finished: the strip folds to one row of ticks with times and the total time, every rail dot green, the button back to Refresh", !!F && /done/.test(F.className) && F.querySelectorAll(".t28-ticks span.ok").length === 6 && /Policies & wave groups \d/.test(F.textContent) && /^\d+:\d\d$/.test(F.querySelector("small").textContent) && dots().join() === "overview:ok/,wavehome:ok/,new:ok/,exceptionhome:ok/,journal:ok/" && $("mvRun").textContent === "↻ Refresh project" && !st().project.ticker);
+  ok("…each source kept when it started and how long it took", ["policies", "members", "exclusions", "landing", "devices", "onboarding"].every((k) => { const s = st().project.sources[k]; return s && s.startedAt && s.at >= s.startedAt; }));
 
   // a partial source: the check-in status refused in every form
   w.MdeMembers.readInput = memberRead;

@@ -1553,6 +1553,18 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
   // knows, to a lab PC only Defender sees, and to an AVD host (VDI).
   if (method === "POST" && path === "/security/runHuntingQuery") {
     const q = String((body && (body.Query || body.query)) || "");
+    // T28's 📊 dashboard (10703): Defender's device inventory — most Windows
+    // devices onboarded, Eva's colleague's laptop with a silent sensor, one
+    // that can be onboarded, one with too little to go on, one Defender has
+    // not seen in 30 days (WS-SALES-0077 is missing on purpose), and a lab PC
+    // Defender knows without an Entra id (matched by its name).
+    if (/OnboardingStatus/.test(q)) {
+      const INV = { "WS-FIN-0142": ["Onboarded", "Active"], "WS-ENG-0221": ["Onboarded", "Inactive"], "WS-FIN-0187": ["Can be onboarded", ""],
+        "WS-HR-0031": ["Onboarded", "Active"], "WS-OLD-0009": ["Insufficient info", ""], "WS-ENG-0308": ["Onboarded", "Active"], "WS-LAB-0003": ["Can be onboarded", ""] };
+      const rows = T.DEVICES.filter((d) => INV[d.deviceName]).map((d, i) => ({ DeviceId: `mde-${i + 1}`, DeviceName: `${d.deviceName.toLowerCase()}.contoso.local`, AadDeviceId: d.azureADDeviceId || "",
+        OnboardingStatus: INV[d.deviceName][0], SensorHealthState: INV[d.deviceName][1], OSPlatform: "Windows11", LastSeen: new Date(Date.now() - (i + 1) * 3600000).toISOString() }));
+      return { schema: [], results: rows };
+    }
     const names = ((/let names = dynamic\(\[([^\]]*)\]\)/.exec(q) || [])[1] || "").split(",").map((x) => x.trim().replace(/^"|"$/g, "").toLowerCase()).filter(Boolean);
     const fin = T.DEVICES.find((d) => d.deviceName === "WS-FIN-0142");
     const LOG = [

@@ -204,7 +204,7 @@ async function screen() {
   $("toolMdeRollout").click();
   await sleep(150);
   ok("10678: no ⊘ or 🎛 button in the header", !$("mvExclude") && !$("mvAsr"));
-  await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
+  await until(() => { const s = w.MdeRolloutV2Tool._state(); return s.model && s.project.attempted.size === 5 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching; }, 30000, "automatic project reads");
   await until(() => st().model, 30000, "tenant read");
   await sleep(100);
   ok("the fixture Edge policy is in the new set", st().model.newP.some((P) => P.name === pol.name));

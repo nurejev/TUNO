@@ -86,7 +86,7 @@ async function run() {
   $("toolMdeRollout").click();
   await sleep(150);
   const st = () => w.MdeRolloutV2Tool._state();
-  await until(() => { const s = st(); return s.model && s.project.attempted.size === 4 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching && s.mem.model && s.cs.extra && s.tm.all; }, 60000, "project read");
+  await until(() => { const s = st(); return s.model && s.project.attempted.size === 5 && !s.project.starting && !s.project.task && !s.project.timer && !s.running && !s.enriching && s.mem.model && s.cs.extra && s.tm.all; }, 60000, "project read");
   await until(() => !st().running && !st().busy && !st().enriching && !st().project.task && !st().project.timer && !st().reps.busy && !st().ex.scanBusy, 30000, "idle");
   w.MdeRolloutV2Tool._pane("waves");
   const card = () => $("mvRollCard");
