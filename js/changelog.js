@@ -25,6 +25,9 @@
 // Newest release first.
 // ======================================================================
 const CHANGELOG = [
+{ build: 10704, title: "T28: the dashboard's HTML export is the management summary", date: "2026-10-12", items: [
+  { tool: "🚀 MDE rollout", kind: "improved", text: "Export HTML now holds what the dashboard shows for management: the four donuts, the held-back line and the wave-by-wave table. The policies-in-conflict pairs and the device and user lists are no longer in it, so nothing in the file names a device, a user or a policy. They stay in T28, and the lists are in ⭳ CSV." },
+] },
 { build: 10703, title: "T28: 📊 the rollout dashboard — onboarding, evidence and conflicts in four donuts, exportable as one HTML page", date: "2026-10-10", items: [
   { tool: "🚀 MDE rollout", kind: "new", text: "Overview opens on a Dashboard: four donuts over the project's waves. MDE onboarded · devices checks every device-wave member against Defender's device inventory (30 days): onboarded, can be onboarded, not seen by Defender, unsupported — and an onboarded device whose sensor is not active is counted as silent. MDE onboarded · users counts each wave user by their Windows devices. Evidence says how many live-wave devices report a result for every new policy, for some, for none; Results gives each reporting device's worst state. A wave chip narrows the page, each donut opens its list, and the same four answers sit side by side per wave." },
   { tool: "🚀 MDE rollout", kind: "new", text: "Policies in conflict, with how T28 knows: Named by Intune (both policies report the conflict on the device), Matched by T28 (Intune names no partner — the single policy that sets one of the settings differently, per ASR rule, and shares a target), Candidates, Predicted (the next wave will hit it) and Unresolved. Two new policies that set one ASR rule differently are found too. Unfold a pair for its settings and devices." },

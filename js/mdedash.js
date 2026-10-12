@@ -514,7 +514,8 @@ const MdeDash = (() => {
     };
     return `<section class="t28-panel"><div class="t28-panel-head"><h4>Wave by wave</h4><span class="mini muted">The same colours as the donuts · hover a bar for its counts</span></div>${o.waveNote ? `<p class="dash-wait bad">${esc(o.waveNote)}</p>` : ""}<div class="t28-table-wrap"><table class="cg-table dash-table dash-waves"><thead><tr><th>Wave</th><th>State</th><th>Devices · users</th><th>Onboarded · devices</th><th>Onboarded · users</th><th>Reporting</th><th>Results</th></tr></thead><tbody>${m.waves.map(row).join("")}</tbody></table></div></section>`;
   }
-  // the whole page body. o: { app, list, open, allPairs, countries, states, tenant, times }
+  // the whole page body. o: { app, summary, list, open, allPairs, countries, states, tenant, times }
+  // summary (the HTML export, for management): the cards, the hold-back line and the wave table — no conflict pairs, no lists.
   function html(m, opt) {
     const o = opt || {};
     const S = o.states || {};
@@ -537,8 +538,8 @@ const MdeDash = (() => {
     const held = m.held && (m.held.users || m.held.devices) ? `<p class="dash-hold"><b>⏸ ${plural(m.held.devices, "device")} · ${plural(m.held.users, "user")} held back</b> — out of the waves, not in the counts above.${o.app ? ' <button type="button" class="t28-link" data-mrpane="exceptionhome">Open Hold-back →</button>' : ""}</p>` : "";
     const L = lists(m, o.input);
     const openList = o.app && o.list && L[o.list] ? `<section class="t28-panel dash-list" aria-label="${esc(L[o.list].title)}"><div class="t28-panel-head"><h4>${esc(L[o.list].title)}</h4><button type="button" class="btn" data-dash-list="">Close</button></div>${listTable(L[o.list], 300)}</section>` : "";
-    const allLists = !o.app ? `<section class="t28-panel"><h4>Lists</h4>${["devices", "users", "evidence", "conflict"].map((k) => `<details><summary>${esc(L[k].title)}</summary>${listTable(L[k])}</details>`).join("")}</section>` : "";
-    return `<div class="dash">${chips}<div class="dash-grid">${cards.join("")}</div>${held}${openList}${wavesSection(m, o)}${conflictsSection(m, o)}${allLists}<p class="mini muted dash-foot">Group membership, policy assignment and reported application are separate checks: a wave member is a target, not proof a device applied the setting. A read time is not a device check-in time. Missing evidence stays unknown — never counted as a failure or a success.</p></div>`;
+    const allLists = !o.app && !o.summary ? `<section class="t28-panel"><h4>Lists</h4>${["devices", "users", "evidence", "conflict"].map((k) => `<details><summary>${esc(L[k].title)}</summary>${listTable(L[k])}</details>`).join("")}</section>` : "";
+    return `<div class="dash">${chips}<div class="dash-grid">${cards.join("")}</div>${held}${openList}${wavesSection(m, o)}${o.summary ? "" : conflictsSection(m, o)}${allLists}<p class="mini muted dash-foot">Group membership, policy assignment and reported application are separate checks: a wave member is a target, not proof a device applied the setting. A read time is not a device check-in time. Missing evidence stays unknown — never counted as a failure or a success.</p></div>`;
   }
 
   // ---------------------------------------------------------------- CSV --
@@ -597,8 +598,8 @@ ${"" /* the dashboard's own rules, shared with css/t28v2.css */}
 <p class="eyebrow">MDE rollout · dashboard</p><h1>${esc(mt.tenant || "MDE rollout")}</h1>
 <p class="meta">Generated ${esc(stamp(mt.now || Date.now()))} · ${esc(mt.build || "")} · TUNO T28 MDE rollout${m.region ? ` · wave ${esc(m.region)}` : " · every wave"}</p>
 ${times ? `<p class="meta">Read: ${times}</p>` : ""}
-${html(m, { app: false, countries: mt.countries, input })}
-<p class="meta">A snapshot, read only: it does not update and cannot change anything. It names devices and users — share it like the tenant data it is.</p>
+${html(m, { app: false, summary: true, countries: mt.countries, input })}
+<p class="meta">A snapshot, read only: it does not update and cannot change anything. It holds counts only — no device, user or policy is named.</p>
 </div></body></html>`;
   }
 

@@ -139,7 +139,8 @@ function engine(w) {
   ok("tenant text is escaped everywhere (a policy name carrying markup)", !h.includes("<img src=x") && h.includes("&lt;img src=x"));
   const x = X.exportHtml(m, { tenant: "Contoso <b>", build: "v1.0.3-beta.403", now: Date.parse("2026-10-10T08:00:00Z"), times: [["policies", Date.parse("2026-10-10T07:00:00Z")]] }, input);
   ok("the export: one self-contained page — no script, no external file, its own light and dark colours, the four donuts", /^<!doctype html>/.test(x) && !/<script/i.test(x) && !/<link /i.test(x) && /prefers-color-scheme:dark/.test(x) && (x.match(/<svg/g) || []).length === 4);
-  ok("…every list and every pair folded as details, the read times and the snapshot warning", (x.match(/<details/g) || []).length >= 4 + m.conflicts.pairs.length && /Read: policies 2026-10-10 07:00 UTC/.test(x) && /names devices and users/.test(x) && x.includes("Contoso &lt;b&gt;"));
+  ok("…the management summary: the read times, the wave table and the hold-back line, the counts-only note, the tenant escaped", /Read: policies 2026-10-10 07:00 UTC/.test(x) && /dash-waves/.test(x) && /held back/.test(x) && /no device, user or policy is named/.test(x) && x.includes("Contoso &lt;b&gt;"));
+  ok("…and NOT the policy list: no conflict pairs, no list, no details, and no device, user or policy name anywhere", !/class="t28-panel dash-conf"|<h4>Policies in conflict/.test(x) && !/<details/.test(x) && !/DEV-m1|DEV-m2|PC2/.test(x) && !x.includes("&lt;img src=x") && m.conflicts.pairs.every((p) => !x.includes(p.a.name) && !x.includes(p.b.name)));
   const c = X.csv(m).split("\r\n");
   ok("the CSV: a header and one row per wave device and wave user", c[0].startsWith("kind,name,user,waves,mde_onboarding") && c.length === 1 + 3 + 3 && c.some((l) => /^device,PC2,bob@x.nl,Euro,Onboarded,Inactive/.test(l)));
 
