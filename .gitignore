@@ -17,3 +17,22 @@ js/authConfig.local.js
 # Azure Repos, so the nested .git lives in here too. The image, the entrypoint
 # and selfhost/ are the published route (SELF-HOSTING.md).
 /terraform/
+
+# Claude working output — never part of a build. Mockups, handover mboxes,
+# build briefs, runbooks and review drafts land in "Claude outputs/" (was only
+# in .git/info/exclude, so a fresh clone or a cloud session didn't ignore it).
+# The loose patterns catch the same files when one is dropped elsewhere.
+/Claude outputs/
+*.mbox
+*.patch
+*.rej
+*.orig
+*-mockup.html
+*-build-brief.md
+beta-*-brief.md
+/.claude/settings.local.json
+CLAUDE.local.md
+
+# Per-build review write-ups (Claude-written) — kept on the Mac, not published.
+# docs/T28-V2.md stays tracked: js/mderolloutv2.js points to it.
+/docs/reviews/
