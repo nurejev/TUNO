@@ -27,6 +27,16 @@
   ./New-TunoAppRegistration.ps1 -SingleTenant -SingleTenantRedirectUris "https://tuno.contoso.example"
   # Prints the clientId + authority to paste into js/authConfig.local.js.
 
+.EXAMPLE
+  # A customer tenant, through Connect-Customer.ps1 (app-only, certificate),
+  # e.g. PVM's own copy of TUNO beta on Azure Container Apps:
+  ./New-TunoAppRegistration.ps1 -Customer PVM -SingleTenant -AppName "TUNO beta (PVM)" `
+    -SingleTenantRedirectUris "https://ca-tuno-dev.<domain>", "http://localhost:8080" `
+    -LogoPath pvm/logo-tuno-pvm-beta-entra.png
+  # The customer's Connect-Customer app needs the APPLICATION permissions
+  # Application.ReadWrite.All + DelegatedPermissionGrant.ReadWrite.All
+  # (Connect-Customer.ps1 -AddGraphScopes); the script says so if it lacks them.
+
 .NOTES
   Requires: Microsoft.Graph.Applications module, and a role that can create
   app registrations + grant tenant-wide consent (e.g. Global Administrator or
@@ -350,10 +360,25 @@ param(
     "ThreatHunting.Read.All"
   ),
   [string]$AuthConfigPath = (Join-Path $PSScriptRoot "js/authConfig.js"),
-  [switch]$SkipAdminConsent
+  [switch]$SkipAdminConsent,
+  # Connect through Connect-Customer.ps1 (app-only, certificate) instead of an
+  # interactive sign-in: the Customers.json key, e.g. PVM. An existing Graph
+  # session in another tenant, or a delegated one, is replaced.
+  [string]$Customer,
+  [string]$ConnectCustomerPath = (Join-Path $HOME "REPO/klanten/Connect-Customer.ps1"),
+  # The logo Entra shows on the sign-in / consent screen and in My Apps:
+  # PNG, JPG or GIF, at most 100 KB (215x215 recommended). For a branded copy,
+  # the branding's logo rendered to PNG, e.g. pvm/logo-tuno-pvm-beta-entra.png.
+  [string]$LogoPath
 )
 
 $ErrorActionPreference = "Stop"
+# The Microsoft.Graph cmdlets are functions in script modules, and a script's
+# $ErrorActionPreference does not reach into a module's scope: without this,
+# a refused New-MgApplication only PRINTED an error and the run carried on -
+# a service principal for an empty appId, a consent grant for an empty
+# clientId, and "Admin consent granted" at the end (PVM, 12 Oct 2026).
+$PSDefaultParameterValues["*-Mg*:ErrorAction"] = "Stop"
 $GraphAppId = "00000003-0000-0000-c000-000000000000" # Microsoft Graph
 
 #--- 1. Connect (reuse existing session when possible) -------------------
@@ -361,10 +386,43 @@ $requiredScopes = @("Application.ReadWrite.All")
 if (-not $SkipAdminConsent) { $requiredScopes += "DelegatedPermissionGrant.ReadWrite.All" }
 if ($RequireAssignment) { $requiredScopes += "AppRoleAssignment.ReadWrite.All" }
 
+if ($Customer) {
+  if (-not (Test-Path $ConnectCustomerPath)) { throw "Connect-Customer.ps1 not found at $ConnectCustomerPath - pass -ConnectCustomerPath." }
+  $expectedTenant = $null
+  $customersJson = Join-Path (Split-Path $ConnectCustomerPath) "Customers.json"
+  if (Test-Path $customersJson) {
+    $entry = (Get-Content $customersJson -Raw | ConvertFrom-Json).$Customer
+    if (-not $entry) { throw "Customer '$Customer' is not in $customersJson." }
+    $expectedTenant = $entry.TenantId
+  }
+  $ctx = Get-MgContext
+  if (-not $ctx -or "$($ctx.AuthType)" -ne "AppOnly" -or ($expectedTenant -and $ctx.TenantId -ne $expectedTenant)) {
+    Write-Host "Connecting to $Customer through Connect-Customer.ps1 (Graph, app-only)..." -ForegroundColor Cyan
+    & $ConnectCustomerPath -Customer $Customer -Services Graph
+  }
+  $ctx = Get-MgContext
+  if (-not $ctx) { throw "Connect-Customer.ps1 left no Graph session for $Customer." }
+  if ($expectedTenant -and $ctx.TenantId -ne $expectedTenant) {
+    throw "The Graph session is in tenant $($ctx.TenantId), not $Customer ($expectedTenant). Nothing was changed."
+  }
+}
+
 $ctx = Get-MgContext
+$appOnly = [bool]$ctx -and "$($ctx.AuthType)" -eq "AppOnly"
 $missing = if ($ctx) { $requiredScopes | Where-Object { $_ -notin $ctx.Scopes } } else { $requiredScopes }
 if ($ctx -and -not $missing) {
-  Write-Host "Reusing existing Graph session: $($ctx.Account) ($($ctx.TenantId))" -ForegroundColor Cyan
+  $who = if ($appOnly) { "app $($ctx.ClientId) (app-only, certificate)" } else { $ctx.Account }
+  Write-Host "Reusing existing Graph session: $who in tenant $($ctx.TenantId)" -ForegroundColor Cyan
+} elseif ($appOnly -or $Customer) {
+  # An app-only session (Connect-Customer.ps1) is topped up by consenting more
+  # APPLICATION permissions to that app - never by falling back to an
+  # interactive prompt, which would sign in as a person in whatever tenant
+  # the browser picks.
+  $key = if ($Customer) { $Customer } else { "<customer>" }
+  throw ("The app-only Graph session (app $($ctx.ClientId), tenant $($ctx.TenantId)) lacks: $($missing -join ', ').`n" +
+         "  Add them to the customer's Connect-Customer app, then run this again:`n" +
+         "    & '$ConnectCustomerPath' -AddGraphScopes -Customer $key -GraphScopes $(($missing | ForEach-Object { "'$_'" }) -join ',')`n" +
+         "  Or Disconnect-MgGraph and run without -Customer to sign in as an administrator instead. Nothing was changed.")
 } else {
   if ($ctx) { Write-Host "Existing session lacks scopes ($($missing -join ', ')) - reconnecting..." -ForegroundColor Yellow }
   Connect-MgGraph -Scopes $requiredScopes -NoWelcome
@@ -374,11 +432,22 @@ if ($ctx -and -not $missing) {
 
 #--- 2. Resolve delegated permission IDs from the Graph service principal ---
 $graphSp = Get-MgServicePrincipal -Filter "appId eq '$GraphAppId'"
+# A scope this tenant's Microsoft Graph does not publish as DELEGATED (e.g.
+# Device.ReadWrite.All at PVM, 12 Oct 2026) is skipped with a warning instead
+# of stopping the run: the registration gets every scope that exists, the
+# consent below covers the same list, and the summary names what was left
+# out. The tool that would have used a skipped scope says so at its click.
+$skippedScopes = @()
 $resourceAccess = foreach ($name in $DelegatedScopes) {
   $perm = $graphSp.Oauth2PermissionScopes | Where-Object Value -eq $name
-  if (-not $perm) { throw "Delegated permission '$name' not found on Microsoft Graph." }
+  if (-not $perm) {
+    Write-Warning "Delegated permission '$name' is not offered by Microsoft Graph in this tenant - skipped."
+    $skippedScopes += $name
+    continue
+  }
   @{ Id = $perm.Id; Type = "Scope" }
 }
+$DelegatedScopes = @($DelegatedScopes | Where-Object { $_ -notin $skippedScopes })
 $requiredResourceAccess = @(@{ ResourceAppId = $GraphAppId; ResourceAccess = $resourceAccess })
 
 #--- 3. Create or update the app registration ---------------------------
@@ -387,6 +456,25 @@ if ($SingleTenant) {
   if ($AppName -eq "TUNO (Limon-IT)") { $AppName = "TUNO" }
 }
 $audience = if ($SingleTenant) { "AzureADMyOrg" } else { "AzureADMultipleOrgs" }
+
+# Entra refuses the WHOLE spa block for one bad URI ("Invalid value specified
+# for property 'spa'") without naming it - e.g. a placeholder like
+# https://ca-tuno-dev.<domain> pasted from the docs. Name it here, before
+# anything is created. SPA redirects: https://, or http://localhost only.
+if ($LogoPath) {
+  if (-not (Test-Path $LogoPath)) { throw "Logo not found: $LogoPath. Nothing was changed." }
+  $logoExt = [IO.Path]::GetExtension($LogoPath).ToLowerInvariant()
+  $logoType = @{ ".png" = "image/png"; ".jpg" = "image/jpeg"; ".jpeg" = "image/jpeg"; ".gif" = "image/gif" }[$logoExt]
+  if (-not $logoType) { throw "Logo must be PNG, JPG or GIF (an SVG is refused by Entra): $LogoPath. Nothing was changed." }
+  if ((Get-Item $LogoPath).Length -gt 100KB) { throw "Logo is over Entra's 100 KB limit: $LogoPath. Nothing was changed." }
+}
+
+$badUris = @($RedirectUris | Where-Object {
+  -not ($_ -match '^https://[A-Za-z0-9.-]+(:\d+)?(/[^\s<>"#]*)?$' -or $_ -match '^http://localhost(:\d+)?(/[^\s<>"#]*)?$')
+})
+if (-not $RedirectUris -or $badUris.Count) {
+  throw "Invalid SPA redirect URI(s): $($badUris -join ', '). Use https://<real host> (or http://localhost:<port>). Nothing was changed."
+}
 
 $appParams = @{
   DisplayName            = $AppName
@@ -411,10 +499,30 @@ if ($app) {
   Write-Host "Creating app registration '$AppName'..." -ForegroundColor Green
   $app = New-MgApplication @appParams
 }
+if (-not $app -or -not $app.AppId) { throw "The app registration was not created or read back - stopping before the service principal and consent." }
+
+#--- 3b. Logo -------------------------------------------------------------
+if ($LogoPath) {
+  Invoke-MgGraphRequest -Method PUT -Uri "v1.0/applications/$($app.Id)/logo" -InputFilePath (Resolve-Path $LogoPath).Path -ContentType $logoType -ErrorAction Stop | Out-Null
+  Write-Host "Logo set from $LogoPath" -ForegroundColor Green
+}
 
 #--- 4. Ensure a service principal exists in this tenant ----------------
 $sp = Get-MgServicePrincipal -Filter "appId eq '$($app.AppId)'" | Select-Object -First 1
-if (-not $sp) { $sp = New-MgServicePrincipal -AppId $app.AppId }
+if (-not $sp) {
+  # A brand-new application object takes a few seconds to replicate; until it
+  # has, Entra answers "does not reference a valid application object"
+  # (PVM, 12 Oct 2026). Retry that one refusal, up to ~60 s.
+  for ($i = 1; -not $sp; $i++) {
+    try { $sp = New-MgServicePrincipal -AppId $app.AppId }
+    catch {
+      if ($i -ge 12 -or "$_" -notmatch "does not reference a valid application object") { throw }
+      Write-Host "  waiting for the new app to replicate ($i)..." -ForegroundColor DarkGray
+      Start-Sleep -Seconds 5
+    }
+  }
+}
+if (-not $sp -or -not $sp.Id) { throw "No service principal for appId $($app.AppId) - stopping before consent." }
 
 #--- 4b. Restrict who may open the app ----------------------------------
 if ($RequireAssignment) {
@@ -446,7 +554,9 @@ if ($RequireAssignment) {
   # flipping the requirement cannot lock everyone out including its creator.
   $meUpn = (Get-MgContext).Account
   $me = $null
-  try { $me = Get-MgUser -UserId $meUpn -Property Id,DisplayName,UserPrincipalName -ErrorAction Stop } catch {}
+  if ($appOnly) {
+    Write-Host "  . app-only session - no signed-in person to assign first; name yourself with -AssignTo <your UPN>." -ForegroundColor Yellow
+  } else { try { $me = Get-MgUser -UserId $meUpn -Property Id,DisplayName,UserPrincipalName -ErrorAction Stop } catch {}
   if ($me) {
     if (Add-TunoAssignment -PrincipalId $me.Id -Label "$($me.DisplayName) <$($me.UserPrincipalName)>  (you)") {
       $assignedNames += $me.UserPrincipalName
@@ -455,7 +565,7 @@ if ($RequireAssignment) {
     Write-Host "  ! Could not resolve the signed-in account '$meUpn' as a user object." -ForegroundColor Yellow
     Write-Host "    Assignment required will NOT be enabled - that would lock everyone out." -ForegroundColor Yellow
     $failed += $meUpn
-  }
+  } }
 
   # 2) anyone else named on the command line, by UPN or group display name
   foreach ($name in $AssignTo) {
@@ -509,7 +619,12 @@ if (-not $SkipAdminConsent) {
 #
 # `(?m)^\s*clientId:` matches only a line where clientId is preceded by nothing
 # but whitespace. The commented one is preceded by "//" and is left alone.
-if (Test-Path $AuthConfigPath) {
+# A -SingleTenant (or -Customer) run registers SOMEONE ELSE'S copy: its client
+# id must never land in this repo's shared authConfig.js. Only an explicit
+# -AuthConfigPath patches a file then.
+if (($SingleTenant -or $Customer) -and -not $PSBoundParameters.ContainsKey("AuthConfigPath")) {
+  Write-Host "authConfig.js left alone (single-tenant / customer copy) - the client ID goes in that copy's config." -ForegroundColor DarkGray
+} elseif (Test-Path $AuthConfigPath) {
   $cfg = Get-Content $AuthConfigPath -Raw
   $pattern = '(?m)^(\s*)clientId:\s*"[^"]*"'
   $hits = ([regex]$pattern).Matches($cfg).Count
@@ -536,6 +651,8 @@ Write-Host "  Object ID    : $($app.Id)"
 Write-Host "  Audience     : $(if ($SingleTenant) { 'THIS TENANT ONLY (AzureADMyOrg)' } else { 'multi-tenant (AzureADMultipleOrgs)' })"
 Write-Host "  SPA redirects: $($RedirectUris -join ', ')"
 Write-Host "  Permissions  : $($DelegatedScopes -join ', ') (delegated)"
+if ($LogoPath) { Write-Host "  Logo         : $LogoPath" }
+if ($skippedScopes.Count) { Write-Host "  Skipped      : $($skippedScopes -join ', ') (not offered as delegated in this tenant)" -ForegroundColor Yellow }
 if ($RequireAssignment) {
   $spNow = Get-MgServicePrincipal -ServicePrincipalId $sp.Id -Property AppRoleAssignmentRequired,Id
   $who = @(Get-MgServicePrincipalAppRoleAssignedTo -ServicePrincipalId $sp.Id -All | Select-Object -ExpandProperty PrincipalDisplayName)
@@ -546,7 +663,11 @@ if ($RequireAssignment) {
 Write-Host ""
 if ($SingleTenant) {
   $tenantId = (Get-MgContext).TenantId
-  Write-Host "  Paste this into js/authConfig.local.js of your copy:" -ForegroundColor Cyan
+  Write-Host "  Container copy (Docker / Azure Container Apps) - environment variables:" -ForegroundColor Cyan
+  Write-Host "    TUNO_CLIENT_ID = `"$($app.AppId)`""
+  Write-Host "    TUNO_TENANT_ID = `"$tenantId`""
+  Write-Host ""
+  Write-Host "  Hand-hosted copy - paste this into js/authConfig.local.js:" -ForegroundColor Cyan
   Write-Host ""
   Write-Host "    window.TUNO_AUTH = {"
   Write-Host "      clientId:  `"$($app.AppId)`","
