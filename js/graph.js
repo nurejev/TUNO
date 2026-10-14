@@ -175,6 +175,21 @@ const Graph = (() => {
     // caller's role (Security Reader, or a Defender role with advanced
     // hunting) — consent alone does not open it. Taken in the open per R18.
     hunting: ["ThreatHunting.Read.All"],
+    // write — T30's 📏 OS floor keeper (build 10705): the minimum OS version
+    // and Android patch level in APP PROTECTION policies. The app protection
+    // collections take only this scope for a PATCH; compliance policies are
+    // written under `profiles`, already here. Asked at Apply, only when a
+    // ticked row is an app protection policy. Taken in the open per R18.
+    appProtectionWrite: ["DeviceManagementApps.ReadWrite.All"],
+    // read — T30's Windows release data: the Windows Update catalog
+    // (admin/windows/updates/catalog/entries), the newest quality updates per
+    // build. Graph has no read-only scope for it, so the ReadWrite one is
+    // asked — and only READ with: T30 makes one GET and no other call under
+    // it. Graph also gates it on the caller's role (Intune Administrator or
+    // Windows Update Deployment Administrator) and on a Windows Enterprise
+    // E3/E5-class licence in the tenant. Asked at the read, only when a
+    // Windows policy is in scope. Taken in the open per R18.
+    windowsUpdates: ["WindowsUpdates.ReadWrite.All"],
   };
 
   // Every Intune assignment surface these tools read — configurationPolicies,

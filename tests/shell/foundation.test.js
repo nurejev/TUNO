@@ -143,7 +143,7 @@ head("The frame — every tool screen is a .screen.tool (ENCA 25351)");
   const NON_TOOL = ["screen-login", "screen-home", "screen-changelog", "screen-roadmap", "screen-help"];
   const screens = [...D.querySelectorAll("main > section.screen")];
   const tools = screens.filter((s) => s.classList.contains("tool"));
-  ok("29 tool screens carry the frame", tools.length === 29, String(tools.length));
+  ok("30 tool screens carry the frame", tools.length === 30, String(tools.length));
   ok("the five pages that are not tools do not", NON_TOOL.every((id) => D.getElementById(id) && !D.getElementById(id).classList.contains("tool")));
   ok("every other screen is a tool screen", screens.length === tools.length + NON_TOOL.length, `${screens.length} screens`);
 
@@ -160,12 +160,12 @@ head("The frame — every tool screen is a .screen.tool (ENCA 25351)");
   }
   ok("no direct child types margin-top:0 or margin-top:14px any more", typed.length === 0, typed.join(", "));
   const bodies = [...D.querySelectorAll(".tool-body")];
-  ok("22 results are .tool-body", bodies.length === 22, String(bodies.length));
+  ok("23 results are .tool-body", bodies.length === 23, String(bodies.length));
   ok("each .tool-body is a direct child of a tool screen", bodies.every((b) => b.parentElement.matches("section.screen.tool")));
 
   // Tiles carry .tool-tile, and nothing but tiles and tool screens is .tool.
   const tiles = [...D.querySelectorAll(".tools > .tool")];
-  ok("32 tiles (29 tools, What's new, Roadmap, Help)", tiles.length === 32, String(tiles.length));
+  ok("33 tiles (30 tools, What's new, Roadmap, Help)", tiles.length === 33, String(tiles.length));
   ok("every tile carries .tool-tile", tiles.every((t) => t.classList.contains("tool-tile")));
   const stray = [...D.querySelectorAll(".tool")].filter((e) => !tiles.includes(e) && !tools.includes(e));
   ok("no other element is .tool", stray.length === 0, stray.map((e) => e.id || e.className).join(", "));
@@ -200,7 +200,7 @@ head("Back covers every tool — the history set is read from the frame");
   }
   ok("every tile's screen pushed its own history entry", missed.length === 0, missed.join(" | "));
   const toolScreens = [...D.querySelectorAll("section.screen.tool")].map((s) => s.id);
-  ok("all 29 tool screens were reached and recorded", toolScreens.every((id) => seen.includes(id)),
+  ok("all 30 tool screens were reached and recorded", toolScreens.every((id) => seen.includes(id)),
     toolScreens.filter((id) => !seen.includes(id)).join(", "));
   for (const id of ["screen-defender", "screen-endpointsec", "screen-posture", "screen-securescore", "screen-maa", "screen-laps", "screen-restrictedau", "screen-groupmigrate"]) {
     ok(`${id} is in the history now (missing until 10662)`, seen.includes(id));

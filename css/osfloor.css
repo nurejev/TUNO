@@ -1,0 +1,43 @@
+/* ---- T30 📏 OS floor keeper (build 10705) ------------------------------
+   Off the 14 Oct mockup canvas: platform cards over a per-setting plan,
+   the selection bar under it. The outcome chips carry a glyph and a word
+   as well as a colour — never colour alone. */
+#screen-osfloor .of-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin:0 0 14px}
+#screen-osfloor .of-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+#screen-osfloor .of-card.bad{border-color:var(--bad-bd);background:var(--bad-bg2)}
+#screen-osfloor .of-card h4{margin:0;font-size:13.5px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+#screen-osfloor .of-kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;font-size:12px;margin:0}
+#screen-osfloor .of-kv dt{color:var(--muted)}
+#screen-osfloor .of-kv dd{margin:0;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+#screen-osfloor .of-track{height:8px;border-radius:4px;background:var(--soft);overflow:hidden}
+#screen-osfloor .of-track span{display:block;height:8px;border-radius:4px}
+#screen-osfloor .of-track span.up{background:var(--accent2)}
+#screen-osfloor .of-track span.wait{background:#dcaa14}
+#screen-osfloor .of-st{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+#screen-osfloor .of-st.up{background:#3f7a24;color:#fff}
+#screen-osfloor .of-st.wait{background:#dcaa14;color:#12331f}
+#screen-osfloor .of-st.meets{background:var(--soft);color:var(--muted)}
+#screen-osfloor .of-st.lower{background:#a3274f;color:#fff}
+#screen-osfloor .of-st.err{background:#c8601f;color:#fff}
+#screen-osfloor .of-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;margin-bottom:8px}
+#screen-osfloor .of-head .toolbar{margin:0}
+#screen-osfloor .of-table td{vertical-align:middle}
+#screen-osfloor .of-table input[type=checkbox]{width:18px;height:18px;accent-color:var(--green)}
+#screen-osfloor .of-ver{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12px;overflow-wrap:anywhere}
+#screen-osfloor .of-why{margin-top:3px;max-width:280px}
+#screen-osfloor .of-legend{margin:10px 0 0;line-height:2}
+#screen-osfloor .of-src{margin:0 0 10px}
+#screen-osfloor .of-bar{position:sticky;bottom:12px;z-index:5;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;background:var(--green-deep);color:#fff;border-radius:12px;padding:10px 14px;font-size:13px;margin:12px 0}
+#screen-osfloor .of-done{background:var(--soft);border:1px solid var(--accent2);border-radius:10px;padding:10px 14px;font-size:13px;margin:0 0 12px}
+#screen-osfloor .of-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#screen-osfloor .of-cols .list-card h4,#screen-osfloor .list-card > h4{margin:0 0 8px}
+#screen-osfloor .of-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px;border-top:1px solid var(--border);padding:9px 0;font-size:13px}
+#screen-osfloor .of-row > span:first-child{flex:1 1 220px}
+#screen-osfloor .of-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+#screen-osfloor .of-seg button{font:inherit;font-size:12.5px;border:0;background:var(--surface);color:var(--ink);min-height:34px;padding:0 12px;cursor:pointer}
+#screen-osfloor .of-seg button.active{background:var(--green);color:#fff;font-weight:600}
+#screen-osfloor .of-grp td{background:var(--soft);font-weight:700;font-size:11.5px}
+#screen-osfloor .of-steps{margin:0 0 10px;padding-left:20px;line-height:1.55}
+#screen-osfloor .of-warn{background:var(--warn-bg);border:1px solid var(--warn-bd);border-radius:8px;padding:8px 12px;margin:0 0 10px}
+#screen-osfloor .of-pre{margin:0;background:var(--green-deep);color:#e6f2e9;border-radius:8px;padding:12px;font-size:11.5px;line-height:1.5;overflow:auto;max-height:520px;white-space:pre}
+@media (max-width:900px){#screen-osfloor .of-cols{grid-template-columns:minmax(0,1fr)}}

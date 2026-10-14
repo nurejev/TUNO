@@ -1040,6 +1040,7 @@ const Fs = (() => {
     ["toolFilters", "🧩 Assignment filters"],
     ["toolDevice", "🖥 Device analyzer"],
     ["toolCompliance", "📈 Compliance report"],
+    ["toolOsFloor", "📏 OS floor keeper"],
     ["toolAudit", "🕓 Change audit"],
     ["toolOverview", "🗂 Policy overview"],
     ["toolBackup", "📦 Backup configuration"],
@@ -1321,6 +1322,7 @@ const Fs = (() => {
   $("toolGroupUse").addEventListener("click", () => { crumb("🔗 Group Analyzer"); show("screen-groupuse"); });
   $("toolAudit").addEventListener("click", () => { crumb("🕓 Change audit"); show("screen-audit"); });
   $("toolCompliance").addEventListener("click", () => { crumb("📈 Compliance report"); show("screen-compliance"); });
+  $("toolOsFloor").addEventListener("click", () => { crumb("📏 OS floor keeper"); show("screen-osfloor"); });
   $("toolWhatIf").addEventListener("click", () => { crumb("🔮 Assignment what-if"); show("screen-whatif"); });
   $("toolHealth").addEventListener("click", () => { crumb("🩺 Assignment health"); show("screen-health"); });
   $("toolSetSearch").addEventListener("click", () => { crumb("🔦 Settings search"); show("screen-setsearch"); });
@@ -1881,6 +1883,7 @@ const Fs = (() => {
   if (typeof OverviewTool !== "undefined") OverviewTool.init();
   if (typeof MaaTool !== "undefined") MaaTool.init();
   if (typeof LapsTool !== "undefined") LapsTool.init();
+  if (typeof OsFloorTool !== "undefined") OsFloorTool.init();
   if (typeof BackupTool !== "undefined") BackupTool.init();
   if (typeof RestoreTool !== "undefined") RestoreTool.init();
   if (typeof MacBaselineTool !== "undefined") MacBaselineTool.init();

@@ -92,6 +92,7 @@
     toolWinBaseline: 'Windows against the CloudFellows baseline.',
     toolAudit: 'What changed in Intune, and who changed it.',
     toolCompliance: 'Compliance per device and per policy.',
+    toolOsFloor: 'Minimum OS versions one cadence behind the newest release.',
     toolDeviceCleanup: 'Stale Entra devices, removed with a ledger.',
     toolCompEv: 'The technical evidence an auditor asks for.',
     toolRoles: 'Roles, assignments and scope tags, resolved to names.',

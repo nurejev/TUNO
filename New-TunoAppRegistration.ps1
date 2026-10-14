@@ -357,7 +357,25 @@ param(
     #                  caller's role (Security Reader, or a Defender role
     #                  with advanced hunting), so consent alone does not open
     #                  it — the screen says so and offers the KQL to copy.
-    "ThreatHunting.Read.All"
+    "ThreatHunting.Read.All",
+    # --- T30 OS floor keeper — build 10705 --------------------------------
+    #
+    #   DeviceManagementApps.ReadWrite.All  WRITE: the minimum OS version
+    #                  and Android patch level in APP PROTECTION policies —
+    #                  the only scope Graph accepts for a PATCH there
+    #                  (compliance policies are written under the
+    #                  Configuration write scope above). Asked at Apply,
+    #                  only when a ticked row is an app protection policy.
+    #   WindowsUpdates.ReadWrite.All  READ ONLY, under a write name: one GET
+    #                  of the Windows Update catalog for the newest quality
+    #                  updates per build. Graph has no read-only scope for
+    #                  it; TUNO makes no other call under it. Graph ALSO
+    #                  gates it on an Intune Administrator or Windows Update
+    #                  Deployment Administrator role and a Windows
+    #                  Enterprise E3/E5-class licence. Asked at the read,
+    #                  only when a Windows policy is in scope.
+    "DeviceManagementApps.ReadWrite.All",
+    "WindowsUpdates.ReadWrite.All"
   ),
   [string]$AuthConfigPath = (Join-Path $PSScriptRoot "js/authConfig.js"),
   [switch]$SkipAdminConsent,

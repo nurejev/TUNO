@@ -6,23 +6,24 @@
 <!-- CSP via meta tag (GitHub Pages cannot set headers). frame-src allows
      MSAL's hidden iframe for silent token renewal; img-src data:/blob: for
      future exports. Same policy shape as ENCA. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com https://api.github.com https://raw.githubusercontent.com https://endoflife.date; frame-src https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- FIRST: stops the MSAL sign-in popup (and the silent-renewal iframe)
      from loading the whole app and eating its own auth response. -->
-<script src="js/popup-guard.js?v=10704"></script>
+<script src="js/popup-guard.js?v=10705"></script>
 <title>TUNO · Intune Operations Tools · Limon-IT</title>
 <link rel="icon" id="favicon" href="assets/favicon.svg?v=3" type="image/svg+xml">
-<link rel="stylesheet" href="css/app.css?v=10704">
-<link rel="stylesheet" href="css/workspaces.css?v=10704">
-<link rel="stylesheet" href="css/home-overview.css?v=10704">
-<link rel="stylesheet" href="css/tool-layout.css?v=10704">
-<link rel="stylesheet" href="css/flat-icons.css?v=10704">
+<link rel="stylesheet" href="css/app.css?v=10705">
+<link rel="stylesheet" href="css/workspaces.css?v=10705">
+<link rel="stylesheet" href="css/home-overview.css?v=10705">
+<link rel="stylesheet" href="css/tool-layout.css?v=10705">
+<link rel="stylesheet" href="css/flat-icons.css?v=10705">
 <!-- BLOCKING, after the stylesheet: paints this browser's known self-host
      branding (palette, logo, favicon) before first paint, so a branded
      instance never flashes the default look. No-op without a stored brand. -->
-<script src="js/selfhost-boot.js?v=10704"></script>
-<link rel="stylesheet" href="css/t28v2.css?v=10704">
-<link rel="stylesheet" href="css/applocker-harvest.css?v=10704">
+<script src="js/selfhost-boot.js?v=10705"></script>
+<link rel="stylesheet" href="css/t28v2.css?v=10705">
+<link rel="stylesheet" href="css/applocker-harvest.css?v=10705">
+<link rel="stylesheet" href="css/osfloor.css?v=10705">
 </head>
 <body>
 
@@ -264,6 +265,10 @@
       <div class="tool tool-tile" id="toolCompliance">
         <div class="tool-ic">📈</div><h3>Compliance report</h3>
         <p>The tenant's compliance story on one page: the estate rolled up — compliant, non-compliant, in grace, unknown — every compliance policy with its verdicts, and <b>which setting is failing</b> where Graph keeps a per-setting summary. <b>Stale is its own column, not a flavour of compliant</b>: a device that has not checked in for the threshold you set (default 30 days) is counted separately, and a compliant-but-stale machine sits in both columns with the tension stated, because its verdict is as old as its last check-in. And <b>coverage — the platforms nothing evaluates</b>: enrolled devices with no compliance policy that reaches anybody, with the tenant's compliant-by-default lean read and stated, because that setting decides whether an uncovered platform silently passes Conditional Access. A policy whose statuses could not be read is listed with the gap stated — <b>unknown is not clean</b>. Reads only, on permissions earlier tools already brought in.</p>
+      </div>
+      <div class="tool tool-tile" id="toolOsFloor">
+        <div class="tool-ic">📏</div><h3>OS floor keeper <span class="tag new">NEW</span> <span class="tag new">BETA</span> <span class="tag block">writes to the tenant</span></h3>
+        <p>The minimum OS version in compliance and app protection policies, kept <b>one cadence behind the newest release</b> — iOS, iPadOS and macOS from endoflife.date, Android's oldest maintained release and monthly patch level, Windows' newest quality updates from the Graph Windows Update catalog as build ranges or a minimum version. A plan per setting — will update, not yet, already meets, would lower — and <b>nothing is written until you tick rows and press Apply</b>; each policy re-read first and read back after, every write journalled with its old value and one click from being set back. Export the same rules as an Azure Automation runbook for the days nobody is signed in. After James Robinson's IntuneComplianceMaintainer (SkipToTheEndpoint, MIT).</p>
       </div>
       <div class="tool tool-tile" id="toolDeviceCleanup">
         <div class="tool-ic">🧹</div><h3>Entra device cleanup <span class="tag block">writes to the tenant</span></h3>
@@ -2251,6 +2256,23 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
     <div id="maBody" class="tool-body"></div>
   </section>
 
+  <!-- ============ OS FLOOR KEEPER (T30) ============ -->
+  <section id="screen-osfloor" class="screen tool">
+    <div class="list-card readme">
+      <h2 data-tool-head="toolOsFloor"></h2>
+      <p class="mini" style="margin:0">Keeps the minimum OS version in compliance and app protection policies one <b>cadence</b> behind the newest release: iOS, iPadOS and macOS from <a href="https://endoflife.date" target="_blank" rel="noopener">endoflife.date</a> (the latest patch and its date), Android's oldest maintained release plus the security patch level of the 1st of the month, Windows' newest quality updates per build from the Graph Windows Update catalog. After James Robinson's <a href="https://github.com/SkipToTheEndpoint/IntuneComplianceMaintainer" target="_blank" rel="noopener">IntuneComplianceMaintainer</a> (SkipToTheEndpoint, MIT) — its dry run is the 📏 Plan here, and its schedule is the ⏱ Unattended export.</p>
+      <p class="mini muted" style="margin:8px 0 0"><b>Nothing is written until you tick rows and press Apply.</b> The policies it may touch are picked under ⚙️ Rules. Writing asks for <code>DeviceManagementConfiguration.ReadWrite.All</code> (compliance) and <code>DeviceManagementApps.ReadWrite.All</code> (app protection); Windows release data asks for <code>WindowsUpdates.ReadWrite.All</code>, which also needs an Intune Administrator or Windows Update deployment role and a Windows Enterprise-class licence — it is only read, never written.</p>
+    </div>
+    <div class="list-card">
+      <div class="tb-actions">
+        <button class="btn primary" id="ofRun">📏 Read policies and releases</button>
+        <button class="btn" id="ofCsv" style="display:none">⭳ Export CSV</button>
+      </div>
+      <div id="ofProg" class="mini muted" style="margin-top:10px"></div>
+    </div>
+    <div id="ofBody" class="tool-body"></div>
+  </section>
+
   <!-- ============ WINDOWS LAPS AUDIT (T18) ============ -->
   <section id="screen-laps" class="screen tool">
     <div class="list-card readme">
@@ -2445,73 +2467,74 @@ Invoke-MgGraphRequest -Method POST -ContentType application/json `
 
 <script src="vendor/msal-browser.min.js"></script>
 <script src="vendor/jszip.min.js"></script>
-<script src="js/branding.js?v=10704"></script>
-<script src="js/selfhost.js?v=10704"></script>
-<script src="js/version.js?v=10704"></script>
-<script src="js/promote.js?v=10704"></script>
-<script src="js/authConfig.js?v=10704"></script>
-<script src="js/changelog.js?v=10704"></script>
-<script src="js/msappcatalog.js?v=10704"></script>
-<script src="js/demo.js?v=10704"></script>
-<script src="js/graph.js?v=10704"></script>
-<script src="js/suggest.js?v=10704"></script>
-<script src="js/progress.js?v=10704"></script>
-<script src="js/runledger.js?v=10704"></script>
-<script src="js/groupuse.js?v=10704"></script>
-<script src="js/audit.js?v=10704"></script>
-<script src="js/devicecleanup.js?v=10704"></script>
-<script src="js/backup.js?v=10704"></script>
-<script src="js/document.js?v=10704"></script>
-<script src="js/policycache.js?v=10704"></script>
-<script src="js/runmeta.js?v=10704"></script>
-<script src="js/overview.js?v=10704"></script>
-<script src="js/devicewhy.js?v=10704"></script>
-<script src="js/whatif.js?v=10704"></script>
-<script src="js/health.js?v=10704"></script>
-<script src="js/settingsearch.js?v=10704"></script>
-<script src="js/conflict.js?v=10704"></script>
-<script src="js/compliance.js?v=10704"></script>
-<script src="js/filterrules.js?v=10704"></script>
-<script src="js/filters.js?v=10704"></script>
-<script src="js/restore.js?v=10704"></script>
-<script src="js/platformbaseline.js?v=10704"></script>
-<script src="js/complianceevidence.js?v=10704"></script>
-<script src="js/macbaseline.js?v=10704"></script>
-<script src="js/winbaseline.js?v=10704"></script>
-<script src="js/assignedit.js?v=10704"></script>
-<script src="js/restrictedau.js?v=10704"></script>
-<script src="js/groupmigrate.js?v=10704"></script>
-<script src="js/roles.js?v=10704"></script>
-<script src="js/defender.js?v=10704"></script>
-<script src="js/endpointsec.js?v=10704"></script>
-<script src="js/report.js?v=10704"></script>
-<script src="js/securescore.js?v=10704"></script>
-<script src="js/endpointposture.js?v=10704"></script>
-<script src="js/mdemembers.js?v=10704"></script>
-<script src="js/mdereports.js?v=10704"></script>
-<script src="js/mdelanding.js?v=10704"></script>
-<script src="js/mdeexclude.js?v=10704"></script>
-<script src="js/mderevert.js?v=10704"></script>
-<script src="js/mdetest.js?v=10704"></script>
-<script src="js/mdewavecheck.js?v=10704"></script>
-<script src="js/mdedash.js?v=10704"></script>
-<script src="js/mdeasr.js?v=10704"></script>
-<script src="js/addons.js?v=10704"></script>
-<script src="js/mdeedgeext.js?v=10704"></script>
-<script src="js/mderollout.js?v=10704"></script>
-<script src="js/t28v2safety.js?v=10704"></script>
-<script src="js/mderolloutv2.js?v=10704"></script>
-<script src="js/maa.js?v=10704"></script>
-<script src="js/laps.js?v=10704"></script>
-<script src="js/applocker.js?v=10704"></script>
-<script src="js/applocker-harvest-core.js?v=10704"></script>
-<script src="js/applocker-harvest.js?v=10704"></script>
-<script src="js/flat-icons.js?v=10704"></script>
-<script src="js/app.js?v=10704"></script>
-<script src="js/col-resize.js?v=10704"></script>
-<script src="js/accessibility.js?v=10704"></script>
-<script src="js/home-overview.js?v=10704"></script>
-<script src="js/workspaces.js?v=10704"></script>
-<script src="js/tool-layout.js?v=10704"></script>
+<script src="js/branding.js?v=10705"></script>
+<script src="js/selfhost.js?v=10705"></script>
+<script src="js/version.js?v=10705"></script>
+<script src="js/promote.js?v=10705"></script>
+<script src="js/authConfig.js?v=10705"></script>
+<script src="js/changelog.js?v=10705"></script>
+<script src="js/msappcatalog.js?v=10705"></script>
+<script src="js/demo.js?v=10705"></script>
+<script src="js/graph.js?v=10705"></script>
+<script src="js/suggest.js?v=10705"></script>
+<script src="js/progress.js?v=10705"></script>
+<script src="js/runledger.js?v=10705"></script>
+<script src="js/groupuse.js?v=10705"></script>
+<script src="js/audit.js?v=10705"></script>
+<script src="js/devicecleanup.js?v=10705"></script>
+<script src="js/backup.js?v=10705"></script>
+<script src="js/document.js?v=10705"></script>
+<script src="js/policycache.js?v=10705"></script>
+<script src="js/runmeta.js?v=10705"></script>
+<script src="js/overview.js?v=10705"></script>
+<script src="js/devicewhy.js?v=10705"></script>
+<script src="js/whatif.js?v=10705"></script>
+<script src="js/health.js?v=10705"></script>
+<script src="js/settingsearch.js?v=10705"></script>
+<script src="js/conflict.js?v=10705"></script>
+<script src="js/compliance.js?v=10705"></script>
+<script src="js/filterrules.js?v=10705"></script>
+<script src="js/filters.js?v=10705"></script>
+<script src="js/restore.js?v=10705"></script>
+<script src="js/platformbaseline.js?v=10705"></script>
+<script src="js/complianceevidence.js?v=10705"></script>
+<script src="js/macbaseline.js?v=10705"></script>
+<script src="js/winbaseline.js?v=10705"></script>
+<script src="js/assignedit.js?v=10705"></script>
+<script src="js/restrictedau.js?v=10705"></script>
+<script src="js/groupmigrate.js?v=10705"></script>
+<script src="js/roles.js?v=10705"></script>
+<script src="js/defender.js?v=10705"></script>
+<script src="js/endpointsec.js?v=10705"></script>
+<script src="js/report.js?v=10705"></script>
+<script src="js/securescore.js?v=10705"></script>
+<script src="js/endpointposture.js?v=10705"></script>
+<script src="js/mdemembers.js?v=10705"></script>
+<script src="js/mdereports.js?v=10705"></script>
+<script src="js/mdelanding.js?v=10705"></script>
+<script src="js/mdeexclude.js?v=10705"></script>
+<script src="js/mderevert.js?v=10705"></script>
+<script src="js/mdetest.js?v=10705"></script>
+<script src="js/mdewavecheck.js?v=10705"></script>
+<script src="js/mdedash.js?v=10705"></script>
+<script src="js/mdeasr.js?v=10705"></script>
+<script src="js/addons.js?v=10705"></script>
+<script src="js/mdeedgeext.js?v=10705"></script>
+<script src="js/mderollout.js?v=10705"></script>
+<script src="js/t28v2safety.js?v=10705"></script>
+<script src="js/mderolloutv2.js?v=10705"></script>
+<script src="js/maa.js?v=10705"></script>
+<script src="js/laps.js?v=10705"></script>
+<script src="js/applocker.js?v=10705"></script>
+<script src="js/applocker-harvest-core.js?v=10705"></script>
+<script src="js/applocker-harvest.js?v=10705"></script>
+<script src="js/osfloor.js?v=10705"></script>
+<script src="js/flat-icons.js?v=10705"></script>
+<script src="js/app.js?v=10705"></script>
+<script src="js/col-resize.js?v=10705"></script>
+<script src="js/accessibility.js?v=10705"></script>
+<script src="js/home-overview.js?v=10705"></script>
+<script src="js/workspaces.js?v=10705"></script>
+<script src="js/tool-layout.js?v=10705"></script>
 </body>
 </html>

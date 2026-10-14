@@ -69,7 +69,7 @@ const FlatIcons = (() => {
     toolAppLockerHarvest: "lock", toolAppLocker: "lock", toolDefender: "shield", toolEndpointSec: "blocks", toolLaps: "key", toolPosture: "compass", toolSecureScore: "chart", toolMdeRollout: "rocket",
     toolGroupUse: "link", toolDevice: "monitor", toolWhatIf: "route", toolHealth: "activity", toolAssignEdit: "edit", toolFilters: "filter",
     toolOverview: "file", toolBackup: "box", toolDocs: "folder", toolSetSearch: "search", toolMacBaseline: "layers", toolWinBaseline: "layers", toolConflict: "warning",
-    toolCompEv: "flag", toolCompliance: "check", toolDeviceCleanup: "trash", toolAudit: "clock",
+    toolCompEv: "flag", toolCompliance: "check", toolOsFloor: "layers", toolDeviceCleanup: "trash", toolAudit: "clock",
     toolRoles: "users", toolMaa: "user", toolRestrictedAu: "stop", toolGroupMigrate: "refresh",
     toolChangelog: "file", toolRoadmap: "flag", toolHelp: "help", overview: "grid", home: "home",
   };

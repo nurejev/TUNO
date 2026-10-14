@@ -1735,6 +1735,17 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
     pol.lastModifiedDateTime = new Date().toISOString();
     return null;
   }
+  // T30 📏 OS floor keeper (10705): a floor written to a compliance or app
+  // protection policy is kept, so the read-back after the write sees it.
+  if (method === "PATCH") {
+    const fm = /^(\/deviceManagement\/deviceCompliancePolicies|\/deviceAppManagement\/(?:ios|android|windows)ManagedAppProtections)\/([^/]+)$/.exec(path);
+    const fo = fm && M.SURFACES[fm[1]] ? M.SURFACES[fm[1]]().find((x) => x.id === fm[2]) : null;
+    if (fo) {
+      for (const k of Object.keys(body || {})) if (k !== "@odata.type") fo[k] = JSON.parse(JSON.stringify(body[k]));
+      fo.lastModifiedDateTime = new Date().toISOString();
+      return null;
+    }
+  }
   if (method === "PATCH") return Object.assign({}, body || {}, { lastModifiedDateTime: new Date().toISOString() });
   if (method === "DELETE") return null;                       // 204, as Graph answers
 
@@ -1774,6 +1785,18 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
   // ---------- tenant ----------
   if (path === "/organization") return M.coll([{ id: "d0e1f2a3-4b5c-6d7e-8f90-abcdef012345", displayName: "Contoso B.V. (demo)" }]);
   if (path === "/deviceManagement/settings") return T.DEVICE_MANAGEMENT_SETTINGS;               // single object — no `value`
+  // T30 📏 OS floor keeper (10705): the Windows Update catalog — the newest
+  // quality updates with their product revisions, dated from today so the
+  // newest is inside the cadence (◷) and the one before it past it.
+  if (path === "/admin/windows/updates/catalog/entries") {
+    const d = (n) => new Date(Date.now() - n * 86400000).toISOString();
+    const rev = (b, u, n, ver) => ({ id: `10.0.${b}.${u}`, releaseDateTime: d(n), product: "Windows 11", version: ver });
+    const entry = (n, u) => ({ id: `qu-${u}`, displayName: `Security update ${u}`, releaseDateTime: d(n), qualityUpdateClassification: "security",
+      "microsoft.graph.windowsUpdates.qualityUpdateCatalogEntry/productRevisions": [rev("26100", u, n, "24H2"), rev("26200", u, n, "25H2"), rev("22631", u - 1000, n, "23H2")] });
+    const all = [entry(1, 6899), entry(29, 6584), entry(57, 6508)];
+    const top = Math.max(1, parseInt(qs.get("$top") || "1", 10) || 1);
+    return M.coll(all.slice(0, top));
+  }
 
   // ---------- Microsoft Secure Score (T21) ----------
   //

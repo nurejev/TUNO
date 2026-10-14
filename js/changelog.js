@@ -25,6 +25,13 @@
 // Newest release first.
 // ======================================================================
 const CHANGELOG = [
+{ build: 10705, title: "New: 📏 OS floor keeper — minimum OS versions one cadence behind the newest release", date: "2026-10-14", items: [
+  { tool: "📏 OS floor keeper", kind: "new", text: "T30, under Monitoring. The minimum OS version in compliance and app protection policies, kept one cadence behind the newest release: iOS, iPadOS and macOS from endoflife.date, Android's oldest maintained release and the monthly security patch level, Windows' newest quality updates from the Windows Update catalog — as build ranges or a minimum version. After James Robinson's IntuneComplianceMaintainer (SkipToTheEndpoint, MIT)." },
+  { tool: "📏 OS floor keeper", kind: "new", text: "The plan has one row per setting: will update, not yet (tick it to force it ahead of the cadence), already meets, would lower (kept unless lowering is allowed), no data. Nothing is written until you tick rows and press Apply; each policy is read again first, skipped if it changed since, and read back after." },
+  { tool: "📏 OS floor keeper", kind: "new", text: "Rules: the cadence, lowering, which Apple major to follow (the newest, or hold on the previous one), Android's minimum and patch level, Windows builds, updates and ranges, and the policies in scope — picked from the tenant, kept per tenant in this browser." },
+  { tool: "📏 OS floor keeper", kind: "new", text: "Journal: every write with the value it replaced and ↩ Set back, plus every floor change of the last 30 days in the Intune audit log, whoever made it. Unattended: the same rules exported into the original script as an Azure Automation runbook (dry run on), with its Grant script." },
+  { tool: "All tools", kind: "improved", text: "Two new permissions, asked only when used: DeviceManagementApps.ReadWrite.All to write app protection policies, and WindowsUpdates.ReadWrite.All to read the Windows Update catalog (read only). The page may now also fetch release data from endoflife.date." },
+] },
 { build: 10704, title: "T28: the dashboard's HTML export is the management summary", date: "2026-10-12", items: [
   { tool: "🚀 MDE rollout", kind: "improved", text: "Export HTML now holds what the dashboard shows for management: the four donuts, the held-back line and the wave-by-wave table. The policies-in-conflict pairs and the device and user lists are no longer in it, so nothing in the file names a device, a user or a policy. They stay in T28, and the lists are in ⭳ CSV." },
 ] },
