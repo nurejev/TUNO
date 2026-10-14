@@ -28,6 +28,9 @@ const MdeRolloutV2Tool = (() => {
   const selWaves = new Set();  // missing wave names (Waves pane)
   const selRename = new Set(); // wave names found under an earlier name (Waves pane, 10635)
   let rollRegions = null;      // rollout actions: the regions ticked (null = every region)
+  // ⚡④ (10706): Intune's assignment filters, read on the Check click — the
+  // configured W365/AVD filter is looked up in them by display name
+  const wf = { list: null, loading: false, error: "", readAt: 0 };
   const pilotTiersOff = new Set(); // 🧪 Pilots as the bar's target (10675): the tiers UNticked, by key
   // 👥 Wave members (10634): its own read, its own selection, its own plan kind
   // 📑 Reports (10635): the last run of each, and the conflict checks of this session
@@ -1379,6 +1382,7 @@ const MdeRolloutV2Tool = (() => {
         <label class="wi-f"><span>👤 User wave prefix</span><input id="mvRuleUgPre" value="${esc(cfg.waveUserPrefix)}"></label>
         <label class="wi-f"><span>⛔🖥 Device exclusion group</span><input id="mvRuleExD" value="${esc(cfg.exclusionDevice)}"></label>
         <label class="wi-f"><span>⛔👤 User exclusion group</span><input id="mvRuleExU" value="${esc(cfg.exclusionUser)}"></label>
+        <label class="wi-f"><span>⚑ W365/AVD filter — set in Exclude mode on the wave includes (⚡④)</span><input id="mvRuleFilter" value="${esc(cfg.waveFilterName || "")}"></label>
       </div>
       <label class="wi-f" style="margin-top:12px"><span>Description for a wave group this tool creates</span><input id="mvRuleDesc" value="${esc(cfg.waveDescription)}"></label>
       <label class="wi-f" style="margin-top:12px"><span>Description for an exclusion group this tool creates</span><input id="mvRuleExDesc" value="${esc(cfg.exclusionDescription)}"></label>
@@ -1402,7 +1406,7 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>🔄 Country groups</b> (10679). The waves nest <b>static</b> groups only: per country a user group <code>INT-SG-U-&lt;ISO3&gt;</code> beside the device group <code>INT-SG-D-&lt;ISO3&gt;</code>, the code being the device group's own (the ⚙️ table). Both static groups are <b>created, filled and nested in 👥 Wave members</b>, side by side (10680) — 🔄 creates nothing. <b>⇄ Swap</b>, per wave, for a country an earlier build nested through its dynamic <code>PVM-UG-CORP-MEM-USERS-*</code> group: tops the static user group up, nests it, reads back that every user of the dynamic group is in it, and only then takes the dynamic group out of the wave — no policy moves. <b>Sync</b> keeps both pairs from the sources (users: transitive members; devices: 👥's primary-user rule): adds ticked, leavers never ticked, and whoever is in the hold-back groups held back — a re-include takes a tick per row and a confirm line naming the count and the wave. A member of the hold-back that no source holds any more is offered for the hold-back clean-up. The head shows the drift (read now) and the last sync (this browser), in the warning colour after 14 days.</p>
       <p style="margin:0 0 8px"><b>⏸ Hold-back</b> (10702; ↩ Revert since 10679). One hold-back instead of ⊘ Exclude + ↩ Revert — at PVM an exclusion means “not yet”, which is what a hold-back is. A user, a device or the pair (the default) leaves its wave: into <code>INT-SG-U-MDE-HoldBack</code> / <code>INT-SG-D-MDE-HoldBack</code> first (a pair still named …-Revert is used as is and renamed by ⊘→⏸), then — only once that read back — out of <b>every</b> static route into the wave: the static country group, a pilot group, a 🧪 test group, a 📌 pin, a direct membership of the wave; with a reason kept with the run. A member a sync or the next wave's create &amp; fill would add is skipped while held back (source − hold-back); the 🧪 test list and the pins leave a held-back member unticked. <b>⊘→⏸ Migrate exclusions</b> (10702) empties the ⊘ pair into the hold-back the same way (① members, with the 🔎 scan's routes taken down; ② the pair off every policy, ⚡'s plan; ③ the pair deleted once empty and on no assignment — then the rules forget it and ⊘ leaves the rail). <b>📡 Verification</b> flags a held-back member a policy still reaches (a route the hold-back did not cover); a plan that makes a new policy tenant-wide or takes an include off an old one names whoever is still held back and waits for an acknowledgement (the go-broad gate). The dry run shows per policy which new ones drop off and which old ones take over, and warns on neither (a gap) or both (a conflict). A user still reached through a dynamic group is refused until their wave is swapped. The hold-back groups are assigned to nothing: they are the held-back list, in the tenant. <b>📋 The list</b> (10685) does many at once: ＋ Add on a search card, a pasted list or .csv, or a group's members — each entry the pair, one reason, one dry run with the per-policy view counted, and a confirm line naming the counts and the waves before ④ Apply. <b>Held back now</b> puts members back (into their country group, then out of the hold-back — a test route or a pin the hold-back took away is not given back).</p>
       <p style="margin:0 0 8px"><b>Also in the target list.</b> Policies named under ⚙️ are in scope although nothing in them is an MDE area — the OIB Device Security and Windows Update for Business policies. An old settings-catalog policy that sets one of their settings is pulled in, so its conflict shows. <b>Left out</b> works the other way: a name there is out of scope (🚫, marked ➖) whatever its prefix or content, and nothing pulls it back in.</p>
-      <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions. <b>⓪ Create the project's groups</b> (10701; Mihai: "bulk create all the revert groups"): every group T28 otherwise creates on first use — the ⏸ hold-back pair, 📌 Pinned, ⊝ Skip, and the 🧪 test pair of each ticked region, nested in its wave — in one plan: what exists is said as in place, a region whose wave does not exist yet is left out (🌊 first). Empty groups, assigned to nothing; the exclusion groups stay with 🌊.</p>
+      <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions. <b>⓪ Create the project's groups</b> (10701; Mihai: "bulk create all the revert groups"): every group T28 otherwise creates on first use — the ⏸ hold-back pair, 📌 Pinned, ⊝ Skip, and the 🧪 test pair of each ticked region, nested in its wave — in one plan: what exists is said as in place, a region whose wave does not exist yet is left out (🌊 first). Empty groups, assigned to nothing; the exclusion groups stay with 🌊. <b>④ Exclude W365/AVD by filter on the waves</b> (10706; Mihai: "first a check then the option to add the exclusion filter"): 🔎 Check reads Intune's assignment filters and finds the one named under ⚙️ (<code>PVM-DG-CORP-FILTER-W365/AVD</code>); per wave include of every new policy — device and user waves — the filter is in place, missing, or another filter. The dry run puts it on the missing ones in Exclude mode: the include stays, only the filter is added, so a session host or Cloud PC the filter matches stops taking the new set at its next check-in. Another filter on a wave include is listed, never replaced (one filter per assignment); a wave exclusion takes no filter; a policy also on MDE security settings management is flagged (Defender-only devices ignore filters). Backup, tick, apply, read-back and 📜 undo as every step; the undo puts the includes back without the filter.</p>
       <p style="margin:0 0 8px"><b>🧪 Pilots</b> (the tick in ⚔️ and ⚡, the names under ⚙️). When a plan completes the swap — every wave of the kind in the new policy and out of the old one — the pilot groups come off both: the new policy's pilot includes and the old policy's pilot exclusions, in the same plan. A pilot member in a wave keeps the new policy through the wave; one outside a wave is back on the old policy until their wave has them. A side that cannot go yet stays, with the reason: a new policy keeps a pilot while an old policy it collides with still excludes it (else neither), and an old policy keeps a pilot exclusion while a new policy it collides with still includes it (else both). <b>🧪 Pilots in the policies' bar</b> (10675): with a policy ticked, the bar's 🧪 Pilots target puts the pilot groups on it or takes them off, like the waves — a - D - policy takes the device names, a - U - one the user names, by tier (the ticks in the bar: Pilot, Pre-Pilot); the dry run shows what each group counts and what is left out, and nothing else on the policy is touched.</p>
       <p style="margin:0 0 8px"><b>What is refused.</b> Intune does not support excluding user groups from a policy assigned to device groups, or the reverse — "Intune doesn't evaluate user-to-device group relationships" (<a href="https://learn.microsoft.com/intune/device-configuration/assign-device-profile#exclude-groups-from-a-policy-assignment" target="_blank" rel="noopener">Microsoft Learn: Assign policies — support matrix</a>). Such a step is shown with its reason and never written. Devices managed by <b>MDE security settings management</b> (not enrolled in Intune) take assignments by device group only, and assignment filters do not apply to them (<a href="https://learn.microsoft.com/defender-endpoint/endpoint-security-policies-configure" target="_blank" rel="noopener">Learn</a>) — flagged as 🛰.</p>
       <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes this session with its backup and an undo. Settings are never changed by these plans — only assignments.</p>
@@ -1841,7 +1845,7 @@ const MdeRolloutV2Tool = (() => {
     renderPlan();
   }
 
-  const STEP_WORD = { "add-include": "include", "add-exclude": "exclude", remove: "remove", restore: "restore" };
+  const STEP_WORD = { "add-include": "include", "add-exclude": "exclude", remove: "remove", restore: "restore", "set-filter": "⚑ exclude-filter on" };
   function renderPlan() {
     v2Bind();
     const p = plan;
@@ -2691,7 +2695,26 @@ const MdeRolloutV2Tool = (() => {
 
   // -------------------------------------------------- rollout actions --
   function rolloutCtx() {
-    return { kinds, found: found || new Map(), twins: M.twinIndex(model.cfg, found), names, pairs, regions: rollRegions };
+    return { kinds, found: found || new Map(), twins: M.twinIndex(model.cfg, found), names, pairs, regions: rollRegions, filter: wfFilter() };
+  }
+  // ⚡④ the configured filter, by display name (case folded); null until read
+  function wfFilter() {
+    if (!wf.list) return null;
+    const want = lc(String(cfg.waveFilterName || "").trim());
+    return want ? wf.list.find((f) => lc(String(f.displayName || "").trim()) === want) || null : null;
+  }
+  async function wfRead() {
+    if (wf.loading) return;
+    wf.loading = true; wf.error = ""; render();
+    try {
+      await Graph.ensureScopes([...AssignEdit.READ()]);
+      const list = await Filters.list();
+      wf.list = (list || []).map((f) => ({ id: f.id, displayName: f.displayName, platform: f.platform, assignmentFilterManagementType: f.assignmentFilterManagementType, rule: f.rule }));
+      wf.readAt = Date.now();
+      // the plan's refusals name filters by display name, not an id prefix
+      if (AssignEdit.setFilterNames) AssignEdit.setFilterNames(wf.list);
+    } catch (e) { wf.error = GroupUse.shortErr(e, 240); }
+    finally { wf.loading = false; render(); }
   }
   async function dryRunRollout(which) {
     if (busy || !model) return;
@@ -2705,14 +2728,17 @@ const MdeRolloutV2Tool = (() => {
       for (const x of r.wants) {
         const f = fresh.get(`${x.P.surface}|${lc(x.P.id)}`);
         if (!f) { if (!unread.includes(x.P.name)) unread.push(x.P.name); continue; }
-        steps.push({ policy: f, action: x.action, group: { id: x.groupId, displayName: x.groupName }, filter: null, note: x.note });
+        steps.push({ policy: f, action: x.action, group: { id: x.groupId, displayName: x.groupName }, filter: x.filter || null, note: x.note });
       }
       const p = M.composePlan(steps);
       const regions = rollRegions ? [...rollRegions] : null;
       plan = Object.assign(p, {
         title: `${M.ROLLOUT[which].label}${regions ? ` (${regions.join(", ")})` : ""}`,
         head: { tool: "TUNO T28 MDE rollout", action: `rollout-${which}`, regions: regions || "all" },
-        memberLine: "", unread, skipped: r.skipped, skippedTitle: "Left out, with the reason:",
+        memberLine: which === "filterWaves" ? (() => {
+          const F = wfFilter(), rows = r.wants.length, waves = [...new Set(r.wants.map((x) => x.groupName))];
+          return `⚑ <b>${esc(F ? F.displayName : "")}</b> in Exclude mode on ${plural(rows, "wave include")} — ${waves.map(esc).join(", ")}. Matching session hosts and Cloud PCs stop taking these policies at their next check-in`;
+        })() : "", unread, skipped: r.skipped, skippedTitle: "Left out, with the reason:",
       });
       renderPlan();
     } catch (e) { planError(GroupUse.shortErr(e, 300)); }
@@ -2737,6 +2763,35 @@ const MdeRolloutV2Tool = (() => {
     const p = holdGroupsPlan();
     plan = Object.assign(p, { members: true, holdGroups: true });
     renderMemPlan();
+  }
+  // ⚡④ (10706, Mihai: "exclude PVM-DG-CORP-FILTER-W365/AVD from all the
+  // groups. so first a check then the option to add the exclusion filter").
+  // The check first: per wave include of every new policy, the filter in
+  // place / none / another; then the dry run sets it on the "none" rows.
+  function filterRow() {
+    const name = cfg.waveFilterName || "";
+    const hint = `<code>${esc(name || "—")}</code> in <b>Exclude</b> mode on every wave include of the new policies — device and user waves, so neither a session host nor a Cloud PC takes the new set through a wave. A wave row with another filter is reported, never overwritten (one filter per assignment); an exclusion takes no filter. The name is under ⚙️.`;
+    const head = `<tr><td style="width:30px"><b>④</b></td><td><b>${esc(M.ROLLOUT.filterWaves.label)}</b><div class="mini muted">${hint}</div>`;
+    if (!wf.list) return `${head}${wf.error ? `<div class="mini" style="color:var(--off)">${esc(wf.error)}</div>` : ""}</td><td class="mini"><span class="muted">${wf.loading ? "reading the filters…" : "not checked yet"}</span></td>
+      <td style="text-align:right"><button class="btn" style="white-space:nowrap" data-mrrollfilter="read"${wf.loading ? " disabled" : ""}>🔎 Check</button></td></tr>`;
+    const F = wfFilter();
+    if (!F) {
+      const near = wf.list.filter((f) => /avd|w365|vdi|cloud ?pc|cpc/i.test(f.displayName || "")).slice(0, 6).map((f) => `<code>${esc(f.displayName)}</code>`).join(", ");
+      return `${head}</td><td class="mini"><span style="color:var(--off)">not found among ${plural(wf.list.length, "filter")}</span>${near ? `<div class="muted">near: ${near}</div>` : ""}</td>
+        <td style="text-align:right"><button class="btn" style="white-space:nowrap" data-mrrollfilter="read">↻ Check again</button></td></tr>`;
+    }
+    const chk = M.waveFilterCheck(model, rolloutCtx());
+    const r = M.rolloutWants("filterWaves", model, rolloutCtx());
+    const c = chk.counts;
+    const cells = [
+      c.set ? `<span style="color:var(--on)">✓ ${plural(c.set, "in place", "in place")}</span>` : "",
+      c.none ? `<b>${plural(c.none, "wave row")} without a filter</b>` : "",
+      c.other ? `<span style="color:var(--off)" title="${esc(chk.rows.filter((x) => x.state === "other").map((x) => `${x.P.name} · ${x.groupName}`).join("\n"))}">${plural(c.other, "with another filter", "with another filter")} ⓘ</span>` : "",
+    ].filter(Boolean).join(" · ") || `<span class="muted">no new policy includes a wave yet</span>`;
+    const left = r.skipped.length ? `<div style="color:var(--report)" title="${esc(r.skipped.join("\n"))}">${plural(r.skipped.length, "left out", "left out")} <span style="cursor:help">ⓘ</span></div>` : "";
+    return `${head}<div class="mini muted">Filter <code>${esc(F.displayName)}</code>${F.platform ? ` · ${esc(F.platform)}` : ""}${F.rule ? ` · <span title="${esc(F.rule)}">rule ⓘ</span>` : ""} · checked ${esc(new Date(wf.readAt).toLocaleTimeString())} on ${plural(c.policies, "policy", "policies")}</div></td>
+      <td class="mini">${cells}${left}</td>
+      <td style="text-align:right;white-space:nowrap"><button class="btn" data-mrrollfilter="read" title="Read the filters again">↻</button> <button class="btn" data-mrroll="filterWaves"${r.wants.length ? "" : " disabled"}>Dry run →</button></td></tr>`;
   }
   function rolloutCard() {
     const regions = [...new Set(model.cfg.groups.filter((g) => g.role === "wave").map((g) => g.region))];
@@ -2771,6 +2826,7 @@ const MdeRolloutV2Tool = (() => {
         })()}
         ${line("includeWaves", "①", "include", `Every existing wave of the ticked regions into each new policy of its kind. Membership decides who moves, so the groups can all be in place before a wave is filled.${cfg.pilotGroupsOff ? " 🧪 With every wave in a new policy and out of its old ones, the pilot groups come off both." : ""}`)}
         ${exclusionsRetired() ? `<tr><td style="width:30px"><b>②</b></td><td><b>Exclude the exclusion groups</b><div class="mini muted">Retired (10702): the ⊘ pair was migrated into ⏸ Hold-back and deleted — a hold-back is the one way to keep someone on the old set.</div></td><td class="mini"><span class="muted">nothing to do</span></td><td></td></tr>` : line("excludeExclusion", "②", "exclusion", `${esc(model.cfg.exclusionDevice || "—")} from the <code>- D -</code> policies, ${esc(model.cfg.exclusionUser || "—")} from the <code>- U -</code> ones — whoever stays on the old set. <span style="color:var(--report)">On its way out: ⊘→⏸ Migrate exclusions.</span>`)}
+        ${filterRow()}
         ${line("excludeWaves", "③", "change", `The ⚔️ pane's proposals, waves only: a wave leaves an old policy only where a new policy that sets the same settings includes it (or its twin), never ahead of it.${cfg.pilotGroupsOff ? " 🧪 Where that completes the swap, the pilot groups come off both sides." : ""}${gaps ? ` <span style="color:var(--off)">${plural(gaps, "of these old policies has", "of these old policies have")} a 🧹 gap — settings the new set does not carry; wave members lose them.</span>` : ""}`)}
       </tbody></table>
     </div>`;
@@ -5237,6 +5293,7 @@ const MdeRolloutV2Tool = (() => {
         derive(); render(); return;   // the ⚔️ wave proposals follow the regions (10643)
       }
       if (t.closest("[data-mrrollgroups]")) { dryRunHoldGroups(); return; }
+      if (t.closest("[data-mrrollfilter]")) { wfRead(); return; }
       const ra = t.closest("[data-mrroll]"); if (ra) { dryRunRollout(ra.dataset.mrroll); return; }
       if (t.id === "mvWaveCreate") { createWaves(); return; }
       if (t.id === "mvRenameGo") {
@@ -5261,6 +5318,7 @@ const MdeRolloutV2Tool = (() => {
         const okSaved = saveCfg({ newPrefixes: lines("mvRuleNew"), outPrefixes: lines("mvRuleOut"), waveRegions: lines("mvRuleWaves"),
           waveDevicePrefix: $("mvRuleDgPre").value, waveUserPrefix: $("mvRuleUgPre").value,
           exclusionDevice: $("mvRuleExD").value, exclusionUser: $("mvRuleExU").value,
+          waveFilterName: $("mvRuleFilter") ? $("mvRuleFilter").value : cfg.waveFilterName,
           waveDescription: $("mvRuleDesc").value, exclusionDescription: $("mvRuleExDesc").value, alsoInScope: lines("mvRuleAlso"), alsoInScopeSeed: cfg.alsoInScopeSeed, leaveOut: lines("mvRuleLeave"), leaveOutSeed: cfg.leaveOutSeed,
           fixWith: cfg.fixWith, pilotGroups: lines("mvRulePilots"), pilotGroupsOff: cfg.pilotGroupsOff,
           renameExclusionFrom: {

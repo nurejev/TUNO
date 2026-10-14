@@ -280,7 +280,9 @@ const AssignEdit = (() => {
         const has = before.some((a) => isTW(a, tw));
         const want = wantSig(filter);
         const sameF = before.some((a) => isTW(a, tw) && filterSig(a) === want);
-        if (action === "add-include") {
+        if (action === "set-filter") {
+          op = { change: "refused", reason: `a filter on ${group.displayName} is set in the portal or with Add include — T28's ⚡④ edits group includes only` };
+        } else if (action === "add-include") {
           if (sameF) op = { change: "noop", reason: `already targets ${group.displayName}${want ? " through the same filter" : ""}` };
           else if (has) op = { change: "refused", reason: `this policy already targets ${group.displayName}, but with ${filterWord(before.filter((a) => isTW(a, tw)).map(filterSig)[0])} rather than ${filterWord(want)}. Graph holds one tenant-wide target, so this is an EDIT, not an add — remove the existing target first if the change is intended. Reported rather than performed, because the two reach different machines.` };
           else op = { change: "modify", after: cleanAssignments(before).concat([{ target: withFilter({ "@odata.type": TW_TYPE[tw] }) }]) };
@@ -308,6 +310,18 @@ const AssignEdit = (() => {
           else if (hasExc) op = { change: "refused", reason: `this policy already excludes this group, but with ${filterWord(excHave)} rather than ${filterWord(want)} — remove the existing exclusion first if the change is intended.` };
           else if (hasInc) op = { change: "refused", reason: "this policy INCLUDES the group — an exclusion on top of an include is a contradiction, not a removal. Use “remove group” to take the include away." };
           else op = { change: "modify", after: cleanAssignments(before).concat([{ target: withFilter({ "@odata.type": "#microsoft.graph.exclusionGroupAssignmentTarget", groupId: group.id }) }]) };
+        } else if (action === "set-filter") {
+          // 10706 (T28 ⚡④): put a filter on the EXISTING include of this
+          // group — the one edit that is neither an add nor a removal. Only
+          // onto an include with no filter: Intune holds one filter per
+          // assignment, so a different one is refused rather than replaced,
+          // and an exclusion takes no filter at all.
+          const incs = before.filter((a) => isInclude(a) && targets(a) === gid);
+          if (!want) op = { change: "refused", reason: "no filter given" };
+          else if (incSame) op = { change: "noop", reason: `already through ${filterWord(want)}` };
+          else if (!incs.length) op = { change: hasExc ? "refused" : "noop", reason: hasExc ? "this policy EXCLUDES the group — Intune takes no filter on an exclusion" : "no include names this group" };
+          else if (incHave) op = { change: "refused", reason: `the include already carries ${filterWord(incHave)} — one filter per assignment, so ${filterWord(want)} would REPLACE it. Change it by hand if that is intended.` };
+          else op = { change: "modify", after: cleanAssignments(before.map((a) => (isInclude(a) && targets(a) === gid) ? { target: withFilter(Object.assign({}, a.target)) } : a)) };
         } else if (action === "remove") {
           if (!hasInc && !hasExc) op = { change: "noop", reason: "no assignment names this group" };
           else op = { change: "modify", after: cleanAssignments(before.filter((a) => targets(a) !== gid)),

@@ -102,6 +102,12 @@ const MdeRollout = (() => {
     // names are found and offered for rename, like the waves.
     exclusionDevice: "INT-SG-D-MDE-Exclusion",
     exclusionUser: "INT-SG-U-MDE-Exclusion",
+    // ⚡④ (10706, Mihai: "exclude PVM-DG-CORP-FILTER-W365/AVD from all the
+    // groups. so first a check then the option to add the exclusion
+    // filter"): the assignment filter every wave include of a new policy
+    // carries in Exclude mode, so AVD session hosts and Cloud PCs never take
+    // the new set through a wave. One filter, matched by display name.
+    waveFilterName: "PVM-DG-CORP-FILTER-W365/AVD",
     waveDescription: "MDE rollout wave — created by TUNO (T28 MDE rollout).",
     exclusionDescription: "MDE rollout exclusion — members stay off the new MDE policies. Created by TUNO (T28 MDE rollout).",
     // Policies in the target list by NAME although nothing in them is an
@@ -264,6 +270,7 @@ const MdeRollout = (() => {
         user: cleanList([...DEFAULTS.renameExclusionFrom.user, ...((o.renameExclusionFrom && o.renameExclusionFrom.user) || [])]),
       },
       waveDescription: str(o.waveDescription, DEFAULTS.waveDescription),
+      waveFilterName: str(o.waveFilterName, DEFAULTS.waveFilterName),
       exclusionDescription: str(o.exclusionDescription, DEFAULTS.exclusionDescription),
       alsoInScope: cleanList(!Array.isArray(o.alsoInScope) ? DEFAULTS.alsoInScope
         : o.alsoInScopeSeed === DEFAULTS.alsoInScopeSeed ? o.alsoInScope
@@ -1165,7 +1172,53 @@ const MdeRollout = (() => {
     // 10702 (⊘→⏸ Migrate exclusions, ②): the exclusion pair off every
     // assignment that names it — the hold-back took its members
     removeExclusion: { label: "Take the exclusion groups off every policy", verb: "remove" },
+    // 10706 (⚡④): the W365/AVD assignment filter, Exclude, on every wave
+    // include of the new policies — device and user waves alike
+    filterWaves: { label: "Exclude W365/AVD by filter on the waves", verb: "filter" },
   };
+  // ⚡④ the check (10706). Per new policy, per wave it INCLUDES (device and
+  // user waves both: a filter is evaluated against the device whatever the
+  // group's kind, so a user wave stops reaching a user's session host or
+  // Cloud PC too). The states, from the policy's raw targets:
+  //   set   the configured filter, Exclude — in place
+  //   none  no filter — the plan sets it
+  //   other another filter, or this one in Include mode — one filter per
+  //         assignment: reported, never overwritten
+  // A wave the policy EXCLUDES is not a row: Intune takes no filter on an
+  // exclusion. filter: { id, displayName, platform, assignmentFilterManagementType } | null
+  function waveFilterCheck(model, ctx) {
+    const c = ctx || {};
+    const cfg = model.cfg, found = c.found || new Map();
+    const inRegion = (r) => !c.regions || c.regions.has(r);
+    const F = c.filter || null, fid = F && F.id ? lc(F.id) : "";
+    const waves = [];
+    for (const g of cfg.groups) if (g.role === "wave" && inRegion(g.region)) {
+      const hit = found.get(lc(g.name));
+      if (hit && hit.id) waves.push({ id: lc(hit.id), name: g.name, region: g.region, audience: g.audience });
+    }
+    const rows = [], skipped = [];
+    const counts = { set: 0, none: 0, other: 0, policies: 0 };
+    for (const P of model.newP) {
+      const raw = (P.raw && Array.isArray(P.raw.assignments)) ? P.raw.assignments : null;
+      const list = raw || (P.item.assignments || []).map((a) => ({ target: { "@odata.type": a.kind === "Excluded" ? "#microsoft.graph.exclusionGroupAssignmentTarget" : "#microsoft.graph.groupAssignmentTarget", groupId: a.groupId, deviceAndAppManagementAssignmentFilterId: a.filterId, deviceAndAppManagementAssignmentFilterType: a.filterMode || a.filterType } }));
+      const mine = [];
+      for (const w of waves) {
+        if (!P.reach.inc.has(w.id)) continue;
+        const a = list.find((x) => { const t = x.target || {}; const ty = lc(t["@odata.type"]); return lc(t.groupId) === w.id && ty.includes("groupassignmenttarget") && !ty.includes("exclusion"); });
+        if (!a) continue;
+        const f = Docs.filterOfTarget(a.target);
+        const state = !f ? "none" : (fid && f.id === fid && f.mode === "exclude") ? "set" : "other";
+        mine.push({ P, groupId: w.id, groupName: w.name, region: w.region, audience: w.audience, state, have: f });
+      }
+      if (!mine.length) continue;
+      counts.policies++;
+      if (!P.surface) { skipped.push(`${P.name}: not a surface the engine writes — set the filter by hand`); }
+      const plat = lc(String((P.raw && (P.raw.platforms || P.raw.platform)) || ""));
+      if (plat && !plat.includes("windows")) skipped.push(`${P.name}: platform ${plat} — a Windows filter cannot be set on it`);
+      for (const r of mine) { counts[r.state]++; rows.push(r); }
+    }
+    return { filter: F, rows, counts, skipped: uniq(skipped) };
+  }
   // ctx: { kinds, found, twins, names, pairs, regions: Set|null (null = all) }
   function rolloutWants(which, model, ctx) {
     const c = ctx || {};
@@ -1221,6 +1274,24 @@ const MdeRollout = (() => {
           if (!P.surface) { skipped.push(`${P.name}: not a surface the engine writes — take ${name} off by hand`); continue; }
           add(P, id, name, "remove", P.reach.inc.has(id) ? "it INCLUDED the exclusion group" : "");
         }
+      }
+    } else if (which === "filterWaves") {
+      const F = c.filter || null;
+      if (!F || !F.id) { skipped.push(`${cfg.waveFilterName || "The W365/AVD filter"}: not found in Intune's assignment filters — check the name under ⚙️`); }
+      else if (F.platform && !lc(F.platform).includes("windows")) { skipped.push(`${F.displayName}: a ${F.platform} filter — the MDE policies need a Windows 10 and later one`); }
+      else if (F.assignmentFilterManagementType && lc(F.assignmentFilterManagementType) !== "devices") { skipped.push(`${F.displayName}: an app filter — policies take a managed-device filter`); }
+      else {
+        const chk = waveFilterCheck(model, c);
+        const blocked = new Set();
+        for (const why of chk.skipped) skipped.push(why);
+        for (const r of chk.rows) {
+          const plat = lc(String((r.P.raw && (r.P.raw.platforms || r.P.raw.platform)) || ""));
+          if (!r.P.surface || (plat && !plat.includes("windows"))) { blocked.add(r.P); continue; }
+          if (r.state === "set") continue;
+          if (r.state === "other") { skipped.push(`${r.P.name} · ${r.groupName}: ${r.have && r.have.id === lc(F.id) ? `${F.displayName} in Include mode` : "another filter"} on the wave — one filter per assignment; change it by hand if intended`); continue; }
+          add(r.P, r.groupId, r.groupName, "set-filter", r.P.mdeManaged ? "⚠ also MDE security settings management — Defender-only devices ignore assignment filters" : "");
+        }
+        for (const x of wants) x.filter = { id: F.id, mode: "exclude", displayName: F.displayName };
       }
     } else if (which === "excludeWaves") {
       // The proposals, waves only: a wave leaves an old policy only where a
@@ -1691,7 +1762,7 @@ const MdeRollout = (() => {
     CAT_IDS, catMeta, catOfKey, catOfLegacyProp, catOfAdmx, isConfigured,
     settingsOf, omaKey, omaSettings, normValue, SECTION_IDS, surfaceFor,
     build, pairReach, VERDICT, TYPE, compare, needsAction, deviceIndex, deviceCounts,
-    audienceOf, AUD, groupsOf, regionsFromNames, policyKind, ROLLOUT, rolloutWants,
+    audienceOf, AUD, groupsOf, regionsFromNames, policyKind, ROLLOUT, rolloutWants, waveFilterCheck,
     kindFromName, kindOfGroup, pilotTiers, targetKinds, effectiveTargets, exclusionSupport, proposalFor, pilotRemovals, pilotsFor, twinIndex, wavePool,
     RETIRE, retirement, waves, composePlan, undoPlan, patchAssignments,
     readTemplates, findGroups, readKinds, readFresh, readMe, createWave, renameGroup, readLabels, labelValue, labelName,

@@ -266,7 +266,7 @@ async function run() {
   ok("⭳ CSV is offered once there is a plan", $("ofCsv").style.display === "" && downloads.length > before + 1);
 
   // ------------------------------------------------------------ bookkeeping --
-  ok("the newest changelog entry and a queue item name this build", w.CHANGELOG[0].build === 10705 && w.PROMOTE.items.some((i) => (i.builds || []).includes(10705) && /OS floor keeper/.test(i.title)));
+  ok("a changelog entry and a queue item name build 10705", w.CHANGELOG.some((e) => e.build === 10705) && w.PROMOTE.items.some((i) => (i.builds || []).includes(10705) && /OS floor keeper/.test(i.title)));
 
   console.log(`T30 OS floor keeper: ${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
