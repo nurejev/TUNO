@@ -1,4 +1,4 @@
-# Clear-TunoAppLockerPolicy.ps1  v1.4.0  (TUNO build 10706)
+# Clear-TunoAppLockerPolicy.ps1  v1.4.0  (TUNO build 10707)
 #Requires -Version 5.1
 <#
 .SYNOPSIS

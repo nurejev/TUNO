@@ -1,4 +1,4 @@
-# Remove-TunoUserInstalledApps.ps1  v1.0.1  (TUNO build 10706)
+# Remove-TunoUserInstalledApps.ps1  v1.0.1  (TUNO build 10707)
 #Requires -Version 5.1
 <#
 .SYNOPSIS

@@ -1,4 +1,4 @@
-# Get-TunoAppControlEvents.ps1  v1.3.1  (TUNO build 10706)
+# Get-TunoAppControlEvents.ps1  v1.3.1  (TUNO build 10707)
 #Requires -Version 5.1
 <#
 .SYNOPSIS

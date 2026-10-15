@@ -1,4 +1,4 @@
-# Get-TunoAppLockerPolicyHealth.ps1  v1.1.2  (TUNO build 10706)
+# Get-TunoAppLockerPolicyHealth.ps1  v1.1.2  (TUNO build 10707)
 #Requires -Version 5.1
 <#
 .SYNOPSIS

@@ -1,4 +1,4 @@
-# Invoke-TunoAppLockerScan.ps1  v1.14.0  (TUNO build 10706)
+# Invoke-TunoAppLockerScan.ps1  v1.14.0  (TUNO build 10707)
 #Requires -Version 5.1
 <#
 .SYNOPSIS

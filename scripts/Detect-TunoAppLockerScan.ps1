@@ -1,4 +1,4 @@
-# Detect-TunoAppLockerScan.ps1  v1.1.0  (TUNO build 10706)
+# Detect-TunoAppLockerScan.ps1  v1.1.0  (TUNO build 10707)
 #Requires -Version 5.1
 <#
 .SYNOPSIS

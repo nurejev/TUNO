@@ -1,4 +1,4 @@
-# Get-TunoHarvestStatus.ps1  v1.0.0  (TUNO build 10706)
+# Get-TunoHarvestStatus.ps1  v1.0.0  (TUNO build 10707)
 #Requires -Version 5.1
 <#
 .SYNOPSIS

@@ -1,4 +1,4 @@
-# Detect-TunoAppLockerPolicy.ps1  v1.1.1  (TUNO build 10706)
+# Detect-TunoAppLockerPolicy.ps1  v1.1.1  (TUNO build 10707)
 #Requires -Version 5.1
 <#
 .SYNOPSIS

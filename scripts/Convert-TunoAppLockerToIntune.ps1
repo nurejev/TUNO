@@ -1,4 +1,4 @@
-# Convert-TunoAppLockerToIntune.ps1  v1.4.1  (TUNO build 10706)
+# Convert-TunoAppLockerToIntune.ps1  v1.4.1  (TUNO build 10707)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
