@@ -125,6 +125,14 @@ The last line prints the app's host: **add `https://<that host>` as a SPA redire
 
 A one-click **Deploy to Azure** template and the branding dialog's **☁ Save to this deployment** are parity slice 21 and not here yet. If the container app deploys but never becomes healthy, an unauthorised pull (the package still Private) is the first thing to check, in the Container App's *Log stream*.
 
+## T28's project file (beta)
+
+The 🚀 MDE rollout tool keeps its project rules — the naming of the waves, the country map, the hold-back names, the policy prefixes — in ⚙️ Project setup. On the hosted site those rules live in each browser. A self-hosted instance can ship them instead, so every engineer on it works from the same rules and nobody can edit them by accident:
+
+1. In ⚙️ Project setup click **⭳ t28-project.json** — the file is made from the rules of that browser (its per-browser state is left out).
+2. Serve it as `/t28-project.json` next to `index.html`: the compose file has the volume line, the nginx config serves it uncached.
+3. From the next open, ⚙️ says **loaded** with the project's name and is read-only; to change a rule, edit the file and redeploy. A file carrying a `tenantId` is used on that tenant only. The production site never reads it.
+
 ## Branding your instance
 
 A self-hosted instance can wear your organisation's identity without forking — the same mechanism as the per-audience looks on the hosted site:

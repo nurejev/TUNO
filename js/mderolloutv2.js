@@ -579,18 +579,68 @@ const MdeRolloutV2Tool = (() => {
   // under the V2 key once. The old key is read, never written or removed.
   const legacyCfgKey = () => `tuno.t28.rules.${tenantKey()}`;
   let cfgCarried = false;
+  // 10714 (Phase 1 of the 15 Oct rebuild plan, state home 1): THE PROJECT
+  // FILE. A self-hosted instance ships the project's rules as
+  // t28-project.json next to index.html — { v: 1, project, customer,
+  // tenantId?, updated?, rules: { …the ⚙️ rules… } } — read at every open,
+  // never cached, never on the production site (as selfhost-branding.json).
+  // With it the rules are the same in every browser and ⚙️ is read-only;
+  // the per-browser blob keeps only the project's STATE until Phase 1.3
+  // moves it into the tenant. Without it everything is as it was.
+  const PROJECT_FILE = "t28-project.json";
+  const STATE_KEYS = ["fixWith", "pilotGroupsOff"];               // kept per browser for now
+  const STATE_MEMBER_KEYS = ["batched", "migrated"];
+  let projectFile = { status: "none", rules: null, meta: null, why: "" };   // none | loaded | mismatch | invalid | unreachable
+  const fileRules = () => projectFile.status === "loaded";
+  async function loadProjectFile() {
+    const prod = (() => { try { const h = ((typeof BRANDING !== "undefined" && BRANDING.host) || "").toLowerCase(); return !!h && (location.hostname || "").toLowerCase() === h; } catch { return true; } })();
+    if (prod || typeof fetch !== "function") { projectFile = { status: "none", rules: null, meta: null, why: prod ? "production" : "" }; return; }
+    let r;
+    try { r = await fetch(`${PROJECT_FILE}?v=${Date.now()}`, { cache: "no-store" }); }
+    catch (e) { projectFile = { status: "none", rules: null, meta: null, why: String((e && e.message) || e).slice(0, 120) }; return; }
+    if (r.status === 404) { projectFile = { status: "none", rules: null, meta: null, why: "" }; return; }
+    if (!r.ok) { projectFile = { status: "unreachable", rules: null, meta: null, why: `HTTP ${r.status}` }; return; }
+    let j = null;
+    try { j = await r.json(); } catch { projectFile = { status: "invalid", rules: null, meta: null, why: "not JSON" }; return; }
+    if (!j || j.v !== 1 || !j.rules || typeof j.rules !== "object") { projectFile = { status: "invalid", rules: null, meta: null, why: "expected { v: 1, rules: { … } }" }; return; }
+    const tid = tenantKey();
+    if (j.tenantId && tid && tid !== "demo" && lc(j.tenantId) !== lc(tid)) { projectFile = { status: "mismatch", rules: null, meta: j, why: `the file is for tenant ${j.tenantId}, this is ${tid}` }; return; }
+    projectFile = { status: "loaded", rules: j.rules, meta: { project: String(j.project || ""), customer: String(j.customer || ""), tenantId: String(j.tenantId || ""), updated: String(j.updated || "") }, why: "" };
+  }
+  // the file as ⭳ exports it: the rules of this browser, state keys left out
+  function projectFileText() {
+    const rules = JSON.parse(JSON.stringify(cfg));
+    for (const k of STATE_KEYS) delete rules[k];
+    if (rules.members) for (const k of STATE_MEMBER_KEYS) delete rules.members[k];
+    const meta = projectFile.meta || {};
+    return JSON.stringify({ v: 1, comment: `Serve this file as /${PROJECT_FILE} next to index.html. T28 reads it at every open; ⚙️ Project setup is then read-only. Edit the file and redeploy to change a rule.`,
+      project: meta.project || "", customer: meta.customer || "", tenantId: tenantKey() === "demo" ? "" : (TunoTenant.tenantId() || ""), updated: new Date().toISOString(), rules }, null, 2);
+  }
   function loadCfg() {
     cfgCarried = false;
+    let stored = null;
     try {
       let raw = window.localStorage.getItem(cfgKey());
       if (!raw) {
         const old = window.localStorage.getItem(legacyCfgKey());
         if (old) { raw = old; cfgCarried = true; }
       }
-      cfg = M.normConfig(raw ? JSON.parse(raw) : null);
+      stored = raw ? JSON.parse(raw) : null;
+      cfg = M.normConfig(stored);
       if (cfgCarried) { try { window.localStorage.setItem(cfgKey(), JSON.stringify(cfg)); } catch { /* private window */ } }
     }
-    catch { cfg = M.normConfig(null); cfgCarried = false; }
+    catch { cfg = M.normConfig(null); cfgCarried = false; stored = null; }
+    if (fileRules()) {
+      // the file's rules win; the browser keeps the project's state keys
+      const fromFile = M.normConfig(projectFile.rules);
+      const st = stored || {};
+      for (const k of STATE_KEYS) if (st[k] != null) fromFile[k] = cfg[k];
+      if (fromFile.members && cfg.members && st.members) for (const k of STATE_MEMBER_KEYS) if (st.members[k] != null) fromFile.members[k] = cfg.members[k];
+      // a ⊘ pair the browser retired (both names blanked after the delete) stays retired
+      if (st.exclusionDevice === "" && st.exclusionUser === "") { fromFile.exclusionDevice = ""; fromFile.exclusionUser = ""; }
+      cfg = M.normConfig(fromFile);
+      cfgCarried = false;
+    }
     extLoadStored();   // 🧩 (10678): the approved list and the names given by hand, per tenant like the rules
   }
   function saveCfg(c) {
@@ -638,6 +688,7 @@ const MdeRolloutV2Tool = (() => {
     running = true; $("mvRun").disabled = true;
     projectSource("policies", "reading"); reps.error = "";
     try {
+      await loadProjectFile();
       loadCfg();
       if (!attach) clearPlan();
       render();
@@ -1356,11 +1407,23 @@ const MdeRolloutV2Tool = (() => {
   }
 
   // ------------------------------------------------------ pane: rules --
+  function projectFileCard() {
+    const P = projectFile, m = P.meta || {};
+    const who = [m.project, m.customer].filter(Boolean).join(" · ");
+    const body = P.status === "loaded"
+      ? `<b>📁 ${esc(PROJECT_FILE)} — loaded.</b> ${who ? `${esc(who)} · ` : ""}${m.updated ? `updated ${esc(m.updated.slice(0, 10))} · ` : ""}the rules below come from the file this instance serves and are the same in every browser. To change one, edit the file and redeploy; ⭳ downloads the file with these rules.`
+      : P.status === "mismatch" ? `<b>📁 ${esc(PROJECT_FILE)} — for another tenant.</b> ${esc(P.why)}. Not used: the rules below live in this browser.`
+      : P.status === "invalid" ? `<b>📁 ${esc(PROJECT_FILE)} — could not be read</b> (${esc(P.why)}). The rules below live in this browser.`
+      : P.status === "unreachable" ? `<b>📁 ${esc(PROJECT_FILE)} — not served right now</b> (${esc(P.why)}). The rules below live in this browser.`
+      : `<b>📁 No ${esc(PROJECT_FILE)} served.</b> The rules below live in <b>this browser only</b> — another browser starts from the defaults. A self-hosted instance ships them as /${esc(PROJECT_FILE)} next to index.html (⭳ makes the file from these rules); the production site never reads it.`;
+    return `<div class="${P.status === "loaded" ? "gu-ok" : "gu-fail"}" style="margin:0 0 12px;display:flex;gap:10px;align-items:flex-start;justify-content:space-between"><span class="mini" style="line-height:1.5">${body}</span><button class="btn" id="mvRuleFile" style="white-space:nowrap" title="Download the rules as ${esc(PROJECT_FILE)}">⭳ ${esc(PROJECT_FILE)}</button></div>`;
+  }
   function rulesPane() {
+    const ro = fileRules();
     const carried = cfgCarried ? `<p class="mini" style="margin:0 0 10px"><b>Carried over.</b> These rules came from the rules the original T28 screen saved for this tenant in this browser (it was removed in build 10661). Check them before the next rollout step.</p>` : "";
-    const ta = (id, list) => `<textarea id="${id}" rows="${Math.max(3, list.length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px">${esc(list.join("\n"))}</textarea>`;
+    const ta = (id, list) => `<textarea id="${id}" rows="${Math.max(3, list.length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px"${ro ? " readonly" : ""}>${esc(list.join("\n"))}</textarea>`;
     const count = (g) => model.policies.filter((P) => P.generation === g).length;
-    return `<div class="list-card" style="margin-top:0">${carried}
+    return `<div class="list-card" style="margin-top:0">${projectFileCard()}${carried}<fieldset style="border:0;padding:0;margin:0;min-width:0"${ro ? " disabled" : ""}>
       <p class="mini muted" style="margin:0 0 12px">A policy's generation is read from its NAME. One prefix per line; case, spaces and dash kinds do not matter, and a prefix ends on a boundary (<code>WIN-SEC</code> does not claim <code>WIN-SECURITY</code>). Order of the verdict: out of scope first, then <code>(TO-BE-REMOVED)</code> (old, retiring), then new, then old. Kept for this tenant in this browser.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
         <label class="wi-f"><span>🎯 New set — name starts with</span>${ta("mvRuleNew", cfg.newPrefixes)}</label>
@@ -1397,11 +1460,12 @@ const MdeRolloutV2Tool = (() => {
       </div>
       <label class="wi-f" style="margin-top:12px"><span>Description for a wave group this tool creates</span><input id="mvRuleDesc" value="${esc(cfg.waveDescription)}"></label>
       <label class="wi-f" style="margin-top:12px"><span>Description for an exclusion group this tool creates</span><input id="mvRuleExDesc" value="${esc(cfg.exclusionDescription)}"></label>
-      <div class="tb-actions" style="margin-top:12px">
+      </fieldset>
+      ${ro ? "" : `<div class="tb-actions" style="margin-top:12px">
         <button class="btn primary" id="mvRuleSave">Save and re-sort</button>
         <button class="btn" id="mvRuleReset">Back to the defaults</button>
-      </div>
-      <p class="mini muted" id="mvRuleMsg" style="margin:8px 0 0">${esc(ruleSaved)}Now: ${count("new")} new · ${count("old")} old · ${count("retiring")} TO-BE-REMOVED · ${count("out")} out of scope.</p>
+      </div>`}
+      <p class="mini muted" id="mvRuleMsg" style="margin:8px 0 0">${ro ? "" : esc(ruleSaved)}Now: ${count("new")} new · ${count("old")} old · ${count("retiring")} TO-BE-REMOVED · ${count("out")} out of scope.</p>
     </div>`;
   }
 
@@ -5369,6 +5433,7 @@ const MdeRolloutV2Tool = (() => {
         return;
       }
       if (t.id === "mvRuleReset") { saveCfg(null); derive(); render(); enrich(); return; }
+      if (t.id === "mvRuleFile") { download(PROJECT_FILE, projectFileText(), "application/json"); return; }
       // ⚔️ what a proposed fix excludes (10643)
       const fw = t.closest("[data-mrfixwith]"); if (fw) {
         if (cfg.fixWith !== fw.dataset.mrfixwith) { saveCfg(Object.assign({}, cfg, { fixWith: fw.dataset.mrfixwith })); clearPlan(); derive(); render(); }
@@ -5564,6 +5629,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
+    _projectFile: (pf) => { if (pf !== undefined) { projectFile = pf; loadCfg(); derive(); render(); } return projectFile; }, _projectFileText: projectFileText,
     _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, wc, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, ob, dash, dashModel, dashInput, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),
     _pane: (p) => { pane = p; render(); },
     _holdGate: (p) => holdGateOf(p),

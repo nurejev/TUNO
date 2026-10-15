@@ -677,6 +677,20 @@ async function run() {
   $("mvRuleLeave").value = ""; $("mvRuleSave").click();
   ok("clearing the box brings it back", await until(() => st().model.newP.some((P) => P.name === avName), 5000, "back in"));
 
+  // ----------------------------- 📁 t28-project.json (10714, Phase 1.1) --
+  const T28 = w.MdeRolloutV2Tool;
+  ok("no project file served: ⚙️ says the rules live in this browser only, and is editable", T28._projectFile().status === "none" && /No t28-project\.json served/.test($("mvBody").textContent) && !!$("mvRuleSave") && !$("mvRuleNew").readOnly);
+  const fileText = T28._projectFileText();
+  const fileJson = JSON.parse(fileText);
+  ok("⭳ makes the file from this browser's rules: v 1, the rules, no per-browser state in it", fileJson.v === 1 && Array.isArray(fileJson.rules.newPrefixes) && fileJson.rules.members && !("batched" in fileJson.rules.members) && !("migrated" in fileJson.rules.members) && !("fixWith" in fileJson.rules) && /Serve this file/.test(fileJson.comment));
+  const prevNew = st().cfg.newPrefixes.join();
+  T28._projectFile({ status: "loaded", rules: Object.assign({}, fileJson.rules, { newPrefixes: ["Win - OIB"], waveRegions: ["Euro", "Americas"] }), meta: { project: "MDE_P-2719", customer: "PVM", tenantId: "", updated: "2026-10-15T19:00:00Z" }, why: "" });
+  ok("a loaded file: its rules win (two regions, one new prefix), ⚙️ says so and is read-only — no Save, fields disabled", st().cfg.waveRegions.join() === "Euro,Americas" && st().cfg.newPrefixes.join() === "Win - OIB" && /t28-project\.json — loaded/.test($("mvBody").textContent) && /MDE_P-2719 · PVM/.test($("mvBody").textContent) && !$("mvRuleSave") && $("mvRuleNew").readOnly && $("mvRuleNew").closest("fieldset").disabled);
+  ok("…the browser's own state survives beside the file's rules (the batched pilot)", st().cfg.members.batched.join() === "NL-Breda");
+  T28._projectFile({ status: "mismatch", rules: null, meta: { tenantId: "11111111-2222-3333-4444-555555555555" }, why: "the file is for tenant 1111…, this is demo" });
+  ok("a file for another tenant is not used: the browser's rules again, editable, the mismatch said", st().cfg.newPrefixes.join() === prevNew && /for another tenant/.test($("mvBody").textContent) && !!$("mvRuleSave"));
+  T28._projectFile({ status: "none", rules: null, meta: null, why: "" });
+
   // ------------------------------------------ 🧪 pilot batches (10640) --
   // Mihai: "split the adding of the pilot group in 4 even batches of users
   // and devices" — option A. The demo's Breda group is given four more

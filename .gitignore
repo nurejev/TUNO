@@ -36,3 +36,6 @@ CLAUDE.local.md
 # Per-build review write-ups (Claude-written) — kept on the Mac, not published.
 # docs/T28-V2.md stays tracked: js/mderolloutv2.js points to it.
 /docs/reviews/
+# T28's project file for a self-hosted instance (build 10714) — a customer's
+# rules, served next to index.html there, never published from this repo.
+/t28-project.json

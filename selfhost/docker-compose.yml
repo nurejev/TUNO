@@ -34,3 +34,5 @@ services:
     # the ⚙ branding settings (gear next to Sign out) and uncomment:
     # volumes:
     #   - ./selfhost-branding.json:/usr/share/nginx/html/selfhost-branding.json:ro
+    # Optional: T28's project rules for this instance (⚙️ Project setup → ⭳):
+    #   - ./t28-project.json:/usr/share/nginx/html/t28-project.json:ro
