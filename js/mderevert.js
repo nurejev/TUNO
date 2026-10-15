@@ -101,11 +101,14 @@ const MdeRevert = (() => {
     const userGroups = new Map();
     for (const g of list || []) if (want.has(lc(g.displayName))) userGroups.set(lc(g.displayName), g);
     const userMembers = new Map(), upn = new Map();
+    // 10709 (R1): the static groups whose member read failed, by id — the
+    // row is "not read", nothing is planned on it
+    const unread = new Map();
     const gs = [...userGroups.values()];
     let i = 0;
     const ur = await Graph.pool(gs, async (g) => { say(`Reading the static user groups' members — ${++i}/${gs.length}…`); return Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.user?$select=id,userPrincipalName&$top=999`, { scopes: GS, retry: true }); }, 4);
     ur.forEach((r, n) => {
-      if (r.error) { failed.push(`${gs[n].displayName}: ${msg(r.error).slice(0, 160)}`); return; }
+      if (r.error) { failed.push(`${gs[n].displayName}: ${msg(r.error).slice(0, 160)}`); unread.set(lc(gs[n].id), msg(r.error).slice(0, 160)); return; }
       userMembers.set(lc(gs[n].id), new Set((r.value || []).map((u) => lc(u.id))));
       for (const u of r.value || []) if (u.userPrincipalName) upn.set(lc(u.id), u.userPrincipalName);
     });
@@ -140,7 +143,7 @@ const MdeRevert = (() => {
     say("");
     // 10707: a hold-back pair that could not be read is not an empty one —
     // ⏸'s guard refuses a plan that adds members while this says anything
-    return { userGroups, userMembers, upn, revert, revertUsers, revertDevices, failed, holdUnread: holdUnread.join("; "), readAt: Date.now() };
+    return { userGroups, userMembers, upn, revert, revertUsers, revertDevices, failed, unread, holdUnread: holdUnread.join("; "), readAt: Date.now() };
   }
 
   // ------------------------------------------------------------- model --
@@ -180,10 +183,15 @@ const MdeRevert = (() => {
         else if (!have.has(u.id)) user.add.push(u);
       }
       for (const id of have) if (!srcIds.has(id)) user.leave.push({ id, upn: upnOf(id) });
+      // 10709 (R1): a source or static group that could not be read is not
+      // an empty one — no leavers, no adds, the row says why
+      const unreadWhy = r.unread || (ug && X.unread && X.unread.get(lc(ug.id))) || "";
+      if (unreadWhy) { user.add = []; user.leave = []; user.heldIn = []; }
       // devices: the 👥 rule's diff, split by why a member goes
       const device = { add: r.add.map((id) => ({ id, name: devName(id) })), leave: [], heldIn: [], held: [] };
+      if (unreadWhy) device.add = [];
       const byObj = new Map(r.devices.filter((d) => d.objId).map((d) => [d.objId, d]));
-      for (const id of r.remove) {
+      for (const id of unreadWhy ? [] : r.remove) {
         const d = byObj.get(id);
         if (d && d.reverted) device.heldIn.push({ id, name: d.name, why: "reverted" });
         else if (d && d.heldByUser) device.heldIn.push({ id, name: d.name, why: "user held back" });
@@ -195,7 +203,7 @@ const MdeRevert = (() => {
       const drift = user.add.length + user.leave.length + user.heldIn.length + (r.dg ? device.add.length + device.leave.length + device.heldIn.length : device.add.length);
       const last = (o.lastSynced || {})[r.key] || null;
       const age = last ? now - Date.parse(last) : Infinity;
-      rows.push({ key: r.key, region: r.region, country: r.country, suffix: r.suffix, iso3: r.iso3, pilot: !!r.pilot, migrated: !!r.migrated,
+      rows.push({ key: r.key, region: r.region, country: r.country, suffix: r.suffix, iso3: r.iso3, pilot: !!r.pilot, migrated: !!r.migrated, unread: unreadWhy,
         batchOpen: !!(r.batch && !r.batch.finished), source: { id: lc(r.ug.id), name: r.ug.displayName }, sourceCount: src.length,
         userGroupName: uName, ug: ug ? { id: lc(ug.id), name: ug.displayName } : null, userHave: have.size, user,
         deviceGroupName: r.deviceGroupName, dg: r.dg ? { id: lc(r.dg.id), name: r.dg.displayName } : null, device,

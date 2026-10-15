@@ -2888,7 +2888,7 @@ const MdeRolloutV2Tool = (() => {
         mem.input.reverted = new Set(cs.extra.revertDevices.keys());
         // 👥 plans the static user groups too (10680) — the same maps, shared,
         // so a run's patch moves both panes
-        Object.assign(mem.input, { userGroups: cs.extra.userGroups, userMembers: cs.extra.userMembers, revertUsers: cs.extra.revertUsers, holdUnread: cs.extra.holdUnread || "" });
+        Object.assign(mem.input, { userGroups: cs.extra.userGroups, userMembers: cs.extra.userMembers, revertUsers: cs.extra.revertUsers, staticUnread: cs.extra.unread || new Map(), holdUnread: cs.extra.holdUnread || "" });
         cs.error = "";
       } catch (e) { if (!projectValid(epoch)) return; cs.extra = null; cs.error = `The static country groups and the hold-back groups could not be read: ${GroupUse.shortErr(e, 240)}`; mem.input.holdUnread = GroupUse.shortErr(e, 120); }
       if (!projectValid(epoch)) return;
@@ -3506,7 +3506,7 @@ const MdeRolloutV2Tool = (() => {
     const G = exGroups();
     const exGs = [X && X.revert && X.revert.user, X && X.revert && X.revert.device, G.user, G.device, I.skipGroup].filter((g) => g && g.id);
     const exNames = [C.revertUser, C.revertDevice, C.skipDevice, ...MdeMembers.HOLD_OLD.user, ...MdeMembers.HOLD_OLD.device].filter(Boolean);
-    const unread = !mem.input ? "the members were not read" : (I.holdUnread || (!X ? cs.error || "not read yet" : ""));
+    const unread = !mem.input ? "the members were not read" : (I.holdUnread || I.heldUnread || (!X ? cs.error || "not read yet" : ""));
     // out of the ⊘ pair counts as out of the hold-back while ⊘ lives (the
     // undo of an exclusion run gives the device its country group back)
     const holdGs = [X && X.revert && X.revert.user, X && X.revert && X.revert.device, G.user, G.device].filter((g) => g && g.id);

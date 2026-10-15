@@ -377,12 +377,18 @@ const MdeMembers = (() => {
     const wanted = new Set(rows.map((r) => lc(r.userGroupName)));
     const mapped = countryGroups.filter((g) => wanted.has(lc(g.displayName)));
     const usersByGroup = new Map(), failed = [];
+    // 10709 (R1): the READ LEDGER — every group whose read failed, by id,
+    // with why. A group that could not be read is not an empty group:
+    // compute() plans nothing on its row and planOps names it. Before this
+    // a failed source read planned the removal of every static member.
+    const unread = new Map();
+    const unreadSet = (g, why) => { if (g && g.id) unread.set(lc(g.id), String(why || "read failed").slice(0, 160)); };
     let i = 0;
     const ur = await Graph.pool(mapped, async (g) => {
       say(`Reading the users of the country groups — ${++i}/${mapped.length}…`);
       return Graph.readAll(`/groups/${enc(g.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,onPremisesSecurityIdentifier,onPremisesSamAccountName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true });
     }, 4);
-    ur.forEach((r, n) => { if (r.error) failed.push(`${mapped[n].displayName}: ${(r.error && r.error.message) || r.error}`); else usersByGroup.set(lc(mapped[n].id), r.value || []); });
+    ur.forEach((r, n) => { if (r.error) { failed.push(`${mapped[n].displayName}: ${(r.error && r.error.message) || r.error}`); unreadSet(mapped[n], (r.error && r.error.message) || r.error); } else usersByGroup.set(lc(mapped[n].id), r.value || []); });
     // 10659: the primary users in no country group of the table — each read
     // once: a deleted one by the UPN its name carries (the live account), a
     // live one by id — for their usage location, and the live account's id
@@ -417,26 +423,27 @@ const MdeMembers = (() => {
       say(`Reading the device groups' members — ${++i}/${dgList.length}…`);
       return Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id,deviceId,displayName&$top=999`, { scopes: GS, retry: true });
     }, 4);
-    dr.forEach((r, n) => { if (r.error) failed.push(`${dgList[n].displayName}: ${(r.error && r.error.message) || r.error}`); else deviceMembers.set(lc(dgList[n].id), new Set((r.value || []).map((d) => lc(d.id)))); });
+    dr.forEach((r, n) => { if (r.error) { failed.push(`${dgList[n].displayName}: ${(r.error && r.error.message) || r.error}`); unreadSet(dgList[n], (r.error && r.error.message) || r.error); } else deviceMembers.set(lc(dgList[n].id), new Set((r.value || []).map((d) => lc(d.id)))); });
     const waveChildren = new Map();
     const waves = (waveGroups || []).filter((g) => g && g.id);
     const wr = await Graph.pool(waves, async (g) => Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.group?$select=id,displayName&$top=999`, { scopes: GS, retry: true }), 4);
-    wr.forEach((r, n) => { if (r.error) failed.push(`${waves[n].displayName}: ${(r.error && r.error.message) || r.error}`); else waveChildren.set(lc(waves[n].id), new Set((r.value || []).map((x) => lc(x.id)))); });
+    wr.forEach((r, n) => { if (r.error) { failed.push(`${waves[n].displayName}: ${(r.error && r.error.message) || r.error}`); unreadSet(waves[n], (r.error && r.error.message) || r.error); } else waveChildren.set(lc(waves[n].id), new Set((r.value || []).map((x) => lc(x.id)))); });
     // the users put straight into a wave — a pilot's batches (10640)
     const waveUsers = new Map();
     const wu = await Graph.pool(waves, async (g) => Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.user?$select=id,userPrincipalName&$top=999`, { scopes: GS, retry: true }), 4);
-    wu.forEach((r, n) => { if (r.error) failed.push(`${waves[n].displayName} (direct users): ${(r.error && r.error.message) || r.error}`); else waveUsers.set(lc(waves[n].id), new Set((r.value || []).map((x) => lc(x.id)))); });
+    wu.forEach((r, n) => { if (r.error) { failed.push(`${waves[n].displayName} (direct users): ${(r.error && r.error.message) || r.error}`); unreadSet(waves[n], (r.error && r.error.message) || r.error); } else waveUsers.set(lc(waves[n].id), new Set((r.value || []).map((x) => lc(x.id)))); });
     let heldIds = new Set();
+    const heldUnread = [];
     if (held && held.id) {
       say("Reading the device exclusion group…");
       try { heldIds = new Set(((await Graph.readAll(`/groups/${enc(held.id)}/transitiveMembers/microsoft.graph.device?$select=id&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true })) || []).map((d) => lc(d.id))); }
-      catch (e) { failed.push(`${held.displayName || "the device exclusion group"}: ${(e && e.message) || e}`); }
+      catch (e) { failed.push(`${held.displayName || "the device exclusion group"}: ${(e && e.message) || e}`); unreadSet(held, (e && e.message) || e); heldUnread.push(`${held.displayName || "the device exclusion group"}: ${String((e && e.message) || e).slice(0, 120)}`); }
     }
     const excludedUsers = new Map();
     if (heldUser && heldUser.id) {
       say("Reading the user exclusion group…");
       try { for (const u of (await Graph.readAll(`/groups/${enc(heldUser.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,displayName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true })) || []) excludedUsers.set(lc(u.id), { id: lc(u.id), upn: u.userPrincipalName || u.id, name: u.displayName || u.userPrincipalName || u.id }); }
-      catch (e) { failed.push(`${heldUser.displayName || "the user exclusion group"}: ${(e && e.message) || e}`); }
+      catch (e) { failed.push(`${heldUser.displayName || "the user exclusion group"}: ${(e && e.message) || e}`); unreadSet(heldUser, (e && e.message) || e); heldUnread.push(`${heldUser.displayName || "the user exclusion group"}: ${String((e && e.message) || e).slice(0, 120)}`); }
     }
     // 🧪 the pilot groups' direct members (10647): users, devices, and any
     // nested group (listed, never taken out member by member)
@@ -526,7 +533,7 @@ const MdeMembers = (() => {
     say("");
     return { entraUsers, skip: skipSet, skipGroup, intuneLogons, defLogons, logonRead, pinned, pinnedGroup, countryGroups, deviceGroups: dgList, managed, managedAll, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null,
       excludedUsers, heldUserGroup: heldUser && heldUser.id ? { id: lc(heldUser.id), name: heldUser.displayName || "" } : null,
-      pilots, pilotsMissing, owners, primaryUsers, failed, deviceSource: fromEntra ? "entra" : "intune", readAt: Date.now() };
+      pilots, pilotsMissing, owners, primaryUsers, failed, unread, heldUnread: heldUnread.join("; "), deviceSource: fromEntra ? "entra" : "intune", readAt: Date.now() };
   }
 
   // ------------------------------------------------------------ batches --
@@ -868,6 +875,25 @@ const MdeMembers = (() => {
       row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return `${e ? e.displayName : id}${avdIds.has(id) ? " (AVD — -vdi- in the name, out of scope)" : reverted.has(id) ? " (reverted)" : held.has(id) ? " (excluded)" : row.devices.some((d) => d.objId === id && d.heldByUser) ? " (its user is held back)" : ""}`; });
       // 10684: AVD devices still in this group — the next 👥 Apply takes them out
       row.avdIn = [...row.have].filter((id) => avdIds.has(id));
+      // 10709 (R1): the READ LEDGER per row — source · static · devices ·
+      // wave, each ok / failed / missing. A failed read plans NOTHING on the
+      // row: no adds (what was read is incomplete), no removals (the members
+      // would all look gone), no nest (the wave's children are unknown).
+      {
+        const U = input.unread || new Map(), SU = input.staticUnread || new Map();
+        const why = (g, map) => (g && g.id && map.get(lc(g.id))) || "";
+        const st = (g, map) => (!g ? "missing" : map.get(lc(g.id)) ? "failed" : "ok");
+        const wSrc = why(row.ug, U), wStat = why(row.sug, SU), wDev = why(row.dg, U);
+        const wWaveU = why(row.wave.user, U), wWaveD = why(row.wave.device, U);
+        row.read = { source: st(row.ug, U), static: !row.uRead ? "missing" : st(row.sug, SU), devices: st(row.dg, U),
+          wave: wWaveU || wWaveD ? "failed" : (row.wave.user || row.wave.device ? "ok" : "missing"), why: wSrc || wStat || wDev || wWaveU || wWaveD || "" };
+        row.unread = [wSrc && `${row.userGroupName}: ${wSrc}`, wStat && `${row.sug.displayName}: ${wStat}`, wDev && `${row.dg.displayName}: ${wDev}`].filter(Boolean).join("; ");
+        row.waveUnread = { user: wWaveU, device: wWaveD };
+        if (row.unread) {
+          row.add = []; row.remove = []; row.removeNames = []; row.avdIn = []; row.pinnedIn = [];
+          row.uAdd = []; row.uRemove = []; row.uInSync = false;
+        }
+      }
       const kids = (g) => (g && input.waveChildren.get(lc(g.id))) || null;
       // in the user wave through the static group (10680) or, from before
       // it, through the dynamic source — 🔄 ⇄ swaps the second for the first
@@ -1328,6 +1354,9 @@ const MdeMembers = (() => {
     for (const r of pick) {
       const tag = `${r.country} (${r.userGroupName})`;
       if (!r.ug) { skipped.push(`${tag}: the user group is not in this tenant`); continue; }
+      // 10709 (R1): a row whose source, static or device group could not be
+      // read — no removals, no nest, no adds; named here so the dry run says it
+      if (r.unread) { skipped.push(`⚠ ${tag}: not read (${r.unread}) — no removals or nesting planned for it. ↻ Read again.`); continue; }
       if (r.migrated) { skipped.push(`${tag}: 🧪 migrated into ${r.parentCountry || "its country"} — its users and devices are in the wave through it`); continue; }
       let dgRef = r.dg ? { id: lc(r.dg.id), name: r.dg.displayName } : null;
       let ugRef = r.sug ? { id: lc(r.sug.id), name: r.sug.displayName } : null;
@@ -1361,6 +1390,7 @@ const MdeMembers = (() => {
       else if (o.nestUsers && !r.ugNested) {
         // the STATIC user group goes into the wave, never the dynamic source (10680)
         if (!r.wave.user) skipped.push(`${tag}: ${r.wave.userName || "the user wave"} does not exist — create it in 🌊 first`);
+        else if (r.waveUnread.user) skipped.push(`⚠ ${tag}: ${r.wave.user.displayName}'s members were not read (${r.waveUnread.user}) — not nested. ↻ Read again.`);
         else if (!r.uRead) skipped.push(`${tag}: the static user groups were not read — ↻ Read again`);
         else if (!ugRef) skipped.push(`${tag}: no ${r.userGroupStatic || "static user group"} to nest yet — tick "create & fill groups"`);
         else {
@@ -1372,6 +1402,7 @@ const MdeMembers = (() => {
       } else if (o.nestUsers && r.ugNestedSrc && !r.ugNestedStatic) skipped.push(`${tag}: in ${r.wave.userName} through ${r.ug.displayName} (dynamic) — ⇄ swap it to ${r.userGroupStatic || "the static group"} in 🔄 Country groups`);
       if (o.nestDevices && !r.dgNested) {
         if (!r.wave.device) skipped.push(`${tag}: ${r.wave.deviceName || "the device wave"} does not exist — create it in 🌊 first`);
+        else if (r.waveUnread.device) skipped.push(`⚠ ${tag}: ${r.wave.device.displayName}'s members were not read (${r.waveUnread.device}) — not nested. ↻ Read again.`);
         else if (!dgRef) skipped.push(`${tag}: no device group to nest yet — tick "create & fill"`);
         else {
           const size = r.want.size;
