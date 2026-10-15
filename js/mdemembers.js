@@ -858,6 +858,9 @@ const MdeMembers = (() => {
         row.uHeld = [...srcIds].filter(heldU).length;
         row.uExcluded = [...srcIds].filter((id) => exU.has(id)).length;
         row.uInSync = !row.uRead || (row.sug ? !row.uAdd.length && !row.uRemove.length : !row.uWant.size);
+        // 10713 (R5): held back, yet still in the static group — a nest
+        // would carry them into the wave
+        row.uHeldIn = [...row.uHave].filter(heldU);
       }
       row.batch = batchOf(cfg, input, row);
       // a pilot in batches fills its static group batch by batch (10681) —
@@ -872,6 +875,8 @@ const MdeMembers = (() => {
       row.pinnedIn.forEach((id) => row.want.add(id));
       row.add = [...row.want].filter((id) => !row.have.has(id));
       row.remove = [...row.have].filter((id) => !row.want.has(id));
+      // 10713 (R5): held back (⏸, ⊘, or its user held), yet still in the device group
+      row.heldIn = [...row.have].filter((id) => held.has(id) || reverted.has(id) || row.devices.some((d) => d.objId === id && d.heldByUser));
       row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return `${e ? e.displayName : id}${avdIds.has(id) ? " (AVD — -vdi- in the name, out of scope)" : reverted.has(id) ? " (reverted)" : held.has(id) ? " (excluded)" : row.devices.some((d) => d.objId === id && d.heldByUser) ? " (its user is held back)" : ""}`; });
       // 10684: AVD devices still in this group — the next 👥 Apply takes them out
       row.avdIn = [...row.have].filter((id) => avdIds.has(id));
@@ -1384,8 +1389,8 @@ const MdeMembers = (() => {
           if (r.uHeld) warnings.push(`${r.country}: ${r.uHeld} user${r.uHeld === 1 ? " is" : "s are"} held back, not added — ${r.uHeld - (r.uExcluded || 0) ? `${r.uHeld - (r.uExcluded || 0)} in ${(cfg && cfg.revertUser) || DEFAULTS.revertUser} (⏸ held back)` : ""}${r.uHeld - (r.uExcluded || 0) && r.uExcluded ? ", " : ""}${r.uExcluded ? `${r.uExcluded} in the ⊘ user exclusion group` : ""}`);
         }
       }
-      if (o.removals && r.dg && r.remove.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.dg.id), name: r.dg.displayName }, ids: r.remove.slice(), label: `${r.remove.length} device${r.remove.length === 1 ? "" : "s"}: ${r.removeNames.slice(0, 5).join(", ")}${r.remove.length > 5 ? " …" : ""}` });
-      if (o.removals && r.sug && r.uRemove.length) ops.push({ type: "remove", key: r.key, group: { id: lc(r.sug.id), name: r.sug.displayName }, ids: r.uRemove.slice(), memberKind: "user", batch: true, label: `${r.uRemove.length} user${r.uRemove.length === 1 ? "" : "s"} no longer in ${r.userGroupName} (or reverted)` });
+      if (o.removals && r.dg && r.remove.length) { ops.push({ type: "remove", key: r.key, group: { id: lc(r.dg.id), name: r.dg.displayName }, ids: r.remove.slice(), label: `${r.remove.length} device${r.remove.length === 1 ? "" : "s"}: ${r.removeNames.slice(0, 5).join(", ")}${r.remove.length > 5 ? " …" : ""}` }); mark(r, "devRemove"); }
+      if (o.removals && r.sug && r.uRemove.length) { ops.push({ type: "remove", key: r.key, group: { id: lc(r.sug.id), name: r.sug.displayName }, ids: r.uRemove.slice(), memberKind: "user", batch: true, label: `${r.uRemove.length} user${r.uRemove.length === 1 ? "" : "s"} no longer in ${r.userGroupName} (or reverted)` }); mark(r, "userRemove"); }
       if (o.nestUsers && !r.ugNested && r.batch) skipped.push(`${tag}: added in batches — 🧪 its user group is nested by "Finish" after the last batch`);
       else if (o.nestUsers && !r.ugNested) {
         // the STATIC user group goes into the wave, never the dynamic source (10680)
@@ -1393,9 +1398,12 @@ const MdeMembers = (() => {
         else if (r.waveUnread.user) skipped.push(`⚠ ${tag}: ${r.wave.user.displayName}'s members were not read (${r.waveUnread.user}) — not nested. ↻ Read again.`);
         else if (!r.uRead) skipped.push(`${tag}: the static user groups were not read — ↻ Read again`);
         else if (!ugRef) skipped.push(`${tag}: no ${r.userGroupStatic || "static user group"} to nest yet — tick "create & fill groups"`);
+        else if ((r.uHeldIn || []).length && !((o.removals && r.sug && r.uRemove.length) && r.uHeldIn.every((id) => r.uRemove.includes(id)))) skipped.push(`⏸ ${tag}: ${r.sug ? r.sug.displayName : r.userGroupStatic} still holds ${r.uHeldIn.length} held back — take them out first (tick "apply removals") or keep it un-nested`);
         else {
           const size = r.uWant.size;
-          ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, child: ugRef, kind: "user", size });
+          // 10713: with held members taken out in this plan, the nest waits for that step to read back clean
+          const needU = (r.uHeldIn || []).length && at.get(r.key) && at.get(r.key).userRemove != null ? [at.get(r.key).userRemove] : undefined;
+          ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.user.id), name: r.wave.user.displayName }, child: ugRef, kind: "user", size, needsOk: needU });
           mark(r, "userNest");
           if (size > cfg.largeNest) warnings.push(`${ugRef.name} brings ${size} users into ${r.wave.user.displayName} at once`);
         }
@@ -1404,9 +1412,11 @@ const MdeMembers = (() => {
         if (!r.wave.device) skipped.push(`${tag}: ${r.wave.deviceName || "the device wave"} does not exist — create it in 🌊 first`);
         else if (r.waveUnread.device) skipped.push(`⚠ ${tag}: ${r.wave.device.displayName}'s members were not read (${r.waveUnread.device}) — not nested. ↻ Read again.`);
         else if (!dgRef) skipped.push(`${tag}: no device group to nest yet — tick "create & fill"`);
+        else if ((r.heldIn || []).length && !((o.removals && r.dg && r.remove.length) && r.heldIn.every((id) => r.remove.includes(id)))) skipped.push(`⏸ ${tag}: ${r.dg ? r.dg.displayName : r.deviceGroupName} still holds ${r.heldIn.length} held back — take them out first (tick "apply removals") or keep it un-nested`);
         else {
           const size = r.want.size;
-          ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.device.id), name: r.wave.device.displayName }, child: dgRef, kind: "device", size });
+          const needD = (r.heldIn || []).length && at.get(r.key) && at.get(r.key).devRemove != null ? [at.get(r.key).devRemove] : undefined;
+          ops.push({ type: "nest", key: r.key, parent: { id: lc(r.wave.device.id), name: r.wave.device.displayName }, child: dgRef, kind: "device", size, needsOk: needD });
           mark(r, "devNest");
           if (size > cfg.largeNest) warnings.push(`${dgRef.name} brings ${size} devices into ${r.wave.device.displayName} at once`);
         }

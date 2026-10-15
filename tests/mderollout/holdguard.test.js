@@ -101,6 +101,29 @@ function run() {
   const srow = sm.rows.find((r) => r.key === nl.key);
   ok("🔄 lists the device as held in, because of its user", srow.device.heldIn.some((x) => x.id === "e1" && x.why === "user held back"));
 
+  // ------------------------------- 10713 (R5): no nest over held members --
+  // NL's device group still holds e1 (its user is held back) and is not
+  // nested yet; the static user group INT-SG-U-NLD holds hans (held back)
+  {
+    const inp = Object.assign({}, input, { waveChildren: new Map([["wd-euro", new Set()], ["wu-euro", new Set()]]),
+      userGroups: new Map([["int-sg-u-nld", { id: "su-nld", displayName: "INT-SG-U-NLD" }]]), userMembers: new Map([["su-nld", new Set(["u1", "u3"])]]) });
+    const m5 = MM.compute(cfg, inp, waves, now);
+    const r5 = m5.rows.find((r) => r.suffix === "NL");
+    ok("compute says who is held back yet still in: hans in INT-SG-U-NLD, NLD1 in INT-SG-D-NLD", r5.uHeldIn.join() === "u1" && r5.heldIn.join() === "e1");
+    const nestOnly = { fill: false, nestUsers: true, nestDevices: true, removals: false };
+    const p5 = MM.planOps(m5, new Set(["nl"]), nestOnly, cfg);
+    ok("a nest of a group that still holds held-back members is refused, both sides named with the count", !p5.ops.some((o) => o.type === "nest") && p5.skipped.some((x) => /⏸ Netherlands.*INT-SG-U-NLD still holds 1 held back — take them out first/.test(x)) && p5.skipped.some((x) => /⏸ Netherlands.*INT-SG-D-NLD still holds 1 held back/.test(x)), p5.skipped.join("|"));
+    const p6 = MM.planOps(m5, new Set(["nl"]), Object.assign({}, nestOnly, { removals: true }), cfg);
+    const idx = (t, k) => p6.ops.findIndex((o) => o.type === t && (k ? o.memberKind === k || o.kind === k : true));
+    ok("with 'apply removals' ticked the held ones go out first and the nest follows, waiting for that step (needsOk)", p6.ops.filter((o) => o.type === "nest").length === 2
+      && p6.ops.some((o) => o.type === "remove" && o.memberKind === "user" && o.ids.includes("u1")) && p6.ops.some((o) => o.type === "remove" && !o.memberKind && o.ids.includes("e1"))
+      && p6.ops[idx("nest", "user")].needsOk.join() === String(p6.ops.findIndex((o) => o.type === "remove" && o.memberKind === "user"))
+      && p6.ops[idx("nest", "device")].needsOk.join() === String(p6.ops.findIndex((o) => o.type === "remove" && !o.memberKind)), JSON.stringify(p6.ops.map((o) => [o.type, o.memberKind || o.kind, o.needsOk])));
+    const inp2 = Object.assign({}, inp, { revertUsers: new Map(), userMembers: new Map([["su-nld", new Set(["u3"])]]) });
+    const p7 = MM.planOps(MM.compute(cfg, inp2, waves, now), new Set(["nl"]), nestOnly, cfg);
+    ok("no hold-back → the nests plan as before, no refusal, no needsOk", p7.ops.filter((o) => o.type === "nest").length === 2 && p7.ops.every((o) => o.type !== "nest" || !o.needsOk) && !p7.skipped.some((x) => /still holds/.test(x)));
+  }
+
   // ------------------------------------------------ readExtra unread --
   const realReadAll = w.Graph.readAll;
   w.Graph.readAll = async (p) => { if (/displayName eq 'INT-SG-U-MDE-HoldBack'/.test(decodeURIComponent(p))) throw new Error("403 Forbidden"); return []; };
