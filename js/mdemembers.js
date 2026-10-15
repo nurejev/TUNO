@@ -1678,22 +1678,53 @@ const MdeMembers = (() => {
   const already = (e) => /already exist/i.test(msg(e));
   const notYet = (e) => /do(es)? ?n[o']t exist|not exist|Request_ResourceNotFound|replica/i.test(msg(e));
   let wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  // 10710 (R2): a throttled member write WAITS and retries the SAME chunk.
+  // Graph.patch / post / del never retry a write (an ambiguous timeout is
+  // said, not resent); a 429 or a 503 is not ambiguous — Graph refused the
+  // request before touching anything — so here they wait Retry-After (the
+  // tenant's word) or 2 · 4 · 8 · 16 · 30 s, up to THROTTLE_TRIES, on the
+  // same twenty. Before this a 429 broke the chunk loop into twenty single
+  // POSTs straight back into the throttle, and the next chunk followed with
+  // no wait.
+  const THROTTLE_TRIES = 5;
+  const THROTTLE_BACKOFF = [2000, 4000, 8000, 16000, 30000];
+  const throttled = (e) => !!e && (e.kind === "throttled" || e.status === 429 || e.status === 503);
+  const throttleWait = (e, attempt) => { const ra = parseInt(e && e.retryAfter, 10); return (Number.isFinite(ra) && ra > 0 ? ra * 1000 : THROTTLE_BACKOFF[Math.min(attempt, THROTTLE_BACKOFF.length - 1)]) + 250; };
+  // the outcome of a write that timed out is unknown — never resent here
+  const unknownOutcome = (e) => !!e && (e.kind === "network" || e.status === 504 || /did not complete|timed? ?out/i.test(msg(e)));
+  const stoppedWhy = (op, i, n) => `throttled — stopped at ${op} ${i} of ${n}: the tenant kept refusing after ${THROTTLE_TRIES} waits. Nothing after it was sent; ↻ Read again before the next run.`;
   // Twenty per PATCH — Graph's limit. A new group can refuse references for
   // a few seconds while it replicates (Learn: "Add members", note), so a
   // "does not exist" is retried with a growing pause. A chunk refused
   // because one member is already in goes one by one, the ones already in
   // counted as done.
+  // Returns { done, failed, stopped }: stopped names the chunk the throttle
+  // did not let up on — the ids from it on are in failed with that why and
+  // were NOT sent (10710), and applyOps stops the run there.
   async function addMembers(gid, ids, onProgress) {
     const done = [], failed = [];
+    let stopped = "";
+    const chunks = Math.ceil(ids.length / 20);
     for (let i = 0; i < ids.length; i += 20) {
       const part = ids.slice(i, i + 20);
-      let ok = false, err = null;
-      for (let attempt = 0; attempt < 4 && !ok; attempt++) {
+      let ok = false, err = null, throttles = 0, replicas = 0;
+      for (let attempt = 0; !ok && attempt < 64; attempt++) {
         try { await Graph.patch(`/groups/${enc(gid)}`, { "members@odata.bind": part.map(ref) }, { scopes: W() }); ok = true; }
-        catch (e) { err = e; if (notYet(e) && attempt < 3) await wait(2000 * 2 ** attempt); else break; }
+        catch (e) {
+          err = e;
+          if (throttled(e)) { if (throttles >= THROTTLE_TRIES) break; await wait(throttleWait(e, throttles++)); }
+          else if (notYet(e) && replicas < 3) await wait(2000 * 2 ** replicas++);
+          else break;
+        }
       }
       if (ok) done.push(...part);
-      else {
+      else if (throttled(err) || unknownOutcome(err)) {
+        // a throttle is never worked around one by one; a timeout's outcome
+        // is unknown and never resent — the rest of the list is not sent
+        stopped = throttled(err) ? stoppedWhy("chunk", i / 20 + 1, chunks) : `outcome unknown — ${msg(err).slice(0, 160)} ↻ Read again before the next run.`;
+        for (const id of ids.slice(i)) failed.push({ id, why: stopped });
+        break;
+      } else {
         for (const id of part) {
           try { await Graph.post(`/groups/${enc(gid)}/members/$ref`, { "@odata.id": ref(id) }, { scopes: W() }); done.push(id); }
           catch (e) { if (already(e)) done.push(id); else failed.push({ id, why: msg(e).slice(0, 200) || msg(err).slice(0, 200) }); }
@@ -1701,7 +1732,7 @@ const MdeMembers = (() => {
       }
       if (onProgress) onProgress(Math.min(i + 20, ids.length), ids.length);
     }
-    return { done, failed };
+    return { done, failed, stopped };
   }
   // opt.batch (10679, the 🔄 sync and ↩ Revert): DELETE …/$ref folded into
   // $batch, twenty per round trip (Graph.batch — a 404 is "not in it", done)
@@ -1716,13 +1747,23 @@ const MdeMembers = (() => {
       });
       return { done, failed };
     }
-    let n = 0;
-    for (const id of ids) {
-      try { await Graph.del(`/groups/${enc(gid)}/members/${enc(id)}/$ref`, { scopes: W() }); done.push(id); }
-      catch (e) { if (e && (e.kind === "notfound" || e.status === 404)) done.push(id); else failed.push({ id, why: msg(e).slice(0, 200) }); }
+    let n = 0, stopped = "";
+    for (let k = 0; k < ids.length; k++) {
+      const id = ids[k];
+      let ok = false, err = null, throttles = 0;
+      for (let attempt = 0; !ok && attempt < 64; attempt++) {
+        try { await Graph.del(`/groups/${enc(gid)}/members/${enc(id)}/$ref`, { scopes: W() }); ok = true; }
+        catch (e) { err = e; if (e && (e.kind === "notfound" || e.status === 404)) { ok = true; } else if (throttled(e) && throttles < THROTTLE_TRIES) await wait(throttleWait(e, throttles++)); else break; }
+      }
+      if (ok) done.push(id);
+      else if (throttled(err) || unknownOutcome(err)) {
+        stopped = throttled(err) ? stoppedWhy("member", k + 1, ids.length) : `outcome unknown — ${msg(err).slice(0, 160)} ↻ Read again before the next run.`;
+        for (const rest of ids.slice(k)) failed.push({ id: rest, why: stopped });
+        break;
+      } else failed.push({ id, why: msg(err).slice(0, 200) });
       if (onProgress) onProgress(++n, ids.length);
     }
-    return { done, failed };
+    return { done, failed, stopped };
   }
   const readDeviceIds = async (gid, kind) => new Set((await Graph.readAll(`/groups/${enc(gid)}/members/microsoft.graph.${kind === "user" ? "user" : "device"}?$select=id&$top=999`, { scopes: Graph.SCOPES.groups, retry: true }) || []).map((d) => lc(d.id)));
   const readGroupIds = async (gid) => new Set((await Graph.readAll(`/groups/${enc(gid)}/members/microsoft.graph.group?$select=id&$top=999`, { scopes: Graph.SCOPES.groups, retry: true }) || []).map((d) => lc(d.id)));
@@ -1735,9 +1776,11 @@ const MdeMembers = (() => {
     const created = new Map();   // lc(name) -> id
     const failedCreates = new Set();
     const results = [], doneOps = [];
+    let stopRun = "";
     const idOf = (g) => (g && g.id) ? g.id : (g && g.ref && created.get(lc(g.ref))) || null;
     for (let i = 0; i < ops.length; i++) {
       const op = ops[i];
+      if (stopRun) { if (L) L.skip(i, "stopped — " + stopRun.slice(0, 80)); results.push({ op, ok: false, skipped: true, note: "stopped — " + stopRun }); continue; }
       if (L && L.stopped) { L.skip(i, "stopped"); results.push({ op, ok: false, skipped: true, note: "stopped" }); continue; }
       // a step that needs an earlier one to have gone through clean (10649:
       // a device leaves the pilot only once it is in its country group)
@@ -1780,6 +1823,11 @@ const MdeMembers = (() => {
           if (r.done.length) doneOps.push({ type: op.type, key: op.key, group, ids: r.done.slice(), memberKind: op.memberKind || "device", who: op.who || null, fromExclusion: !!op.fromExclusion,
             objs: op.objs ? op.objs.filter((x) => r.done.some((id) => lc(id) === lc(x.id))) : undefined });
           const word = op.type === "add" ? "added" : "removed";
+          // 10710 (R2): a throttle the tenant did not lift, or a write whose
+          // outcome is unknown, stops the run here — the steps after this one
+          // are skipped (said as stopped), never sent into the same throttle;
+          // what was done stays in the undo
+          if (r.stopped) { fail(`${r.done.length} ${word}, then ${r.stopped}`, `${r.done.length}/${op.ids.length} ${word} · STOPPED`); stopRun = r.stopped; continue; }
           if (r.failed.length) fail(`${r.done.length} ${word}, ${r.failed.length} refused — ${r.failed.slice(0, 3).map((f) => f.why).join("; ")}`, `${r.done.length}/${op.ids.length} ${word}`);
           else if (!verified) { if (L) L.fail(i, note, `${r.done.length} ${word} · NOT verified`); results.push({ op, ok: true, verified: false, note }); }
           else { if (L) L.done(i, "", `${r.done.length} ${word} · verified`); results.push({ op, ok: true, verified: true }); }
@@ -1861,7 +1909,7 @@ const MdeMembers = (() => {
         fail(`unknown step "${op.type}"`);
       } catch (e) { fail(msg(e).slice(0, 240)); }
     }
-    return { results, done: doneOps, created };
+    return { results, done: doneOps, created, stopped: stopRun };
   }
 
   // ---------------------------------- ⚡ ⓪ the project's hold groups (10701) --
@@ -1987,6 +2035,6 @@ const MdeMembers = (() => {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides, planHoldGroups,
     iso3Of, countryName, countryRows, realUpnOf, isAvdName, avdIdsOf, AVD_WHY, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
     addMembers, removeMembers, applyOps, patchInput, csv, VIA_TEXT, sidToObjectId, deviceLogonKql, planPin, planUnpin, planSkip, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
-    _setWait: (fn) => { wait = fn; }, HOLD_OLD,
+    _setWait: (fn) => { wait = fn; }, HOLD_OLD, THROTTLE_TRIES,
   };
 })();

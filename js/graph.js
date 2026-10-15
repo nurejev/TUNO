@@ -469,7 +469,11 @@ const Graph = (() => {
     if (res.status === 401) kind = "auth";
     else if (res.status === 404) kind = "notfound";
     else if (res.status === 403) kind = /Authorization_RequestDenied|insufficient privileges|does not have permission/i.test(msg) ? "admin" : "graph";
-    throw new GraphError(kind, msg, {
+    // 10710: a 504 is a gateway that gave up waiting, not Graph's refusal —
+    // for a write its outcome is unknown (said, never resent); a read that
+    // retried and still got it is said as that, not as a generic failure
+    else if (res.status === 504) kind = "network";
+    throw new GraphError(res.status === 504 ? "network" : kind, res.status === 504 ? `The tenant did not answer in time (504)${retry ? ` after ${MAX_RETRIES} attempts` : ""}. ${method === "GET" ? "Read again." : "It may or may not have been applied — read again before sending it again."}` : msg, {
       status: res.status,
       code: err.code || "",
       requestId: reqId,
