@@ -123,6 +123,14 @@ const MdeMembers = (() => {
     // SKIP group (assigned to nothing) and no rule but the primary user
     // places it any more
     useUsersDevices: true,
+    // 10708 (the P2719 lab in devcf: 44 Entra devices, no Intune at all —
+    // T28 read "0 Windows devices"): where the devices come from. "intune"
+    // is the tool — the Windows devices Intune manages, as always. "entra"
+    // is the lab seam: the Windows devices in Entra ARE the devices, one row
+    // per object with no primary user, so the registered owner (④) and the
+    // name (⑤) place them and nothing is read from Intune. Said on the pane
+    // and on the placed-by line; PVM never sets it.
+    deviceSource: "intune",
     skipDevice: "INT-SG-D-MDE-Skip",
     skipDescription: "MDE rollout skipped devices — unticked in TUNO (T28): no rule but the Intune primary user puts them in a country device group. Not assigned to any policy.",
     pinnedDescription: "MDE rollout pinned devices — kept in their country device group by TUNO (T28) although no rule places them there. Not assigned to any policy.",
@@ -174,6 +182,7 @@ const MdeMembers = (() => {
       pinnedDevice: cleanStr(o.pinnedDevice, DEFAULTS.pinnedDevice),
       pinnedDescription: cleanStr(o.pinnedDescription, DEFAULTS.pinnedDescription),
       useUsersDevices: o.useUsersDevices !== false,
+      deviceSource: lc(o.deviceSource) === "entra" ? "entra" : "intune",
       skipDevice: cleanStr(o.skipDevice, DEFAULTS.skipDevice),
       skipDescription: cleanStr(o.skipDescription, DEFAULTS.skipDescription),
     };
@@ -330,11 +339,20 @@ const MdeMembers = (() => {
     dgList = dgAll.filter((g) => !waveIds.has(lc(g.id)) && !/-WAVE-/i.test(g.displayName || "") && !(skip && skip.has(lc(g.displayName))) && !own.has(lc(g.displayName)));
     // every platform, once (10642): Windows is the wave's subset; the rest
     // says what a user with no Windows device does have (🕳 Left out)
-    say("Reading the devices in Intune…");
-    const managedAll = await Graph.readAll(`/deviceManagement/managedDevices?$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime,operatingSystem`, { scopes: DS, retry: true });
-    const managed = (managedAll || []).filter((m) => lc(m.operatingSystem) === "windows");
     say("Reading the Windows devices in Entra…");
     const entra = await Graph.readAll(`/devices?$filter=${enc("operatingSystem eq 'Windows'")}&$count=true&$select=id,deviceId,displayName,accountEnabled,approximateLastSignInDateTime&$top=999`, { scopes: DO, headers: EV, retry: true });
+    // 10708: ⚙️ devices from Entra (the lab seam) — the Entra objects stand
+    // in for Intune's rows: no primary user, no last sync, the Entra id as
+    // the id; Intune is not asked, not for the devices nor for ② its logons
+    const fromEntra = cfg.deviceSource === "entra";
+    let managedAll, managed;
+    if (fromEntra) {
+      managedAll = managed = (entra || []).map((e) => ({ id: lc(e.id), deviceName: e.displayName || "", userId: "", userPrincipalName: "", azureADDeviceId: e.deviceId || "", lastSyncDateTime: null, operatingSystem: "Windows", fromEntra: true }));
+    } else {
+      say("Reading the devices in Intune…");
+      managedAll = await Graph.readAll(`/deviceManagement/managedDevices?$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime,operatingSystem`, { scopes: DS, retry: true });
+      managed = (managedAll || []).filter((m) => lc(m.operatingSystem) === "windows");
+    }
     // 10655 (Mihai: "in the users without devices I see no primary user on
     // the device, but looking that user up in Entra I get a device name";
     // option A off the mockup — primary user, then the Entra owner, then the
@@ -443,7 +461,7 @@ const MdeMembers = (() => {
     // interactive logons — and the pinned devices
     const logonRead = { intune: null, defender: null };
     const intuneLogons = new Map();
-    if (cfg.useIntuneLogons) {
+    if (cfg.useIntuneLogons && !fromEntra) {
       say("Reading Intune's last logged-on users…");
       try {
         const list = await Graph.readAll(`https://graph.microsoft.com/beta/deviceManagement/managedDevices?$filter=${enc("operatingSystem eq 'Windows'")}&$select=id,usersLoggedOn`, { scopes: DS, retry: true });
@@ -508,7 +526,7 @@ const MdeMembers = (() => {
     say("");
     return { entraUsers, skip: skipSet, skipGroup, intuneLogons, defLogons, logonRead, pinned, pinnedGroup, countryGroups, deviceGroups: dgList, managed, managedAll, entra, usersByGroup, deviceMembers, waveChildren, waveUsers, held: heldIds, heldGroup: held && held.id ? { id: lc(held.id), name: held.displayName || "" } : null,
       excludedUsers, heldUserGroup: heldUser && heldUser.id ? { id: lc(heldUser.id), name: heldUser.displayName || "" } : null,
-      pilots, pilotsMissing, owners, primaryUsers, failed, readAt: Date.now() };
+      pilots, pilotsMissing, owners, primaryUsers, failed, deviceSource: fromEntra ? "entra" : "intune", readAt: Date.now() };
   }
 
   // ------------------------------------------------------------ batches --
@@ -922,7 +940,7 @@ const MdeMembers = (() => {
     const alsoCount = new Set(rows.flatMap((r) => r.devices.filter((d) => d.via === "also" && !d.skipped).map((d) => `${r.key}|${d.managedId}`))).size;
     const avdNames = uniq(avdManaged.map((m) => m.deviceName || m.id)).sort((a, b) => lc(a).localeCompare(lc(b)));
     return { avd: { count: avdNames.length, names: avdNames, inGroups: rows.reduce((a, r) => a + r.avdIn.length, 0) }, alsoCount, skip, skipGroup: input.skipGroup || null, placedBy, logonRead: input.logonRead || { intune: null, defender: null }, pinned: input.pinned || new Set(), pinnedGroup: input.pinnedGroup || null,
-      rows, regions, unmapped, noPrimary, placed: placed.size, managedCount: (input.managed || []).length, failed: input.failed || [], readAt: input.readAt || 0,
+      rows, regions, unmapped, noPrimary, placed: placed.size, managedCount: (input.managed || []).length, deviceSource: input.deviceSource === "entra" ? "entra" : "intune", failed: input.failed || [], readAt: input.readAt || 0,
       leftOut: leftOutOf(input, rows, t, staleMs, entraByDeviceId, placed, ownerUsers), pilots: pilotsOf(input, rows) };
   }
 

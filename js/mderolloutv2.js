@@ -1369,6 +1369,7 @@ const MdeRolloutV2Tool = (() => {
         <label class="chk" style="margin:0"><input type="checkbox" id="mvRuleUsersDev"${mcfg().useUsersDevices ? " checked" : ""}> a user's other devices too <span class="muted">(Entra owner / registered user, active; logons) — in each user's country</span></label>
         <label class="wi-f" style="margin:0;display:flex;gap:6px;align-items:center"><span>within</span><input id="mvRuleLogDays" type="number" min="1" max="30" value="${mcfg().logonDays}" style="width:70px"><span>days</span></label>
       </div>
+      <p class="mini muted" style="margin:10px 0 0"><label class="chk" style="margin:0"><input type="checkbox" id="mvRuleDevSrc"${mcfg().deviceSource === "entra" ? " checked" : ""}> 🧪 <b>Lab: devices from Entra, not Intune</b> <span class="muted">— the Windows devices in Entra are the devices (one row per object, no primary user, no last sync; ④ the registered owner and ⑤ the name place them); nothing is read from Intune, ② is off. For a test tenant whose devices are not enrolled. Off on a live tenant.</span></label></p>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-top:10px">
         <label class="wi-f"><span>🌍 Countries per region</span><textarea id="mvRuleMap" rows="${Math.max(4, mcfg().countryMap.length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px">${esc(MdeMembers.formatMap(mcfg().countryMap, mcfg().pilots))}</textarea></label>
         <label class="wi-f"><span>Device-group suffix per non-ISO2 suffix</span><textarea id="mvRuleSfx" rows="${Math.max(4, Object.keys(mcfg().deviceSuffixes).length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px">${esc(MdeMembers.formatOverrides(mcfg().deviceSuffixes))}</textarea></label>
@@ -2943,11 +2944,14 @@ const MdeRolloutV2Tool = (() => {
   // source counted, the two logon steps marked when they were not read
   function memPlacedLine(m) {
     const P = m.placedBy || {}, R = m.logonRead || {}, C = mcfg();
+    // 10708: devices from Entra (the lab seam) — Intune's steps ① and ② never ran
+    const lab = m.deviceSource === "entra";
     const step = (n, label, on, read) => `<span style="white-space:nowrap">${on === false ? `<s class="muted">${label}</s>` : read === false ? `<span style="color:var(--off)" title="not read — see Partly read above">${label} ✗</span>` : `${label} <b>${(n || 0).toLocaleString()}</b>`}</span>`;
     return `<p class="mini" style="margin:0 0 10px;display:flex;flex-wrap:wrap;gap:6px 14px" title="Each Windows device goes to the first step that places it: primary user, then the last logged-on user (Intune), then Defender logons (within ${C.logonDays} days, a person in a country group), then the Entra owner, then the code the name starts with. ⚙️ switches the logon steps.">
       <span class="muted">Devices placed by:</span>
-      ${step((P.primary || 0) + (P.real || 0), "① primary user")}
-      ${step(P.lastlogon, "② Intune last logon", C.useIntuneLogons, R.intune)}
+      ${lab ? `<span style="color:var(--report)" title="⚙️ Lab: devices from Entra, not Intune — the Windows devices in Entra are the devices; no primary user, no Intune read">🧪 devices from Entra (no Intune)</span>` : ""}
+      ${step((P.primary || 0) + (P.real || 0), "① primary user", lab ? false : undefined)}
+      ${step(P.lastlogon, "② Intune last logon", lab ? false : C.useIntuneLogons, R.intune)}
       ${step(P.defender, "③ Defender logons", C.useDefenderLogons, R.defender)}
       ${step((P.owner || 0) + (P.location || 0), "④ Entra owner")}
       ${step((P.name || 0) + (P.userloc || 0), "⑤ name / location")}
@@ -5342,7 +5346,7 @@ const MdeRolloutV2Tool = (() => {
         const before = cfg.lookup.join("\n");
         const prevPre = { device: cfg.waveDevicePrefix, user: cfg.waveUserPrefix, exD: cfg.exclusionDevice, exU: cfg.exclusionUser };
         // 10682: the logon steps change what is read — a change re-reads too
-        const prefixes = () => `${mcfg().countryPrefix}|${mcfg().deviceGroupPrefix}|${mcfg().useIntuneLogons}|${mcfg().useDefenderLogons}|${mcfg().useUsersDevices}|${mcfg().logonDays}`;
+        const prefixes = () => `${mcfg().countryPrefix}|${mcfg().deviceGroupPrefix}|${mcfg().useIntuneLogons}|${mcfg().useDefenderLogons}|${mcfg().useUsersDevices}|${mcfg().logonDays}|${mcfg().deviceSource}`;
         const beforePre = prefixes();
         const okSaved = saveCfg({ newPrefixes: lines("mvRuleNew"), outPrefixes: lines("mvRuleOut"), waveRegions: lines("mvRuleWaves"),
           waveDevicePrefix: $("mvRuleDgPre").value, waveUserPrefix: $("mvRuleUgPre").value,
@@ -5360,6 +5364,7 @@ const MdeRolloutV2Tool = (() => {
           },
           members: Object.assign({}, mcfg(), { countryPrefix: $("mvRuleCtyPre").value, deviceGroupPrefix: $("mvRuleDgrpPre").value,
             useIntuneLogons: !!($("mvRuleIntLog") && $("mvRuleIntLog").checked), useDefenderLogons: !!($("mvRuleDefLog") && $("mvRuleDefLog").checked), useUsersDevices: !!($("mvRuleUsersDev") && $("mvRuleUsersDev").checked), logonDays: $("mvRuleLogDays") ? +$("mvRuleLogDays").value : 30,
+            deviceSource: $("mvRuleDevSrc") && $("mvRuleDevSrc").checked ? "entra" : "intune",
             countryMap: MdeMembers.parseMap($("mvRuleMap").value), pilots: MdeMembers.parsePilots($("mvRuleMap").value), deviceSuffixes: MdeMembers.parseOverrides($("mvRuleSfx").value) }) });
         (async () => {
           if (cfg.lookup.join("\n") !== before) { try { const f = await M.findGroups(cfg.lookup); found = f.found; dupes = f.dupes; } catch { found = null; } }
