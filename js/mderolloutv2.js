@@ -480,7 +480,19 @@ const MdeRolloutV2Tool = (() => {
     backupTaken = false;
     v2Binding = JSON.stringify(v2Context());
     v2MemberBackup = null; v2Risk = null;
-    v2ExpectedMembers = plan && plan.members ? T28V2Safety.capture(plan.ops).then((snapshot) => ({ snapshot }), (error) => ({ error })) : null;
+    v2ExpectedMembers = plan && plan.members ? T28V2Safety.capture(plan.ops, holdBackGroups()).then((snapshot) => ({ snapshot }), (error) => ({ error })) : null;
+  }
+  // 10712 (R3): the ⏸ hold-back pair and, while it lives, the ⊘ pair — the
+  // groups the backup carries beside the targets and the ones re-read
+  // right before a members plan writes
+  function holdBackGroups() {
+    const X = cs.extra, G = exGroups();
+    return [
+      X && X.revert && X.revert.user ? { id: X.revert.user.id, kind: "user", name: X.revert.user.displayName, role: "hold-back" } : null,
+      X && X.revert && X.revert.device ? { id: X.revert.device.id, kind: "device", name: X.revert.device.displayName, role: "hold-back" } : null,
+      G.user ? { id: G.user.id, kind: "user", name: G.user.displayName, role: "exclusion" } : null,
+      G.device ? { id: G.device.id, kind: "device", name: G.device.displayName, role: "exclusion" } : null,
+    ].filter((g) => g && g.id);
   }
   function v2Risks() {
     if (!plan) return [];
@@ -3584,6 +3596,28 @@ const MdeRolloutV2Tool = (() => {
       if (plan !== p || !gateOk()) throw new Error("Plan context changed. Make a fresh plan.");
       $("mvMemApply").disabled = true;
       const preSkipped = [];
+      // 10712 (R3): the hold-back read AGAIN, transitively, right here —
+      // whoever was put in it since the 👥 read is dropped from every add
+      // now, named; a hold-back that cannot be read refuses the apply
+      if (!p.allowAll && p.runKind !== "revert" && p.ops.some((x) => x.type === "add" && (x.ids || []).length)) {
+        let now;
+        try { now = await MdeRevert.readHoldNow(holdBackGroups()); }
+        catch (e) { throw new Error(`The hold-back could not be read right before writing (${GroupUse.shortErr(e, 160)}) — nothing was written. ↻ Read again and make a new plan.`); }
+        const ctx = holdGuardCtx(p);
+        const before = new Set([...ctx.users].map((id) => `user|${id}`).concat([...ctx.devices].map((id) => `device|${id}`)));
+        now.users.forEach((id) => ctx.users.add(id)); now.devices.forEach((id) => ctx.devices.add(id));
+        const nameOf0 = ctx.nameOf; ctx.nameOf = (k, id) => nameOf0(k, id) || now.names.get(`${k}|${lc(id)}`) || "";
+        ctx.unread = "";
+        const g = MdeRevert.guardHeld(p.ops, ctx);
+        if (g.refused) throw new Error(g.refused);
+        const fresh = [...now.users].filter((id) => !before.has(`user|${id}`)).length + [...now.devices].filter((id) => !before.has(`device|${id}`)).length;
+        if (g.stripped.users + g.stripped.devices) {
+          p.ops = g.ops;
+          preSkipped.push(`⏸ ${plural(g.stripped.users + g.stripped.devices, "member")} held back since the read — left out: ${g.skipped.slice(0, 5).join("; ")}${g.skipped.length > 5 ? " …" : ""}`);
+          if (fresh) preSkipped.push(`⏸ the hold-back grew by ${plural(fresh, "member")} after the 👥 read`);
+          if (!p.ops.length) throw new Error("Everyone this plan would add is held back now — nothing to write. ↻ Read again.");
+        }
+      }
       let me = null;
       if (p.ops.some((x) => x.type === "create")) { try { me = await M.readMe(); } catch { me = null; } }
       const L = RunLedger.create($("mvLedger"), { unit: "steps", title: p.title, items: p.ops.map((x) => ({ label: `${opWord(x)} · ${opLabel(x)}`, sub: x.who || "" })) });

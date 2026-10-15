@@ -15,6 +15,17 @@ async function run() {
   rows = [{ id: "b" }, { id: "A" }]; ok("different Graph order is not drift", await S.unchanged(snap));
   rows = [{ id: "a" }, { id: "b" }, { id: "c" }]; ok("member addition rejects old plan", !await S.unchanged(snap));
   rows = [{ id: "a" }]; ok("member removal rejects old plan", !await S.unchanged(snap));
+  // 10712 (R3): the hold-back pair rides in the backup, transitive, with
+  // its role — and never makes "unchanged" refuse the apply
+  rows = [{ id: "A" }, { id: "b" }];
+  const snapH = await S.capture(ops, [{ id: "HB-U", kind: "user", name: "INT-SG-U-MDE-HoldBack", role: "hold-back" }, { id: "", kind: "device" }]);
+  ok("the hold-back entry is in the snapshot with its role, name and kind; a group without an id is skipped", snapH.length === 2 && snapH[1].role === "hold-back" && snapH[1].kind === "user" && snapH[1].name === "INT-SG-U-MDE-HoldBack" && snapH[1].members.join() === "a,b");
+  ok("the targets come first, unchanged in shape", JSON.stringify(snapH[0]) === JSON.stringify(snap[0]));
+  rows = [{ id: "A" }, { id: "b" }, { id: "z" }];
+  snap = await S.capture(ops);   // the targets as of now, so only the hold-back differs below
+  const snapH2 = await S.capture(ops, [{ id: "HB-U", kind: "user", role: "hold-back" }]);
+  rows = [{ id: "A" }, { id: "b" }, { id: "z" }];
+  ok("a hold-back that changed after the backup does not reject the plan (the re-read before the write handles it)", await S.unchanged(snapH2.map((x, i) => i === 1 ? Object.assign({}, x, { members: ["q"] }) : x)));
   fail = true;
   let rejected = false; try { await S.unchanged(snap); } catch { rejected = true; }
   ok("failed preflight read fails closed", rejected); fail = false;

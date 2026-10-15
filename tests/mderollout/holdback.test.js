@@ -43,8 +43,8 @@ async function run() {
     if (/eq 'INT-SG-U-MDE-HoldBack'/.test(q) || /eq 'INT-SG-D-MDE-HoldBack'/.test(q)) return [];
     if (/eq 'INT-SG-U-MDE-Revert'/.test(q)) return [{ id: "RV-U", displayName: "INT-SG-U-MDE-Revert" }];
     if (/eq 'INT-SG-D-MDE-Revert'/.test(q)) return [{ id: "RV-D", displayName: "INT-SG-D-MDE-Revert" }];
-    if (/\/groups\/RV-U\/members/.test(p)) return [{ id: "u2", userPrincipalName: "bob@x", displayName: "Bob" }];
-    if (/\/groups\/RV-D\/members/.test(p)) return [{ id: "e2", deviceId: "a2", displayName: "NLD2" }];
+    if (/\/groups\/RV-U\/(transitive)?[mM]embers/.test(p)) return [{ id: "u2", userPrincipalName: "bob@x", displayName: "Bob" }];
+    if (/\/groups\/RV-D\/(transitive)?[mM]embers/.test(p)) return [{ id: "e2", deviceId: "a2", displayName: "NLD2" }];
     return [];
   };
   w.Graph.pool = async (items, fn) => Promise.all(items.map((x) => fn(x).then((value) => ({ value })).catch((error) => ({ error }))));

@@ -5,7 +5,13 @@ const T28V2Safety = (() => {
   const keyOf = (op) => (op.type === "add" || op.type === "remove")
     ? { id: op.group && op.group.id, kind: op.memberKind === "user" ? "user" : "device" }
     : (op.type === "nest" || op.type === "unnest") ? { id: op.parent && op.parent.id, kind: "group" } : null;
-  async function capture(ops) {
+  // extra (10712, R3): groups to carry in the backup beside the targets —
+  // the ⏸ hold-back pair, read transitively, with role "hold-back" — so the
+  // backup file says who was held back when the plan was applied. Those
+  // entries are not part of the "unchanged" check (a hold-back that grew
+  // meanwhile is handled by the re-read and guard right before the write,
+  // never by refusing the apply).
+  async function capture(ops, extra) {
     const targets = new Map();
     for (const op of ops || []) {
       const t = keyOf(op);
@@ -18,12 +24,21 @@ const T28V2Safety = (() => {
       if (!Array.isArray(rows)) throw new Error("Incomplete group membership read.");
       snapshot.push({ id: lc(t.id), kind: t.kind, members: [...new Set(rows.map((r) => lc(r.id)))].sort() });
     }
-    return snapshot.sort((a, b) => `${a.id}|${a.kind}`.localeCompare(`${b.id}|${b.kind}`));
+    snapshot.sort((a, b) => `${a.id}|${a.kind}`.localeCompare(`${b.id}|${b.kind}`));
+    for (const g of extra || []) {
+      if (!g || !g.id) continue;
+      const kind = g.kind === "user" ? "user" : "device";
+      const rows = await Graph.readAll(`/groups/${encodeURIComponent(g.id)}/transitiveMembers/microsoft.graph.${kind}?$select=id&$count=true&$top=999`, { scopes: Graph.SCOPES.groups, headers: { ConsistencyLevel: "eventual" }, retry: true });
+      if (!Array.isArray(rows)) throw new Error("Incomplete hold-back read.");
+      snapshot.push({ id: lc(g.id), kind, role: g.role || "hold-back", name: g.name || "", members: [...new Set(rows.map((r) => lc(r.id)))].sort() });
+    }
+    return snapshot;
   }
   async function unchanged(snapshot) {
     if (!Array.isArray(snapshot)) return false;
-    const ops = snapshot.map((s) => s.kind === "group" ? { type: "nest", parent: { id: s.id } } : { type: "add", group: { id: s.id }, memberKind: s.kind });
-    return JSON.stringify(await capture(ops)) === JSON.stringify(snapshot);
+    const targets = snapshot.filter((s) => !s.role);
+    const ops = targets.map((s) => s.kind === "group" ? { type: "nest", parent: { id: s.id } } : { type: "add", group: { id: s.id }, memberKind: s.kind });
+    return JSON.stringify(await capture(ops)) === JSON.stringify(targets);
   }
   function verifiedOps(result) {
     // done may include partial or uncertain writes. Do not advertise those

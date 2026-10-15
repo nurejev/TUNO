@@ -131,19 +131,42 @@ const MdeRevert = (() => {
     };
     try {
       revert.user = await byNameOrOld(cfg.revertUser, "user");
-      if (revert.user) for (const u of (await Graph.readAll(`/groups/${enc(revert.user.id)}/members/microsoft.graph.user?$select=id,userPrincipalName,displayName&$top=999`, { scopes: GS, retry: true })) || []) {
+      // 10712 (R4): TRANSITIVE — a group nested in the hold-back holds its
+      // members back too (the pair was read with /members: nested groups held nobody)
+      if (revert.user) for (const u of (await Graph.readAll(`/groups/${enc(revert.user.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,displayName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true })) || []) {
         revertUsers.set(lc(u.id), { id: lc(u.id), upn: u.userPrincipalName || u.id, name: u.displayName || u.userPrincipalName || u.id });
         if (u.userPrincipalName) upn.set(lc(u.id), u.userPrincipalName);
       }
     } catch (e) { failed.push(`${cfg.revertUser}: ${msg(e).slice(0, 160)}`); holdUnread.push(`${cfg.revertUser}: ${msg(e).slice(0, 120)}`); }
     try {
       revert.device = await byNameOrOld(cfg.revertDevice, "device");
-      if (revert.device) for (const d of (await Graph.readAll(`/groups/${enc(revert.device.id)}/members/microsoft.graph.device?$select=id,deviceId,displayName&$top=999`, { scopes: GS, retry: true })) || []) revertDevices.set(lc(d.id), { id: lc(d.id), deviceId: lc(d.deviceId || ""), name: d.displayName || d.id });
+      if (revert.device) for (const d of (await Graph.readAll(`/groups/${enc(revert.device.id)}/transitiveMembers/microsoft.graph.device?$select=id,deviceId,displayName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true })) || []) revertDevices.set(lc(d.id), { id: lc(d.id), deviceId: lc(d.deviceId || ""), name: d.displayName || d.id });
     } catch (e) { failed.push(`${cfg.revertDevice}: ${msg(e).slice(0, 160)}`); holdUnread.push(`${cfg.revertDevice}: ${msg(e).slice(0, 120)}`); }
     say("");
     // 10707: a hold-back pair that could not be read is not an empty one —
     // ⏸'s guard refuses a plan that adds members while this says anything
     return { userGroups, userMembers, upn, revert, revertUsers, revertDevices, failed, unread, holdUnread: holdUnread.join("; "), readAt: Date.now() };
+  }
+
+  // 10712 (R3): the hold-back pair (and the ⊘ pair while it lives) read
+  // AGAIN, transitively, right before a plan writes — the guard at the dry
+  // run ran on the hold-back as it was at the last 👥 read, so a member put
+  // in the hold-back by hand after it was still added by a re-run. Returns
+  // { users: Set, devices: Set, read: n } or throws (the caller refuses the
+  // apply: an unread hold-back is not an empty one).
+  async function readHoldNow(groups) {
+    const GS = Graph.SCOPES.groups;
+    const users = new Set(), devices = new Set(), names = new Map();
+    let read = 0;
+    for (const g of groups || []) {
+      if (!g || !g.id) continue;
+      const kind = g.kind === "user" ? "user" : "device";
+      const rows = await Graph.readAll(`/groups/${enc(g.id)}/transitiveMembers/microsoft.graph.${kind}?$select=id,displayName${kind === "user" ? ",userPrincipalName" : ""}&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true });
+      if (!Array.isArray(rows)) throw new Error(`${g.name || g.id}: the hold-back read returned nothing`);
+      for (const r of rows) { (kind === "user" ? users : devices).add(lc(r.id)); names.set(`${kind}|${lc(r.id)}`, r.userPrincipalName || r.displayName || lc(r.id)); }
+      read++;
+    }
+    return { users, devices, names, read };
   }
 
   // ------------------------------------------------------------- model --
@@ -914,5 +937,5 @@ const MdeRevert = (() => {
 
   return { userGroupName, countryNames, mapping, mappingSig, readExtra, model, syncItems, defaultSyncTicks, reincludeLine, planSync, planSwap,
     lookup, defaultTicks, planRevert, planUnrevert, assess, patch, syncedRows,
-    entryKey, listAdd, listTicks, planRevertMany, bulkLine, assessMany, groupLines, listDone, listLines, routesOf, planMigrate, planDeleteExclusion, guardHeld };
+    entryKey, listAdd, listTicks, planRevertMany, bulkLine, assessMany, groupLines, listDone, listLines, routesOf, planMigrate, planDeleteExclusion, guardHeld, readHoldNow };
 })();

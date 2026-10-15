@@ -192,6 +192,37 @@ async function run() {
   ok("applied: Eva back in INT-SG-U-NLD, out of Revert, her reason gone; the laptop still reverted", ur.ok === 2 && !G("INT-SG-U-MDE-HoldBack")._users.length && G("INT-SG-U-NLD")._users.includes(eva) && !reasons[eva] && Object.keys(reasons).length === 1);
   ok("📜 lists the five runs with their kinds", [null, "waveswap", "groupsync", "revert", "revert"].every((k, i) => (st().runs[i].runKind || null) === k));
 
+  // --------------------------- 10712 (R3): the hold-back re-read at Apply --
+  // Milan leaves INT-SG-U-NLD behind T28's back; 👥 plans to add him back;
+  // between the dry run and Apply he is put in the hold-back by hand — the
+  // re-read right before the write drops him, named, and the hold-back is
+  // left as it is.
+  const milan = w.TUNO_DEMO_GRAPH.T.USERS.find((u) => /Milan/.test(u.displayName)).id;
+  G("INT-SG-U-NLD")._users = G("INT-SG-U-NLD")._users.filter((id) => id !== milan && id !== eva);   // Eva and Milan both left the static group behind T28's back
+  node("members").click();
+  $("mvMemRead").click();
+  await until(() => st().mem.model && !st().mem.loading && st().mem.model.rows.find((r) => r.key === "nl").uAdd.includes(milan), 20000, "members re-read");
+  check(D.querySelector('[data-mrmemsel="nl"]'), true);
+  $("mvMemDry").click();
+  const hp = st().plan;
+  ok("👥 plans to add Eva and Milan back to INT-SG-U-NLD", hp && hp.ops.some((o) => o.type === "add" && o.memberKind === "user" && o.ids.includes(milan) && o.ids.includes(eva)), hp && JSON.stringify(hp.ops.map((o) => [o.type, o.ids])));
+  G("INT-SG-U-MDE-HoldBack")._users.push(milan);   // by hand, after the read, before Apply
+  const hr = await apply();
+  ok("Apply re-reads the hold-back: Milan is dropped from the add and named; Eva still goes in", /⏸ 1 member held back since the read — left out/.test(hr.lines.join("\n")) && /milan@/i.test(hr.lines.join("\n")) && hr.ok === 1 && hr.done.some((d) => d.type === "add" && d.ids.includes(eva) && !d.ids.includes(milan)), JSON.stringify(hr.lines));
+  ok("the tenant: Milan is still held back and NOT in INT-SG-U-NLD; Eva is", G("INT-SG-U-MDE-HoldBack")._users.includes(milan) && !G("INT-SG-U-NLD")._users.includes(milan) && G("INT-SG-U-NLD")._users.includes(eva));
+  // and with NOBODY left to add, Apply refuses instead of writing nothing silently
+  G("INT-SG-U-NLD")._users = G("INT-SG-U-NLD")._users.filter((id) => id !== eva);
+  $("mvMemRead").click();
+  await until(() => st().mem.model && !st().mem.loading && st().mem.model.rows.find((r) => r.key === "nl").uAdd.includes(eva), 20000, "members re-read 2");
+  check(D.querySelector('[data-mrmemsel="nl"]'), true);
+  $("mvMemDry").click();
+  G("INT-SG-U-MDE-HoldBack")._users.push(eva);
+  const nR = st().runs.length;
+  await gates(); $("mvMemApply").click();
+  ok("everyone the plan would add is held back now → refused, nothing written, said on the plan", await until(() => /Everyone this plan would add is held back now — nothing to write/.test($("mvPlan").textContent), 10000, "refusal") && st().runs.length === nR && !G("INT-SG-U-NLD")._users.includes(eva));
+  G("INT-SG-U-MDE-HoldBack")._users = G("INT-SG-U-MDE-HoldBack")._users.filter((id) => id !== eva);
+  ok("the backup carried the hold-back pair (transitive), so it says who was held when the run went", Array.isArray(hr.backup.membership) && hr.backup.membership.some((x) => x.role === "hold-back" && x.kind === "user" && x.members.includes(milan)), JSON.stringify(hr.backup.membership));
+
   console.log(`T28 revert & country groups screen: ${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
   w.close();
