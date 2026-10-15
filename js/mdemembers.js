@@ -1919,6 +1919,37 @@ const MdeMembers = (() => {
   // (nested in their wave). The exclusion groups stay with 🌊.
   // state: { revert: { user, device }, pinnedGroup, skipGroup,
   //          tests: Map region → MdeTest.read's { user: { name, wave, group, nested, dupes, members }, device }, regions: Set | null }
+  // 🌊 (10711, Phase 0 R7): the wave and exclusion groups are created and
+  // renamed through the same plan as every other write — before this the
+  // Waves pane wrote straight from a checkbox, with no dry run, backup,
+  // confirm line or read-back. list: the names ticked; defs: the rollout's
+  // group definitions ({ name, role, audience, region }); exists(name) says
+  // whether the lookup found it.
+  function planWaves(list, defs, descriptions, exists) {
+    const ops = [], skipped = [], inPlace = [];
+    for (const name of list || []) {
+      const def = (defs || []).find((g) => lc(g.name) === lc(name)) || null;
+      if (exists && exists(name)) { inPlace.push(name); continue; }
+      const kind = def && def.role === "exclusion" ? "exclusion" : "wave";
+      const who = def ? `${def.audience || ""} ${kind}`.trim() : kind;
+      ops.push({ type: "create", key: "waves", name, description: kind === "exclusion" ? (descriptions && descriptions.exclusion) || "" : (descriptions && descriptions.wave) || "", who });
+    }
+    const n = ops.length;
+    return { ops, skipped, warnings: [], inPlace, hasRemoval: false, runKind: "waves", waves: true, members: true,
+      title: `Create ${n} rollout group${n === 1 ? "" : "s"}`,
+      confirmLine: n ? `create ${n} assigned security group${n === 1 ? "" : "s"} in this tenant: ${ops.map((o) => o.name).join(", ")}` : "",
+      impact: n ? "Empty assigned security groups, owned by you, assigned to nothing — no policy reaches anyone through them until a member joins. A group found under the same name meanwhile is used as is, never made twice." : "" };
+  }
+  // ✏️ the groups still under an earlier name: list = [{ id, from, to }]
+  function planRenameWaves(list, back) {
+    const ops = (list || []).filter((x) => x && x.id && x.from && x.to).map((x) => ({ type: "rename", key: "waves", group: { id: lc(x.id), name: x.from }, from: x.from, to: x.to, who: x.from }));
+    const n = ops.length;
+    return { ops, skipped: [], warnings: [], inPlace: [], hasRemoval: false, runKind: "renamewaves", renameWaves: true, members: true,
+      title: back ? `Rename ${n} group${n === 1 ? "" : "s"} back` : `Rename ${n} rollout group${n === 1 ? "" : "s"}`,
+      confirmLine: n ? `rename ${n} group${n === 1 ? "" : "s"} in this tenant (display name and mail nickname; the object id, every assignment and every nesting stay): ${ops.map((o) => `${o.from} → ${o.to}`).join(", ")}` : "",
+      impact: n ? "The object id stays, so every policy assignment and every nesting stays exactly as it is; Intune shows the new name at its next read. 📜 Undo renames back." : "" };
+  }
+
   function planHoldGroups(cfg, state) {
     const c = cfg || DEFAULTS, S = state || {};
     const ops = [], skipped = [], inPlace = [];
@@ -2032,7 +2063,7 @@ const MdeMembers = (() => {
   }
 
   return {
-    DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides, planHoldGroups,
+    DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides, planHoldGroups, planWaves, planRenameWaves,
     iso3Of, countryName, countryRows, realUpnOf, isAvdName, avdIdsOf, AVD_WHY, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
     addMembers, removeMembers, applyOps, patchInput, csv, VIA_TEXT, sidToObjectId, deviceLogonKql, planPin, planUnpin, planSkip, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
     _setWait: (fn) => { wait = fn; }, HOLD_OLD, THROTTLE_TRIES,

@@ -1089,15 +1089,13 @@ const MdeRolloutV2Tool = (() => {
       <div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:30px"><col style="width:23%"><col style="width:10%"><col style="width:14%"><col style="width:17%"><col style="width:16%"><col></colgroup><thead><tr><th></th><th>Group</th><th>Status</th><th>For · kind</th><th title="New policies of this group's kind (or whose name does not say) that include it — or, for an exclusion group, exclude it">New policies</th><th>Old to exclude it</th><th title="Users and devices put in this wave ahead of their country, through a test group nested in it">🧪 Test members</th></tr></thead><tbody>${rows}</tbody></table></div>
 
       <div class="tb-actions" style="margin-top:12px">
-        <label class="chk" style="margin:0"><input type="checkbox" id="mvWaveOk"${nSel ? "" : " disabled"}> Create ${plural(nSel, "group")} in this tenant</label>
-        <button class="btn primary" id="mvWaveCreate" disabled>🌊 Create the selected groups</button>
+        <button class="btn primary" id="mvWaveCreate"${nSel ? "" : " disabled"}>🌊 Dry run — create ${plural(nSel, "selected group")}</button>
       </div>
-      <p class="mini muted" style="margin:8px 0 0">Asks for Group.ReadWrite.All at this click (T22's scope). Owner: you, the signed-in admin. Description: “${esc(cfg.waveDescription)}” (waves) · “${esc(cfg.exclusionDescription)}” (exclusion groups).</p>
+      <p class="mini muted" style="margin:8px 0 0">The dry run lists the groups; the confirm line names them; Apply asks for Group.ReadWrite.All (T22's scope), creates each, reads it back and logs the run in 📜. Owner: you, the signed-in admin. Description: “${esc(cfg.waveDescription)}” (waves) · “${esc(cfg.exclusionDescription)}” (exclusion groups).</p>
       ${waveRows.some((w) => w.legacy && !w.exists) ? `<div class="mr-rename">
         <p class="mini" style="margin:0 0 8px"><b>✏️ Groups under an earlier name.</b> The waves are named <code>${esc(cfg.waveDevicePrefix)}&lt;region&gt;</code> and <code>${esc(cfg.waveUserPrefix)}&lt;region&gt;</code> now, the exclusion groups <code>${esc(cfg.exclusionDevice || "—")}</code> and <code>${esc(cfg.exclusionUser || "—")}</code>; the ticked ones above are renamed in the tenant — display name and mail nickname. The object id stays, so every policy assignment and every nesting stays exactly as it is; Intune shows the new name. Undo from 📜 renames them back.</p>
         <div class="tb-actions">
-          <label class="chk" style="margin:0"><input type="checkbox" id="mvRenameOk"${selRename.size ? "" : " disabled"}> Rename ${plural(selRename.size, "group")} in this tenant</label>
-          <button class="btn primary" id="mvRenameGo" disabled>✏️ Rename to the new names</button>
+          <button class="btn primary" id="mvRenameGo"${selRename.size ? "" : " disabled"}>✏️ Dry run — rename ${plural(selRename.size, "group")}</button>
           <a href="#" data-mrrenameall="1" class="mini">tick all ${waveRows.filter((w) => w.legacy && !w.exists).length}</a>
         </div></div>` : ""}
       <div id="mvWaveLedger"></div>
@@ -1338,9 +1336,9 @@ const MdeRolloutV2Tool = (() => {
       const idx = runs.length - 1 - i;
       return `<div class="list-card" style="margin-top:${i ? 12 : 0}px">
         <h4 style="margin:0 0 4px">${esc(r.title)} <span class="mini muted">${esc(new Date(r.at).toLocaleTimeString())}</span></h4>
-        <p class="mini" style="margin:0 0 6px">${r.ok} written &amp; verified · ${r.bad} not clean${r.stopped ? " · stopped early" : ""}${r.kind === "groups" || r.kind === "members" || r.kind === "rename" ? "" : ` · ${plural(r.backup.policies.length, "policy", "policies")} in the backup`}</p>
+        <p class="mini" style="margin:0 0 6px">${r.ok} written &amp; verified · ${r.bad} not clean${r.stopped ? " · stopped early" : ""}${r.kind === "groups" || r.kind === "members" ? "" : ` · ${plural(r.backup.policies.length, "policy", "policies")} in the backup`}</p>
         <ul class="mini" style="margin:0 0 8px;padding-left:18px">${r.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
-        ${r.kind === "rename" ? (r.done && r.done.length ? `<div class="tb-actions"><button class="btn" data-mrrenback="${idx}">↶ Rename back</button></div>` : "") : r.kind === "groups" ? "" : r.kind === "members" ? (r.done && r.done.some((d) => d.type !== "create") ? `<div class="tb-actions"><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
+        ${r.kind === "groups" ? "" : r.kind === "members" ? (r.done && r.done.some((d) => d.type !== "create") ? `<div class="tb-actions"><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
       </div>`;
     }).join("");
   }
@@ -3524,14 +3522,14 @@ const MdeRolloutV2Tool = (() => {
     }
     v2Bind();
     const p = plan;
-    const country = (x) => { if (x.who || p.exclusions || p.pilotsReady || p.pilotsUndo || p.holdGroups || p.runKind === "exmigrate") return x.who || ""; const r = mem.model && mem.model.rows.find((y) => y.key === x.key); return r ? r.country : x.key; };
+    const country = (x) => { if (x.who || p.exclusions || p.pilotsReady || p.pilotsUndo || p.holdGroups || p.waves || p.renameWaves || p.runKind === "exmigrate") return x.who || ""; const r = mem.model && mem.model.rows.find((y) => y.key === x.key); return r ? r.country : x.key; };
     const rows = p.ops.map((x) => `<tr><td class="mini">${esc(country(x))}</td><td>${chip(x.type === "remove" || x.type === "unnest" || x.type === "deletegroup" ? "au-op delete" : x.type === "create" || x.type === "rename" ? "gu-how priv" : "au-op create", opWord(x))}</td><td class="mini">${esc(opLabel(x))}${x.type === "nest" && x.size ? ` <span class="muted">(${plural(x.size, x.kind === "user" ? "user" : "device")})</span>` : ""}</td></tr>`).join("");
     planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px">
       <h4 style="margin:0 0 6px">② Plan — ${esc(p.title)}</h4>
       <p class="mini" style="margin:0 0 8px"><b>${plural(p.ops.length, "step")}</b>, run in this order and each read back.</p>
       ${p.warnings.length ? `<div class="gu-fail" style="margin-bottom:8px;border-color:var(--report)"><b>Large or lasting changes:</b><span class="why">${p.warnings.map(esc).join("<br>")}${p.warnings.some((w) => /at once/.test(w)) ? "<br>Microsoft Learn: “Don't make large group nesting changes all at once.” Intune re-evaluates every member." : ""}</span></div>` : ""}
       ${p.skipped.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Left out, with the reason:</b><span class="why">${p.skipped.map(esc).join("<br>")}</span></div>` : ""}
-      ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:18%"><col style="width:16%"><col></colgroup><thead><tr><th>${p.holdGroups || p.runKind === "exmigrate" ? "For" : p.exclusions || p.pilotsReady || p.pilotsUndo ? "Who" : "Country"}</th><th>Step</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">Nothing to write.</p>`}
+      ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:18%"><col style="width:16%"><col></colgroup><thead><tr><th>${p.holdGroups || p.waves || p.renameWaves || p.runKind === "exmigrate" ? "For" : p.exclusions || p.pilotsReady || p.pilotsUndo ? "Who" : "Country"}</th><th>Step</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">Nothing to write.</p>`}
       ${(p.runKind === "revert" || p.runKind === "exmigrate") && p.reason ? `<p class="mini" style="margin:8px 0 0"><b>Reason:</b> “${esc(p.reason)}”</p>` : ""}
       <p class="mini muted" style="margin:8px 0 0">${p.runKind === "waveswap"
         ? "Likely impact: none — the static group holds the same users, so the wave's membership and every policy stay as they are. A country whose check finds a difference keeps its dynamic group and is said in the ledger. Way back: 📜 Undo re-nests the dynamic group and takes the static one out (a group this run created is left in place)."
@@ -3539,6 +3537,10 @@ const MdeRolloutV2Tool = (() => {
         ? "Likely impact: an added member gets the new MDE policies at its next Intune check-in (the old ones leave once ⚡③ excluded the wave); a removed one goes back to the old set. Held-back members stay out unless re-included with the confirm. Way back: 📜 Undo — the inverse of what was written."
         : p.runKind === "testmembers"
         ? "Likely impact: at their next Intune check-in the added users and devices get what the wave is assigned — the new MDE policies, and once ⚡③ excluded the wave, no longer the old ones. A member moved to live changes nothing on the device: the same wave through the nested country group, only the test route goes. A test member taken out completely goes back to whatever their country gives them. The test group is not a country group: no 👥 / 🔄 sync adds to it or takes from it. Way back: 📜 Undo — the inverse of what was written (a group this run created is left in place, empty after the undo)."
+        : p.runKind === "waves"
+        ? "Likely impact: none on any device — empty assigned security groups, owned by you, on no assignment; a group found under the same name meanwhile is used as is, never made twice. Way back: a group this run created is listed in 📜; delete it in Entra (an empty group on no assignment) — 📜 cannot undo a create."
+        : p.runKind === "renamewaves"
+        ? "Likely impact: none on any device — the object id stays, so every policy assignment and every nesting stays exactly as it is; Intune shows the new name at its next read. Way back: 📜 Undo renames back."
         : p.runKind === "holdgroups"
         ? "Likely impact: none on any device — empty groups, assigned to no policy; a 🧪 test group nested in its wave carries nobody until a test member is added. Way back: 📜 Undo takes the nests out; a group this run created is left in place, empty (delete it in Entra if it must go)."
         : p.runKind === "exscan"
@@ -3622,7 +3624,8 @@ const MdeRolloutV2Tool = (() => {
       csAfterRun(p, r, verifiedDone);
       // ⊘→⏸ (10702): a renamed hold-back pair is known under its new name
       // in 🌊's lookup too; both exclusion groups deleted → the rules forget them
-      for (const d of verifiedDone) if (d.type === "rename" && found) { found.set(lc(d.to), { id: d.group.id, displayName: d.to }); names.set(lc(d.group.id), d.to); }
+      for (const d of verifiedDone) if (d.type === "rename" && found) { found.set(lc(d.to), { id: d.group.id, displayName: d.to }); names.set(lc(d.group.id), d.to); if (found.get(lc(d.from)) && lc(found.get(lc(d.from)).id) === lc(d.group.id)) found.set(lc(d.from), null); }
+      if (verifiedDone.some((d) => d.type === "rename")) derive();
       if (p.deleteExclusion) {
         const gone = new Set(verifiedDone.filter((d) => d.type === "deletegroup").map((d) => lc(d.group.id)));
         const G = exGroups();
@@ -3632,6 +3635,8 @@ const MdeRolloutV2Tool = (() => {
       }
       // ⚡ ⓪ (10701): the test groups are read again so the row says "in place"
       if (p.holdGroups) { tm.test.clear(); tm.all = false; tm.allAt = 0; setTimeout(() => tmReadAll(), 0); }
+      // 🌊 (10711): the created or renamed groups are known to the lookup
+      if (p.waves || p.renameWaves) setTimeout(() => wavesAfterRun(p, createdGroups, verifiedDone), 0);
       // 🧪 (10688): the region's test groups are read again, the list's
       // added rows leave it, the ticked-out members are forgotten
       if (p.runKind === "testmembers" && p.region) {
@@ -4941,86 +4946,43 @@ const MdeRolloutV2Tool = (() => {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
 
-  // ----------------------------------------------------- rename waves --
-  // (10635) Groups still carrying an earlier wave name: PATCH the name, read
-  // it back, and log the run so 📜 can rename them back.
-  async function renameWaves(list, back) {
-    if (busy) return;
-    busy = true;
-    try {
-      await Graph.ensureScopes(GroupMigrate.SCOPES.groupWrite);
-      if ($("mvRenameGo")) $("mvRenameGo").disabled = true;
-      const L = RunLedger.create($("mvWaveLedger") || planEl(), { unit: "groups", title: back ? "renaming back" : "renaming rollout groups", items: list.map((x) => ({ label: `${x.from} → ${x.to}`, sub: "display name + mail nickname" })) });
-      const done = [], lines = [];
-      let okN = 0;
-      for (let i = 0; i < list.length; i++) {
-        const x = list[i];
-        if (L.stopped) { L.skip(i, "stopped"); lines.push(`${x.from}: skipped`); continue; }
-        L.start(i);
-        try {
-          const r = await M.renameGroup({ id: x.id, displayName: x.from }, x.to);
-          if (!r.ok) { L.fail(i, r.why, "not renamed"); lines.push(`${x.from}: ${r.why}`); continue; }
-          if (found) { found.set(lc(x.to), r.group); if (found.get(lc(x.from)) && lc(found.get(lc(x.from)).id) === lc(x.id)) found.set(lc(x.from), null); }
-          names.set(lc(x.id), x.to);
-          done.push({ id: x.id, from: x.from, to: x.to });
-          if (r.verified) { L.done(i, r.note, "renamed · verified"); okN++; lines.push(`${x.from} → ${x.to}: renamed · verified${r.note ? " — " + r.note : ""}`); }
-          else { L.fail(i, "the read-back does not show the new name yet", "renamed · NOT verified"); lines.push(`${x.from} → ${x.to}: renamed · not verified`); }
-        } catch (e) { const why = GroupUse.shortErr(e, 200); L.fail(i, why); lines.push(`${x.from}: failed — ${why}`); }
-      }
-      L.finish();
-      selRename.clear();
-      derive();
-      runs.push({ at: Date.now(), title: back ? `Rename ${plural(list.length, "group")} back` : `Rename ${plural(list.length, "rollout group")}`, kind: "rename", ok: okN, bad: list.length - okN, stopped: L.stopped, backup: { policies: [] }, done, lines });
-      const ledger = ($("mvWaveLedger") || planEl()).innerHTML;
-      render();
-      if ($("mvWaveLedger")) $("mvWaveLedger").innerHTML = ledger;
-    } catch (e) {
-      const el = $("mvWaveLedger"); if (el) el.innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
-    } finally { projectRelease(); }
-  }
-
-  // ----------------------------------------------------- create waves --
-  async function createWaves() {
-    if (busy || !selWaves.size || !$("mvWaveOk").checked) return;
-    busy = true;
+  // ----------------------------------------- create / rename waves --
+  // (10711, Phase 0 R7) The 🌊 pane's two writes go through the members
+  // plan like every other write: dry run → backup → confirm line → apply
+  // (read back) → 📜 undo. Nothing is written from the checkbox any more.
+  function dryRunWaves() {
+    if (busy || !selWaves.size) return;
+    planAnchor = "mvWaveLedger"; clearPlan(); seatPlan();
     const list = [...selWaves];
-    try {
-      await Graph.ensureScopes(GroupMigrate.SCOPES.groupWrite);
-      $("mvWaveCreate").disabled = true;
-      // the creator is the owner (10633): who is signed in, in this tenant
-      let me = null;
-      try { me = await M.readMe(); } catch { me = null; }
-      const L = RunLedger.create($("mvWaveLedger"), { unit: "groups", title: "creating rollout groups", items: list.map((n) => { const d = cfg.groups.find((g) => lc(g.name) === lc(n)); return { label: n, sub: `${d ? `${d.audience} ${d.role === "exclusion" ? "exclusion" : "wave"} · ` : ""}assigned security group` }; }) });
-      const lines = [];
-      let okN = 0;
-      for (let i = 0; i < list.length; i++) {
-        if (L.stopped) { L.skip(i, "stopped"); lines.push(`${list[i]}: skipped`); continue; }
-        L.start(i, "checking the name…");
-        try {
-          const def = cfg.groups.find((g) => lc(g.name) === lc(list[i]));
-          const r = await M.createWave(list[i], def && def.role === "exclusion" ? cfg.exclusionDescription : cfg.waveDescription, me);
-          const who = me ? (me.userPrincipalName || me.displayName || "you") : "";
-          if (r.skipped) { L.skip(i, r.why); lines.push(`${list[i]}: ${r.why}`); }
-          else if (!r.verified) { L.fail(i, r.verifyError, "created · NOT verified"); lines.push(`${list[i]}: created · not verified — ${r.verifyError}`); }
-          else if (me && !r.ownerVerified) { L.fail(i, `created, but you are not its owner — ${r.ownerNote || "the owners read does not list you"}. Add yourself in Entra (Groups → Owners).`, "created · owner NOT set"); lines.push(`${list[i]}: created · verified, owner NOT set — ${r.ownerNote}`); }
-          else { L.done(i, r.ownerNote || "", me ? "created · verified · owner: you" : "created · verified"); okN++; lines.push(`${list[i]}: created · verified${me ? ` · owner ${who}` : " · owner not read (the signed-in user could not be read)"} (${r.group.id})`); }
-          if (found && r.group) found.set(lc(list[i]), r.group);
-          if (r.group && r.group.id) names.set(lc(r.group.id), r.group.displayName || list[i]);
-        } catch (e) { const why = GroupUse.shortErr(e, 200); L.fail(i, why); lines.push(`${list[i]}: failed — ${why}`); }
-      }
-      L.finish();
+    const p = MdeMembers.planWaves(list, cfg.groups, { wave: cfg.waveDescription, exclusion: cfg.exclusionDescription }, (n) => !!(found && found.get(lc(n))));
+    if (!p.ops.length) { planError(`${plural(p.inPlace.length, "group")} already in this tenant — nothing to create. ↻ Read again if the table is behind.`); return; }
+    plan = p;
+    renderMemPlan();
+  }
+  function dryRunRename(list, back) {
+    if (busy || !list.length) return;
+    planAnchor = "mvWaveLedger"; clearPlan(); seatPlan();
+    plan = MdeMembers.planRenameWaves(list, back);
+    renderMemPlan();
+  }
+  // after such a run read back clean: the lookup knows the groups, their
+  // kind comes from the name until someone joins, the ticks are cleared
+  async function wavesAfterRun(p, createdGroups, verifiedDone) {
+    if (p.waves) {
       selWaves.clear();
-      // the new groups are empty assigned groups — their kind comes from the name until someone joins
-      const ids = list.map((n) => found && found.get(lc(n))).filter((g) => g && g.id).map((g) => lc(g.id));
+      // the lookup is read again so the rows carry what the tenant holds
+      // (description, owners, kind) — the same read the pane opens with
+      try { const f = await M.findGroups(cfg.lookup); found = f.found; dupes = f.dupes; }
+      catch { for (const g of createdGroups) if (found) found.set(lc(g.displayName), g); }
+      const ids = createdGroups.map((g) => lc(g.id));
       try { kinds = await M.readKinds(ids, null, kinds); } catch { /* kinds stay by name */ }
-      derive();
-      runs.push({ at: Date.now(), title: `Create ${plural(list.length, "rollout group")}`, kind: "groups", ok: okN, bad: list.length - okN, stopped: L.stopped, backup: { policies: [] }, lines });
-      const ledger = $("mvWaveLedger").innerHTML;
-      render();
-      if ($("mvWaveLedger")) $("mvWaveLedger").innerHTML = ledger;
-    } catch (e) {
-      const el = $("mvWaveLedger"); if (el) el.innerHTML = `<div class="gu-fail"><b>${esc(GroupUse.shortErr(e, 300))}</b></div>`;
-    } finally { projectRelease(); }
+    }
+    if (p.renameWaves) {
+      for (const d of verifiedDone) if (d.type === "rename" && found && found.get(lc(d.from)) && lc(found.get(lc(d.from)).id) === lc(d.group.id)) found.set(lc(d.from), null);
+      selRename.clear();
+    }
+    derive();
+    render();
   }
 
   // ------------------------------------------------------------ popout --
@@ -5328,19 +5290,14 @@ const MdeRolloutV2Tool = (() => {
       if (t.closest("[data-mrrollgroups]")) { dryRunHoldGroups(); return; }
       if (t.closest("[data-mrrollfilter]")) { wfRead(); return; }
       const ra = t.closest("[data-mrroll]"); if (ra) { dryRunRollout(ra.dataset.mrroll); return; }
-      if (t.id === "mvWaveCreate") { createWaves(); return; }
+      if (t.id === "mvWaveCreate") { dryRunWaves(); return; }
       if (t.id === "mvRenameGo") {
-        if (!$("mvRenameOk") || !$("mvRenameOk").checked) return;
         const list = waveRows.filter((w) => selRename.has(w.name) && w.legacy && !w.exists).map((w) => ({ id: w.legacy.group.id, from: w.legacy.name, to: w.name }));
-        if (list.length) renameWaves(list, false);
+        if (list.length) dryRunRename(list, false);
         return;
       }
       if (t.closest("[data-mrrenameall]")) { e.preventDefault(); waveRows.filter((w) => w.legacy && !w.exists).forEach((w) => selRename.add(w.name)); render(); return; }
-      const rb = t.closest("[data-mrrenback]"); if (rb) {
-        const r = runs[Number(rb.dataset.mrrenback)];
-        if (r && r.done && r.done.length) { pane = "waves"; render(); renameWaves(r.done.map((d) => ({ id: d.id, from: d.to, to: d.from })), true); }
-        return;
-      }
+
       if (t.id === "mvRuleSave") {
         const lines = (id) => $(id).value.split(/\r?\n/);
         const before = cfg.lookup.join("\n");
@@ -5507,14 +5464,10 @@ const MdeRolloutV2Tool = (() => {
       }
       if (t.dataset.mrwave) {
         t.checked ? selWaves.add(t.dataset.mrwave) : selWaves.delete(t.dataset.mrwave);
-        const ok = $("mvWaveOk"); if (ok) { ok.disabled = !selWaves.size; if (!selWaves.size) ok.checked = false; }
-        const lbl = ok && ok.parentElement; if (lbl) lbl.lastChild.textContent = ` Create ${plural(selWaves.size, "group")} in this tenant`;
-        $("mvWaveCreate").disabled = !(selWaves.size && ok && ok.checked);
+        const b = $("mvWaveCreate"); if (b) { b.disabled = !selWaves.size; b.textContent = `🌊 Dry run — create ${plural(selWaves.size, "selected group")}`; }
         return;
       }
-      if (t.id === "mvWaveOk") { $("mvWaveCreate").disabled = !(selWaves.size && t.checked); }
       if (t.dataset.mrrename) { t.checked ? selRename.add(t.dataset.mrrename) : selRename.delete(t.dataset.mrrename); render(); return; }
-      if (t.id === "mvRenameOk") { $("mvRenameGo").disabled = !(selRename.size && t.checked); }
       if (t.dataset.mrmemsel) { t.checked ? mem.sel.add(t.dataset.mrmemsel) : mem.sel.delete(t.dataset.mrmemsel); clearPlan(); render(); return; }
       if (t.dataset.mrmemall && mem.model) {
         mem.model.rows.filter((r) => r.region === mem.region && r.ug && !(r.inSync && r.ugNested && r.dgNested)).forEach((r) => (t.checked ? mem.sel.add(r.key) : mem.sel.delete(r.key)));

@@ -244,17 +244,22 @@ async function run() {
   const xb = D.querySelector('[data-mrwave="INT-SG-D-MDE-Exclusion"]');
   ok("a missing exclusion group has a tick box", !!xb);
   xb.checked = true; xb.dispatchEvent(new w.Event("change", { bubbles: true }));
-  ok("create stays locked until the confirm tick", $("mvWaveCreate").disabled);
-  $("mvWaveOk").checked = true; $("mvWaveOk").dispatchEvent(new w.Event("change", { bubbles: true }));
-  ok("the tick unlocks create", !$("mvWaveCreate").disabled);
+  // 10711 (Phase 0 R7): 🌊 writes through the members plan — dry run, the
+  // confirm line naming the groups, backup, Apply, read-back, 📜
   $("mvWaveCreate").click();
-  ok("the wave is created and read back", await until(() => st().runs.length === 2, 10000, "wave run") && /created · verified/.test(st().runs[1].lines.join(" ")));
-  ok("…and now exists", st().waveRows.find((x) => x.name === "INT-SG-U-WAVE-Americas").exists);
-  const exRow = st().waveRows.find((x) => x.name === "INT-SG-D-MDE-Exclusion");
-  ok("the exclusion group is created in the same run, with the exclusion description", exRow.exists && /exclusion/i.test(exRow.group.description || "") && /INT-SG-D-MDE-Exclusion: created · verified/.test(st().runs[1].lines.join("\n")));
-  ok("…read as a device group by its name while empty", exRow.kind === "device");
+  ok("🌊 the dry run: one create per ticked group, nothing written yet", await until(() => st().plan && st().plan.waves, 5000, "waves plan") && st().plan.ops.map((o) => `${o.type}:${o.name}`).join() === "create:INT-SG-U-WAVE-Americas,create:INT-SG-D-MDE-Exclusion"
+    && st().runs.length === 1 && !st().waveRows.find((x) => x.name === "INT-SG-U-WAVE-Americas").exists, JSON.stringify(st().plan && st().plan.ops));
+  ok("…the confirm line names the groups and Apply waits for it", !!$("mvBulkConfirm") && /create 2 assigned security groups.*INT-SG-U-WAVE-Americas, INT-SG-D-MDE-Exclusion/.test($("mvPlan").textContent) && $("mvMemApply").disabled);
+  $("mvBulkConfirm").checked = true; $("mvBulkConfirm").dispatchEvent(new w.Event("change"));
+  $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
+  await v2Gates(); $("mvMemApply").click();
+  ok("the wave is created and read back", await until(() => st().runs.length === 2, 10000, "wave run") && /INT-SG-U-WAVE-Americas \(user wave\): done · verified/.test(st().runs[1].lines.join(" ")) && st().runs[1].kind === "members" && st().runs[1].runKind === "waves" && st().runs[1].ok === 2);
+  ok("…and now exists (the lookup learns it from the run)", await until(() => st().waveRows.find((x) => x.name === "INT-SG-U-WAVE-Americas").exists, 5000, "wave exists"));
+  const exRow = () => st().waveRows.find((x) => x.name === "INT-SG-D-MDE-Exclusion");
+  ok("the exclusion group is created in the same run, with the exclusion description", await until(() => { const r = st().waveRows.find((x) => x.name === "INT-SG-D-MDE-Exclusion"); return r && r.exists; }, 5000, "exclusion row") && /exclusion/i.test(exRow().group.description || "") && /INT-SG-D-MDE-Exclusion \(device exclusion\): done · verified/.test(st().runs[1].lines.join("\n")));
+  ok("…read as a device group by its name while empty", exRow().kind === "device");
   ok("an existing exclusion group offers to exclude it from the new policies", !!D.querySelector('[data-mrexcl="INT-SG-D-MDE-Exclusion"]'));
-  ok("…owned by the signed-in admin (read back)", /owner alex\.admin@contoso\.com/.test(st().runs[1].lines.join(" ")));
+  ok("…owned by the signed-in admin (the create names the owner; the ledger said owner: you)", (await w.MdeRollout.createWave("INT-SG-U-WAVE-Americas", "")).skipped === true && !st().plan);
   ok("a second create of the same name is skipped, not duplicated", (await w.MdeRollout.createWave("INT-SG-U-WAVE-Americas", "")).skipped === true);
 
   // --------------------------------------- rollout actions (10633) --
@@ -381,7 +386,7 @@ async function run() {
   $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
   await v2Gates(); $("mvMemApply").click();
   const nRuns = st().runs.length;
-  ok("applied: DE's device group exists, filled, and both groups are in the Euro waves", await until(() => st().runs.length === nRuns + 1 || st().runs.some((r) => r.kind === "members"), 10000, "members run")
+  ok("applied: DE's device group exists, filled, and both groups are in the Euro waves", await until(() => st().runs.length === nRuns + 1, 10000, "members run")
     && mrow("de").dg && mrow("de").inSync && mrow("de").ugNested && mrow("de").dgNested, JSON.stringify(st().runs[st().runs.length - 1].lines));
   const mrun = st().runs.filter((r) => r.kind === "members").pop();
   ok("the run is logged with every step verified", mrun.ok === 6 && mrun.bad === 0 && /INT-SG-D-DEU/.test(mrun.lines.join()));
@@ -434,10 +439,11 @@ async function run() {
   const savedAssign = R().assign;
   D.querySelector('[data-mrreport="config"]').click();
   ok("switching reports preserves the saved assignment snapshot and hides its preview", R().assign === savedAssign && !D.querySelector('[data-report-preview="assign"]') && !!$("mvRep_config"));
+  const cfgAt = R().config ? R().config.at : null;
   $("mvRep_config").click();
-  ok("the configuration report: rules, groups with owners, members, settings, retirement, this session's changes", await until(() => R().config, 10000, "config report")
+  ok("the configuration report: rules, groups with owners, members, settings, retirement, this session's changes", await until(() => R().config && R().config.at !== cfgAt, 10000, "config report")
     && ["1 · Rules", "2 · Wave and exclusion groups", "3 · Wave members", "4 · New policies", "5 · Old policies", "7 · Changes this session"].every((h) => R().config.html.includes(h))
-    && /alex\.admin@contoso\.com/.test(R().config.html) && /INT-SG-D-NLD/.test(R().config.html) && /Win - OIB - SC - Device Security - D - Audit and Event Logging/.test(R().config.html), R().config && R().config.html.length);
+    && /INT-SG-U-WAVE-Americas<\/b>.{0,200}Alex Admin/.test(R().config.html) && /INT-SG-D-NLD/.test(R().config.html) && /Win - OIB - SC - Device Security - D - Audit and Event Logging/.test(R().config.html), R().config && R().config.html.length);
   ok("…with every setting in its CSV", R().config.csv.startsWith("Policy,Generation,Type,Setting,Value") && R().config.csv.split("\r\n").length > 10);
   ok("configuration preview retains all seven report sections and no document styles", D.querySelectorAll('[data-report-preview="config"] > .mr-report-section').length === 7 && !D.querySelector('[data-report-preview] style'));
   ok("configuration has an inline preview with full names and separate timestamps", !!D.querySelector('[data-report-preview="config"]') && /Owners attempted/.test($("mvBody").textContent) && R().config.readAt === st().model.readAt);
@@ -503,15 +509,24 @@ async function run() {
   ok("the user exclusion group is found under its old name too", exU().legacy && exU().legacy.name === "PVM-UG-MDE-Exclusion" && !!D.querySelector('[data-mrrename="INT-SG-U-MDE-Exclusion"]'));
   const rnx = D.querySelector('[data-mrrename="INT-SG-U-MDE-Exclusion"]'); rnx.checked = true; rnx.dispatchEvent(new w.Event("change", { bubbles: true }));
   const rnb = D.querySelector('[data-mrrename="INT-SG-D-WAVE-Americas"]'); rnb.checked = true; rnb.dispatchEvent(new w.Event("change", { bubbles: true }));
-  ok("rename stays locked until its own tick", $("mvRenameGo").disabled);
-  $("mvRenameOk").checked = true; $("mvRenameOk").dispatchEvent(new w.Event("change", { bubbles: true }));
+  ok("rename is a dry run first (10711)", !$("mvRenameGo").disabled && !$("mvRenameOk"));
   const nr = st().runs.length;
   $("mvRenameGo").click();
-  ok("renamed in the tenant: the same objects, the new names, read back", await until(() => st().runs.length === nr + 1, 10000, "rename run") && amD().exists && amD().id === "11111111-0000-4000-8000-000000000036"
-    && exU().exists && exU().id === "11111111-0000-4000-8000-000000000037" && st().runs[nr].ok === 2 && /renamed · verified/.test(st().runs[nr].lines.join()));
+  ok("✏️ the plan: two rename steps, the confirm line names old → new, nothing written yet", await until(() => st().plan && st().plan.renameWaves, 5000, "rename plan") && st().plan.ops.map((o) => `${o.from} → ${o.to}`).sort().join() === "PVM-DG-MDE-WAVE-Americas → INT-SG-D-WAVE-Americas,PVM-UG-MDE-Exclusion → INT-SG-U-MDE-Exclusion"
+    && /rename 2 groups.*PVM-UG-MDE-Exclusion → INT-SG-U-MDE-Exclusion/.test(st().plan.confirmLine) && !!$("mvBulkConfirm") && st().runs.length === nr && !amD().exists);
+  $("mvBulkConfirm").checked = true; $("mvBulkConfirm").dispatchEvent(new w.Event("change"));
+  $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
+  await v2Gates(); $("mvMemApply").click();
+  ok("renamed in the tenant: the same objects, the new names, read back", await until(() => st().runs.length === nr + 1 && amD().exists, 10000, "rename run") && amD().id === "11111111-0000-4000-8000-000000000036"
+    && exU().exists && exU().id === "11111111-0000-4000-8000-000000000037" && st().runs[nr].ok === 2 && /PVM-DG-MDE-WAVE-Americas → INT-SG-D-WAVE-Americas.*done · verified/.test(st().runs[nr].lines.join()) && st().runs[nr].runKind === "renamewaves");
   w.MdeRolloutV2Tool._pane("changes");
-  D.querySelector(`[data-mrrenback="${nr}"]`).click();
-  ok("📜 renames them back", await until(() => st().runs.length === nr + 2, 10000, "rename back") && amD().legacy && !amD().exists && exU().legacy && /back/.test(st().runs[nr + 1].title));
+  D.querySelector(`[data-mrundo="${nr}"]`).click();
+  ok("📜 undo plans the renames back", await until(() => st().plan && st().plan.members && /Undo/.test(st().plan.title), 5000, "rename undo plan") && st().plan.ops.filter((o) => o.type === "rename").length === 2 && st().plan.ops.some((o) => o.type === "rename" && o.to === "PVM-DG-MDE-WAVE-Americas"), JSON.stringify(st().plan && st().plan.ops));
+  if ($("mvBulkConfirm")) { $("mvBulkConfirm").checked = true; $("mvBulkConfirm").dispatchEvent(new w.Event("change")); }
+  if ($("mvConfirmText")) { $("mvConfirmText").value = "REMOVE"; $("mvConfirmText").dispatchEvent(new w.Event("input")); }
+  if ($("mvConfirmTick")) { $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change")); }
+  await v2Gates(); $("mvMemApply").click();
+  ok("📜 renames them back", await until(() => st().runs.length === nr + 2 && amD().legacy && !amD().exists, 10000, "rename back") && exU().legacy && /INT-SG-D-WAVE-Americas → PVM-DG-MDE-WAVE-Americas.*done · verified/.test(st().runs[nr + 1].lines.join()));
   w.MdeRolloutV2Tool._pane("waves");
 
   // ------------------------------------------------ ⊘ exclusions (10639) --
