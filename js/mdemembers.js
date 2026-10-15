@@ -616,6 +616,10 @@ const MdeMembers = (() => {
     // group (10679) — both stay on the old set, so neither is wanted here
     const reverted = input.reverted || new Set();
     const held = new Set([...(input.held || new Set()), ...reverted]);
+    // 10707: a held-back user's devices are held with them — a user in the
+    // hold-back whose device was never put there still had the device-scoped
+    // MDE policies through the country device group (the Hans Katsman case)
+    const heldUsers = new Set([...((input.revertUsers || new Map()).keys()), ...((input.excludedUsers || new Map()).keys())].map(lc));
     const staleMs = cfg.staleDays * 86400000;
     const entraByDeviceId = new Map(), entraById = new Map();
     for (const e of input.entra || []) { if (e.deviceId) entraByDeviceId.set(lc(e.deviceId), e); entraById.set(lc(e.id), e); }
@@ -767,7 +771,8 @@ const MdeMembers = (() => {
           via, owner: owner ? owner.upn : "", nameSays: nr && nr.iso3 !== String(r.iso3 || "").slice(0, 3) ? nr.country : "",
           lastSync: m.lastSyncDateTime || null, stale: Number.isFinite(last) && t - last > staleMs,
           objId: e ? lc(e.id) : null, problem: e ? null : (m.azureADDeviceId ? "no Entra object for this device" : "not joined to Entra (no device id)"), others: [],
-          held: !!(e && held.has(lc(e.id))), reverted: !!(e && reverted.has(lc(e.id))),
+          held: !!(e && (held.has(lc(e.id)) || (u && heldUsers.has(lc(u.id))))), reverted: !!(e && reverted.has(lc(e.id))),
+          heldByUser: !!(e && !held.has(lc(e.id)) && u && heldUsers.has(lc(u.id))),
           logon: via === "lastlogon" || via === "defender" ? { at: owner.at || null, n: owner.n || 0, primary: owner.primary || "" } : null, check: check || null,
           pinned: !!(e && (input.pinned || new Set()).has(lc(e.id))),
           // ⊝ unticked (10683): no rule but the primary user places it
@@ -838,11 +843,11 @@ const MdeMembers = (() => {
       if (row.batch && !row.batch.finished) row.want = new Set(row.devices.filter((d) => d.objId && !d.held && !d.skipped && row.batch.inWave.has(d.userId)).map((d) => d.objId));
       row.have = row.dg ? (input.deviceMembers.get(lc(row.dg.id)) || new Set()) : new Set();
       // 📌 a pinned device in this group stays (10682) — unless held
-      row.pinnedIn = [...row.have].filter((id) => (input.pinned || new Set()).has(id) && !held.has(id) && !avdIds.has(id));
+      row.pinnedIn = [...row.have].filter((id) => (input.pinned || new Set()).has(id) && !held.has(id) && !avdIds.has(id) && !row.devices.some((d) => d.objId === id && d.heldByUser));
       row.pinnedIn.forEach((id) => row.want.add(id));
       row.add = [...row.want].filter((id) => !row.have.has(id));
       row.remove = [...row.have].filter((id) => !row.want.has(id));
-      row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return `${e ? e.displayName : id}${avdIds.has(id) ? " (AVD — -vdi- in the name, out of scope)" : reverted.has(id) ? " (reverted)" : held.has(id) ? " (excluded)" : ""}`; });
+      row.removeNames = row.remove.map((id) => { const e = entraById.get(id); return `${e ? e.displayName : id}${avdIds.has(id) ? " (AVD — -vdi- in the name, out of scope)" : reverted.has(id) ? " (reverted)" : held.has(id) ? " (excluded)" : row.devices.some((d) => d.objId === id && d.heldByUser) ? " (its user is held back)" : ""}`; });
       // 10684: AVD devices still in this group — the next 👥 Apply takes them out
       row.avdIn = [...row.have].filter((id) => avdIds.has(id));
       const kids = (g) => (g && input.waveChildren.get(lc(g.id))) || null;
@@ -1253,7 +1258,7 @@ const MdeMembers = (() => {
       for (const d of r.devices) {
         const x = { name: d.name, upn: d.upn, userId: d.userId, lastSync: d.lastSync, stale: d.stale, rowKey: r.key, country: r.country, region: r.region };
         if (!d.objId) noEntra.push(Object.assign(x, { why: d.problem }));
-        else if (d.held) held.push(x);
+        else if (d.held) held.push(Object.assign(x, { byUser: !!d.heldByUser }));
       }
     }
     const noCountry = [], noPrimary = [];
@@ -1287,7 +1292,7 @@ const MdeMembers = (() => {
     const lg = (u) => { if (!logons || !logons.has(u.id)) return ""; const l = logons.get(u.id); return l.length ? l.map((x) => `${x.device} (${x.what})`).join(" · ") : "no logon found"; };
     L.users.filter(inR).forEach((u) => rows.push(["user", u.region, u.country, u.upn, "", "no Windows device (Intune primary user)", has(u.has), "", lg(u)]));
     L.noEntra.filter(inR).forEach((d) => rows.push(["device", d.region, d.country, d.upn, d.name, d.why || "no Entra object", "", d.lastSync || ""]));
-    L.held.filter(inR).forEach((d) => rows.push(["device", d.region, d.country, d.upn, d.name, "in the device exclusion group — stays on the old set", "", d.lastSync || ""]));
+    L.held.filter(inR).forEach((d) => rows.push(["device", d.region, d.country, d.upn, d.name, d.byUser ? "its user is held back (⏸) — stays on the old set" : "in the device exclusion group — stays on the old set", "", d.lastSync || ""]));
     L.noCountry.forEach((d) => rows.push(["device", "", "", d.upn, d.name, `primary user in no country group of the table${d.detail ? ` — ${d.detail}` : ""}`, "", d.lastSync || ""]));
     L.noPrimary.forEach((d) => rows.push(["device", "", "", "", d.name, "no primary user", "", d.lastSync || ""]));
     return rows.map((x) => x.map(csvCell).join(",")).join("\r\n");

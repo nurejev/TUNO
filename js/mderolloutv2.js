@@ -2887,9 +2887,9 @@ const MdeRolloutV2Tool = (() => {
         mem.input.reverted = new Set(cs.extra.revertDevices.keys());
         // 👥 plans the static user groups too (10680) — the same maps, shared,
         // so a run's patch moves both panes
-        Object.assign(mem.input, { userGroups: cs.extra.userGroups, userMembers: cs.extra.userMembers, revertUsers: cs.extra.revertUsers });
+        Object.assign(mem.input, { userGroups: cs.extra.userGroups, userMembers: cs.extra.userMembers, revertUsers: cs.extra.revertUsers, holdUnread: cs.extra.holdUnread || "" });
         cs.error = "";
-      } catch (e) { if (!projectValid(epoch)) return; cs.extra = null; cs.error = `The static country groups and the hold-back groups could not be read: ${GroupUse.shortErr(e, 240)}`; }
+      } catch (e) { if (!projectValid(epoch)) return; cs.extra = null; cs.error = `The static country groups and the hold-back groups could not be read: ${GroupUse.shortErr(e, 240)}`; mem.input.holdUnread = GroupUse.shortErr(e, 120); }
       if (!projectValid(epoch)) return;
       memCompute();
       if (!tm.all) setTimeout(() => tmReadAll(), 0);
@@ -3000,7 +3000,7 @@ const MdeRolloutV2Tool = (() => {
     const stateChip = (x) => x.state === "in" ? chip("au-op create", "in") : x.state === "next" ? chip("gu-how priv", x.inHere ? `next · ${x.inHere} of ${x.size} in` : "next") : x.state === "empty" ? `<span class="muted">—</span>` : `<span class="muted">waiting</span>`;
     const rows = b.batches.map((x) => `<tr${x.state === "next" ? ` class="mr-selrow"` : ""}><td><b>${x.n}</b></td>
       <td>${x.size}${x.users.length ? ` <span class="muted">${esc(upnShort(x.users[0]))}${x.users.length > 1 ? ` … ${esc(upnShort(x.users[x.users.length - 1]))}` : ""}</span>` : ""}</td>
-      <td>${x.devices.length}${x.devices.some((d) => !d.objId || d.held) ? ` <span class="muted" title="${esc(x.devices.filter((d) => !d.objId || d.held).map((d) => `${d.name}: ${d.held ? "excluded" : d.problem}`).join("\n"))}">(${x.devices.filter((d) => !d.objId || d.held).length} left out)</span>` : ""}</td>
+      <td>${x.devices.length}${x.devices.some((d) => !d.objId || d.held) ? ` <span class="muted" title="${esc(x.devices.filter((d) => !d.objId || d.held).map((d) => `${d.name}: ${d.held ? (d.heldByUser ? "its user is held back" : "excluded") : d.problem}`).join("\n"))}">(${x.devices.filter((d) => !d.objId || d.held).length} left out)</span>` : ""}</td>
       <td>${stateChip(x)}</td>
       <td style="text-align:right">${x.state === "next" ? `<button class="btn primary" data-mrbatch="${esc(r.key)}"${busy || !r.wave.user ? " disabled" : ""}>Batch ${x.n} → dry run</button>` : ""}</td></tr>`).join("");
     const allIn = !b.next;
@@ -3057,7 +3057,7 @@ const MdeRolloutV2Tool = (() => {
     noCountry: { label: "primary user in no country group of the table", tile: "Windows devices whose primary user is in no country group of the table" },
     noPrimary: { label: "no primary user, owner or country code", tile: "Windows devices with no primary user, no Entra owner in a country and no country code in the name" },
     noEntra: { label: "no Entra object", tile: "no Entra object — they cannot be group members" },
-    held: { label: "⊘ excluded — stays on the old set", tile: "in the device exclusion group — on the old set" },
+    held: { label: "⊘ excluded — stays on the old set", tile: "excluded, or its user held back — on the old set" },
   };
   function leftOutHtml(m, lo) {
     const L = m.leftOut, R = lo.R, CAP = 300;
@@ -3107,7 +3107,7 @@ const MdeRolloutV2Tool = (() => {
       (!why || why === "held") ? L.held.filter((d) => d.region === R).map((d) => Object.assign({ k: "held" }, d)) : [],
       (!why || why === "noCountry") ? L.noCountry.map((d) => Object.assign({ k: "noCountry" }, d)) : [],
       (!why || why === "noPrimary") ? L.noPrimary.map((d) => Object.assign({ k: "noPrimary" }, d)) : []);
-    const whyChip = (d) => d.k === "held" ? chip("gu-how", LEFT_WHY.held.label) : d.k === "noEntra" ? chip("au-op delete", d.why || LEFT_WHY.noEntra.label) : chip("gu-how priv", LEFT_WHY[d.k].label);
+    const whyChip = (d) => d.k === "held" ? chip("gu-how", d.byUser ? "⏸ its user is held back — stays on the old set" : LEFT_WHY.held.label) : d.k === "noEntra" ? chip("au-op delete", d.why || LEFT_WHY.noEntra.label) : chip("gu-how priv", LEFT_WHY[d.k].label);
     const drows = devs.slice(0, CAP).map((d) => `<tr><td><b>${esc(d.name)}</b>${d.country ? `<div class="mini muted">${esc(d.country)}</div>` : ""}</td><td class="mini">${esc(d.upn || "—")}${d.deleted ? ` ${chip("gu-how priv", "deleted primary user")}` : ""}</td><td class="mini">${whyChip(d)}${d.detail ? `<div class="muted" style="margin-top:2px">${esc(d.detail)}</div>` : ""}</td><td class="mini">${d.lastSync ? esc(new Date(d.lastSync).toLocaleDateString()) : "—"}${d.stale ? ` ${chip("gu-how priv", "stale")}` : ""}</td></tr>`).join("");
     return `<div class="list-card" style="margin-top:0">
       <p class="mini muted" style="margin:0 0 8px">Windows devices the waves do not reach, with the reason — that is the count. The users and a country's devices are for 🌊 <b>${esc(R)}</b>; the devices no country holds are for the whole tenant. The users with no Windows device are listed, not counted: they are in the user wave through their country group, and a Windows device they get later joins its country device group at the next 👥 read → Apply. <a href="#" data-mrmemleft="1">← back to the countries</a></p>
@@ -3488,7 +3488,36 @@ const MdeRolloutV2Tool = (() => {
   const OP_WORD = { create: "create group", add: "add devices", remove: "remove devices", nest: "nest", unnest: "take out", swapcheck: "check the sets", rename: "rename group", deletegroup: "delete group" };
   const opWord = (x) => (x.type === "add" || x.type === "remove") && x.memberKind === "user" ? (x.type === "add" ? "add users" : "remove users") : OP_WORD[x.type];
   const opLabel = (x) => x.type === "create" ? `${x.name}` : x.type === "rename" ? `${x.from} → ${x.to}` : x.type === "deletegroup" ? `${x.group.name} — empty, on no assignment` : x.type === "add" || x.type === "remove" ? `${x.group.name} · ${x.label}` : x.type === "swapcheck" ? `every user of ${x.source.name} is in ${x.target.name}, and it is in ${x.wave.name} — else ${x.source.name} stays` : `${x.child.name} → ${x.parent.name}`;
+  // ⏸ 10707: the last check before any members plan is shown — no add step
+  // puts a held-back user or device (or a held-back user's device) into the
+  // rollout, whichever pane made the plan. A hold-back, its resume and their
+  // undo are the deliberate ways in and out, so they pass as made.
+  function holdGuardCtx(p) {
+    const C = mcfg(), X = cs.extra, I = mem.input || {};
+    const users = new Set([...((X && X.revertUsers) || new Map()).keys(), ...((I.excludedUsers || new Map()).keys())].map(lc));
+    const devices = new Set([...((X && X.revertDevices) || new Map()).keys(), ...(I.held || new Set())].map(lc));
+    const names = new Map();
+    if (X) { for (const [id, u] of X.revertUsers) names.set(`user|${id}`, u.upn || u.name || id); for (const [id, d] of X.revertDevices) names.set(`device|${id}`, d.name || id); }
+    for (const r of (mem.model && mem.model.rows) || []) for (const d of r.devices) if (d.objId && d.heldByUser) { devices.add(d.objId); names.set(`device|${d.objId}`, `${d.name} (its user is held back)`); }
+    const G = exGroups();
+    const exGs = [X && X.revert && X.revert.user, X && X.revert && X.revert.device, G.user, G.device, I.skipGroup].filter((g) => g && g.id);
+    const exNames = [C.revertUser, C.revertDevice, C.skipDevice, ...MdeMembers.HOLD_OLD.user, ...MdeMembers.HOLD_OLD.device].filter(Boolean);
+    const unread = !mem.input ? "the members were not read" : (I.holdUnread || (!X ? cs.error || "not read yet" : ""));
+    // out of the ⊘ pair counts as out of the hold-back while ⊘ lives (the
+    // undo of an exclusion run gives the device its country group back)
+    const holdGs = [X && X.revert && X.revert.user, X && X.revert && X.revert.device, G.user, G.device].filter((g) => g && g.id);
+    const holdNames = [C.revertUser, C.revertDevice, ...MdeMembers.HOLD_OLD.user, ...MdeMembers.HOLD_OLD.device].filter(Boolean);
+    return { users, devices, exempt: { ids: new Set(exGs.map((g) => lc(g.id))), names: new Set(exNames.map(lc)) }, unread,
+      hold: { ids: new Set(holdGs.map((g) => lc(g.id))), names: new Set(holdNames.map(lc)) },
+      allowAll: p.runKind === "revert", nameOf: (k, id) => names.get(`${k}|${id}`) || "" };
+  }
   function renderMemPlan() {
+    if (plan && !plan.holdGuarded) {
+      const g = MdeRevert.guardHeld(plan.ops, holdGuardCtx(plan));
+      if (g.refused) { planError(g.refused); plan = null; showPlan(); return; }
+      plan.ops = g.ops; plan.holdGuarded = true;
+      if (g.skipped.length) plan.skipped = (plan.skipped || []).concat(g.skipped);
+    }
     v2Bind();
     const p = plan;
     const country = (x) => { if (x.who || p.exclusions || p.pilotsReady || p.pilotsUndo || p.holdGroups || p.runKind === "exmigrate") return x.who || ""; const r = mem.model && mem.model.rows.find((y) => y.key === x.key); return r ? r.country : x.key; };

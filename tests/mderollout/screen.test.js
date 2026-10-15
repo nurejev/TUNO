@@ -298,7 +298,7 @@ async function run() {
   ok("the NL-Breda pilot leads the Euro wave with its own device group; its overlap with NL is expected", mm().regions[0].rows[0].key === "nl-breda" && mrow("nl-breda").pilot && mrow("nl-breda").deviceGroupName === "INT-SG-D-NLD-BREDA"
     && mrow("nl-breda").devices.length === 1 && mrow("nl-breda").problems.multi === 0 && mrow("nl-breda").problems.pilot === 1 && /🧪 pilot/.test($("mvBody").textContent));
   ok("NL: INT-SG-D-NLD exists, nested in both waves, out of sync by +1 / −1", mrow("nl").dg && mrow("nl").ugNested && mrow("nl").dgNested && mrow("nl").add.length === 1 && mrow("nl").remove.length === 1 && mrow("nl").removeNames[0] === "WS-ENG-0221");
-  ok("DE: two Windows devices by primary user, one stale; INT-SG-D-DEU to create", !mrow("de").dg && mrow("de").want.size === 2 && mrow("de").problems.stale === 1 && mrow("de").deviceGroupName === "INT-SG-D-DEU");
+  ok("DE: two Windows devices by primary user, one stale; INT-SG-D-DEU to create — 10707: Nina's laptop is held with her (she is in ⊘), so one is wanted", !mrow("de").dg && mrow("de").want.size === 1 && mrow("de").devices.some((d) => d.heldByUser && /WS-ENG-0308/.test(d.name)) && mrow("de").problems.stale === 1 && mrow("de").deviceGroupName === "INT-SG-D-DEU");
   ok("FR: a Mac-only user — no Windows device, nothing to create", mrow("fr").devices.length === 0 && mrow("fr").usersNoDevice === 1);
   ok("the Polish city groups are named POL-WAW / POL-SKARB", mrow("pol-warszawa").deviceGroupName === "INT-SG-D-POL-WAW" && mrow("pol-skarb").deviceGroupName === "INT-SG-D-POL-SKARB");
   ok("devices with no primary user, owner or country code are counted — and the header says how a country is found (10655)", mm().noPrimary === 2 && /2 of \d+ in no country/.test($("mvBody").textContent)
@@ -323,7 +323,7 @@ async function run() {
   // 10645 (Mihai: "keep the list, don't count it"): the count is Windows
   // devices only — WS-SALES-0077 and the two with no primary user; Sam is
   // listed, not counted
-  ok("the toolbar offers 🕳 Left out with its count — Windows devices only", /🕳 Left out · 3/.test($("mvBody").textContent), (/🕳 Left out · \d+/.exec($("mvBody").textContent) || [""])[0]);
+  ok("the toolbar offers 🕳 Left out with its count — Windows devices only (10707: + Nina's laptop, held with her)", /🕳 Left out · 4/.test($("mvBody").textContent), (/🕳 Left out · \d+/.exec($("mvBody").textContent) || [""])[0]);
   const frRow = D.querySelector('[data-mrmemleftrow="fr"]');
   ok("a country's '1 user has none' links there", !!frRow && /1 user has none/.test(frRow.textContent));
   frRow.click();
@@ -372,7 +372,7 @@ async function run() {
   const tickMem = (k) => { const b = D.querySelector(`[data-mrmemsel="${k}"]`); b.checked = true; b.dispatchEvent(new w.Event("change", { bubbles: true })); };
   tickMem("de");
   // 10698: Nina (DE) is in the user exclusion group — held out of INT-SG-U-DEU, so one user, not two
-  ok("ticking a country fills the bar — 10680: the static user group beside the device group; 10698: the excluded user held back", /create 2 · add 1 user · add 2 devices · nest 2 groups into Euro/.test($("mvMemSum").textContent), $("mvMemSum").textContent);
+  ok("ticking a country fills the bar — 10680: the static user group beside the device group; 10698: the excluded user held back", /create 2 · add 1 user · add 1 device · nest 2 groups into Euro/.test($("mvMemSum").textContent), $("mvMemSum").textContent);
   $("mvMemDry").click();
   ok("the dry run: create → add for INT-SG-D-DEU and INT-SG-U-DEU, then nest both static groups", await until(() => st().plan && st().plan.members, 5000, "members plan") && st().plan.ops.map((o) => o.type).join() === "create,add,create,add,nest,nest"
     && st().plan.ops[4].child.ref === "INT-SG-U-DEU" && st().plan.ops[2].name === "INT-SG-U-DEU");

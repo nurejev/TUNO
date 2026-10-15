@@ -8,7 +8,7 @@ T29; SYSTEM, 64-bit PowerShell. Exit 1 means collect/retry, not device noncompli
 The success checkpoint moves only after SharePoint confirms the bundle upload.
 #>
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10706
+$script:TunoBuild = 10707
 $root = Join-Path $env:ProgramData 'TUNO\AppLockerHarvest'
 $pending = @(Get-ChildItem -LiteralPath (Join-Path $root 'Pending') -Filter 'T29_AppLocker_*.json' -File -ErrorAction SilentlyContinue)
 if ($pending.Count) { Write-Output 'Pending upload: retry on this daily pass'; exit 1 }

@@ -116,7 +116,7 @@ const MdeRevert = (() => {
       return (hit || []).find((g) => lc(g.displayName) === lc(name)) || null;
     };
     const revert = { user: null, device: null, legacy: { user: null, device: null } };
-    const revertUsers = new Map(), revertDevices = new Map();
+    const revertUsers = new Map(), revertDevices = new Map(), holdUnread = [];
     // 10702: the pair under its earlier ↩ Revert name is used as is, and
     // said (legacy) — ⊘→⏸ Migrate exclusions offers the rename
     const OLD = (typeof MdeMembers !== "undefined" && MdeMembers.HOLD_OLD) || { user: [], device: [] };
@@ -132,13 +132,15 @@ const MdeRevert = (() => {
         revertUsers.set(lc(u.id), { id: lc(u.id), upn: u.userPrincipalName || u.id, name: u.displayName || u.userPrincipalName || u.id });
         if (u.userPrincipalName) upn.set(lc(u.id), u.userPrincipalName);
       }
-    } catch (e) { failed.push(`${cfg.revertUser}: ${msg(e).slice(0, 160)}`); }
+    } catch (e) { failed.push(`${cfg.revertUser}: ${msg(e).slice(0, 160)}`); holdUnread.push(`${cfg.revertUser}: ${msg(e).slice(0, 120)}`); }
     try {
       revert.device = await byNameOrOld(cfg.revertDevice, "device");
       if (revert.device) for (const d of (await Graph.readAll(`/groups/${enc(revert.device.id)}/members/microsoft.graph.device?$select=id,deviceId,displayName&$top=999`, { scopes: GS, retry: true })) || []) revertDevices.set(lc(d.id), { id: lc(d.id), deviceId: lc(d.deviceId || ""), name: d.displayName || d.id });
-    } catch (e) { failed.push(`${cfg.revertDevice}: ${msg(e).slice(0, 160)}`); }
+    } catch (e) { failed.push(`${cfg.revertDevice}: ${msg(e).slice(0, 160)}`); holdUnread.push(`${cfg.revertDevice}: ${msg(e).slice(0, 120)}`); }
     say("");
-    return { userGroups, userMembers, upn, revert, revertUsers, revertDevices, failed, readAt: Date.now() };
+    // 10707: a hold-back pair that could not be read is not an empty one —
+    // ⏸'s guard refuses a plan that adds members while this says anything
+    return { userGroups, userMembers, upn, revert, revertUsers, revertDevices, failed, holdUnread: holdUnread.join("; "), readAt: Date.now() };
   }
 
   // ------------------------------------------------------------- model --
@@ -184,6 +186,7 @@ const MdeRevert = (() => {
       for (const id of r.remove) {
         const d = byObj.get(id);
         if (d && d.reverted) device.heldIn.push({ id, name: d.name, why: "reverted" });
+        else if (d && d.heldByUser) device.heldIn.push({ id, name: d.name, why: "user held back" });
         else if (d && d.held) device.heldIn.push({ id, name: d.name, why: "excluded" });
         else device.leave.push({ id, name: devName(id) });
       }
@@ -280,6 +283,7 @@ const MdeRevert = (() => {
           else uAddIdx = ops.length;
           if (uRef)
           ops.push({ type: "add", key: r.key, group: uRef, ids: uIn.map((x) => x.id), memberKind: "user", who, label: short(uIn.map((x) => x.name)),
+            allowHeld: uIn.filter((x) => x.dir === "reinc").map((x) => x.id),
             objs: uIn.map((x) => ({ id: x.id, userPrincipalName: x.name, displayName: x.name })) });
         }
       }
@@ -296,7 +300,7 @@ const MdeRevert = (() => {
           if (!dRef) { skipped.push(`${tag}: ${r.deviceGroupName} does not exist — create it in 👥 Wave members`); dAddIdx = null; }
           else dAddIdx = ops.length;
           if (dRef)
-          ops.push({ type: "add", key: r.key, group: dRef, ids: dIn.map((x) => x.id), memberKind: "device", who, label: short(dIn.map((x) => x.name)), objs: dIn.map((x) => ({ id: x.id, displayName: x.name })) });
+          ops.push({ type: "add", key: r.key, group: dRef, ids: dIn.map((x) => x.id), memberKind: "device", who, label: short(dIn.map((x) => x.name)), allowHeld: dIn.filter((x) => x.dir === "reinc").map((x) => x.id), objs: dIn.map((x) => ({ id: x.id, displayName: x.name })) });
         }
       }
       if (dOut.length && dRef && dRef.id) ops.push({ type: "remove", key: r.key, group: dRef, ids: dOut.map((x) => x.id), memberKind: "device", who, batch: true, label: `${short(dOut.map((x) => x.name))} — ${dOut.every((x) => x.dir === "leave") ? "left the country" : "held"}`,
@@ -838,7 +842,69 @@ const MdeRevert = (() => {
     return (p.rows || []).filter((k) => ok.get(k) !== false);
   }
 
+  // ------------------------------------------------------- ⏸ the guard --
+  // 10707 (Mihai, 15 Oct: "make sure that when users are put in hold-back
+  // and a rollout gets re-run these user are not added again!"). The ONE
+  // last check every 👥 / 🔄 / 🧪 / 📌 / pilot / batch plan passes before it
+  // is shown: no add step puts a held-back user or device into a group of the
+  // rollout, whichever pane built it. Held back = in the hold-back pair (or
+  // the ⊘ pair while it lives), and a device whose user is held back.
+  //   ops  — the plan's steps (not changed; a new list comes back)
+  //   ctx  — { users: Set, devices: Set (lc object ids), exempt: { ids: Set,
+  //            names: Set } (the hold-back / ⊘ / ⊝ groups — adds there are
+  //            the hold-back itself), hold: { ids, names } (the hold-back
+  //            pair alone), unread: "" | why the hold-back could
+  //            not be read, allowAll: a hold-back, resume or its undo,
+  //            nameOf(kind, id) }
+  // An op may carry allowHeld: [ids] — held-back members re-included with the
+  // 🔄 confirm line; those go in. With the hold-back unread, a plan that adds
+  // anyone into the rollout is refused: T28 cannot tell who is held back.
+  function guardHeld(ops, ctx) {
+    const c = ctx || {};
+    const U = c.users || new Set(), D = c.devices || new Set();
+    const exIds = (c.exempt && c.exempt.ids) || new Set(), exNames = (c.exempt && c.exempt.names) || new Set();
+    const nameOf = c.nameOf || ((k, id) => id);
+    const list = ops || [];
+    const out = { ops: list, skipped: [], stripped: { users: 0, devices: 0 }, refused: "" };
+    if (c.allowAll) return out;
+    const exempt = (g) => !!g && ((g.id && exIds.has(lc(g.id))) || (g.ref && exNames.has(lc(g.ref))) || (!g.id && g.name && exNames.has(lc(g.name))));
+    const guarded = (op) => op && op.type === "add" && (op.ids || []).length && !exempt(op.group);
+    if (c.unread) {
+      if (list.some(guarded)) out.refused = `The hold-back groups could not be read (${c.unread}) — T28 cannot tell who is held back, so a plan that adds members to the rollout is not made. ↻ Read again.`;
+      return out;
+    }
+    // re-included in this same plan: a member the plan also takes out of the
+    // hold-back pair (▶ resume, 🔄's confirmed re-include, the undo of a
+    // hold-back or of ⊘→⏸) is on its way back in, deliberately
+    const H = c.hold || { ids: new Set(), names: new Set() };
+    const isHold = (g) => !!g && ((g.id && H.ids.has(lc(g.id))) || (!g.id && (g.ref || g.name) && H.names.has(lc(g.ref || g.name))));
+    const back = new Set();
+    for (const op of list) if (op && op.type === "remove" && isHold(op.group)) (op.ids || []).forEach((id) => back.add(lc(id)));
+    const keep = [], map = new Map();
+    list.forEach((op, i) => {
+      if (!guarded(op)) { map.set(i, keep.length); keep.push(op); return; }
+      const kind = op.memberKind === "user" ? "user" : "device";
+      const Hs = kind === "user" ? U : D;
+      const allow = new Set((op.allowHeld || []).map(lc));
+      const ids = [], objs = [], out1 = [];
+      op.ids.forEach((id, n) => { if (Hs.has(lc(id)) && !allow.has(lc(id)) && !back.has(lc(id))) out1.push(id); else { ids.push(id); if (op.objs) objs.push(op.objs[n]); } });
+      if (!out1.length) { map.set(i, keep.length); keep.push(op); return; }
+      out.stripped[kind === "user" ? "users" : "devices"] += out1.length;
+      const names = out1.map((id) => nameOf(kind, lc(id)) || id);
+      out.skipped.push(`${(op.group && (op.group.name || op.group.ref)) || "a group"}: ${names.length > 6 ? `${names.slice(0, 6).join(", ")} +${names.length - 6}` : names.join(", ")} — held back (⏸), not added`);
+      if (!ids.length) return;   // the whole step was held-back members
+      map.set(i, keep.length);
+      keep.push(Object.assign({}, op, { ids, objs: op.objs ? objs : op.objs, label: `${op.label || ""} (${out1.length} held back left out)`.trim() }));
+    });
+    if (keep.length === list.length && keep.every((x, i) => x === list[i])) return out;
+    // a step that waited on a dropped one: the members it moves were held
+    // back, so it waits on nothing more (its own members still go)
+    out.ops = keep.map((op) => op.needsOk ? Object.assign({}, op, { needsOk: op.needsOk.filter((j) => map.has(j)).map((j) => map.get(j)) }) : op)
+      .map((op) => op.needsOk && !op.needsOk.length ? Object.assign({}, op, { needsOk: undefined }) : op);
+    return out;
+  }
+
   return { userGroupName, countryNames, mapping, mappingSig, readExtra, model, syncItems, defaultSyncTicks, reincludeLine, planSync, planSwap,
     lookup, defaultTicks, planRevert, planUnrevert, assess, patch, syncedRows,
-    entryKey, listAdd, listTicks, planRevertMany, bulkLine, assessMany, groupLines, listDone, listLines, routesOf, planMigrate, planDeleteExclusion };
+    entryKey, listAdd, listTicks, planRevertMany, bulkLine, assessMany, groupLines, listDone, listLines, routesOf, planMigrate, planDeleteExclusion, guardHeld };
 })();
