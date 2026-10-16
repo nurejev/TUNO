@@ -132,6 +132,10 @@ const MdeMembers = (() => {
     // and on the placed-by line; PVM never sets it.
     deviceSource: "intune",
     skipDevice: "INT-SG-D-MDE-Skip",
+    // 🗂 (10715) the anchor group that carries the project's state in the
+    // tenant as an open extension — never assigned, never a member of anything
+    stateGroup: "INT-SG-TUNO-T28-State",
+    stateDescription: "TUNO T28 MDE rollout — carries the project's state (an open extension). No members, no assignment. Do not delete while the rollout runs.",
     skipDescription: "MDE rollout skipped devices — unticked in TUNO (T28): no rule but the Intune primary user puts them in a country device group. Not assigned to any policy.",
     pinnedDescription: "MDE rollout pinned devices — kept in their country device group by TUNO (T28) although no rule places them there. Not assigned to any policy.",
   });
@@ -184,6 +188,8 @@ const MdeMembers = (() => {
       useUsersDevices: o.useUsersDevices !== false,
       deviceSource: lc(o.deviceSource) === "entra" ? "entra" : "intune",
       skipDevice: cleanStr(o.skipDevice, DEFAULTS.skipDevice),
+      stateGroup: cleanStr(o.stateGroup, DEFAULTS.stateGroup),
+      stateDescription: cleanStr(o.stateDescription, DEFAULTS.stateDescription),
       skipDescription: cleanStr(o.skipDescription, DEFAULTS.skipDescription),
     };
   }
@@ -1972,6 +1978,7 @@ const MdeMembers = (() => {
     one(c.revertDevice, c.revertDescription, S.revert && S.revert.device, "⏸ Hold-back");
     one(c.pinnedDevice, c.pinnedDescription, S.pinnedGroup, "📌 pins");
     one(c.skipDevice, c.skipDescription, S.skipGroup, "⊝ skip");
+    one(c.stateGroup, c.stateDescription, S.stateGroup, "🗂 state");
     for (const [region, t] of S.tests || new Map()) {
       if (S.regions && !S.regions.has(region)) continue;
       for (const a of ["user", "device"]) {

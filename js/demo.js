@@ -1579,6 +1579,19 @@ TUNO_DEMO_GRAPH.answer = function answer(method, url, body) {
   // groups): the create is read back by id and looked up by name before
   // the next one, and a group that vanished between its create and its
   // read-back would report every demo create as unverified.
+  // Open extensions on a group (10715, T28's project state): GET one by
+  // name (404 when absent), POST creates it, PATCH updates its properties.
+  const xm = /^\/groups\/([^/]+)\/extensions(?:\/([^/]+))?$/.exec(path);
+  if (xm) {
+    const g = T.GROUPS.find((x) => x.id === xm[1]);
+    if (!g) return M.fault(404, "ResourceNotFound", "Group not found.");
+    g._ext = g._ext || {};
+    if (method === "POST" && !xm[2]) { const b = Object.assign({}, body || {}); const name = b.extensionName; delete b["@odata.type"]; delete b.extensionName; g._ext[name] = b; return Object.assign({ "@odata.type": "#microsoft.graph.openTypeExtension", extensionName: name, id: name }, b); }
+    if (method === "PATCH" && xm[2]) { if (!g._ext[xm[2]]) return M.fault(404, "ResourceNotFound", "Extension not found."); for (const k of Object.keys(body || {})) if (k !== "@odata.type") g._ext[xm[2]][k] = body[k]; return null; }
+    if (method === "DELETE" && xm[2]) { delete g._ext[xm[2]]; return null; }
+    if (xm[2]) { if (!g._ext[xm[2]]) return M.fault(404, "ResourceNotFound", "Extension not found."); return Object.assign({ "@odata.type": "#microsoft.graph.openTypeExtension", extensionName: xm[2], id: xm[2] }, g._ext[xm[2]]); }
+    return M.coll(Object.keys(g._ext).map((n) => Object.assign({ "@odata.type": "#microsoft.graph.openTypeExtension", extensionName: n, id: n }, g._ext[n])));
+  }
   if (method === "POST" && path === "/groups") {
     const b = Object.assign({}, body || {});
     // owners@odata.bind (10633): kept as _owners so /owners answers the way

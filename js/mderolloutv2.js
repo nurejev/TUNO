@@ -469,6 +469,7 @@ const MdeRolloutV2Tool = (() => {
     project.history = project.history.slice(-100); project.savedRuns = runs.length;
     try { window.localStorage.setItem(projectHistoryKey(), JSON.stringify(project.history)); project.historyError = ""; }
     catch { project.historyError = "Browser history could not be saved. Download run files before leaving."; }
+    stateDirty();
   }
   function projectJournal() {
     return `<h3>The project remembers.</h3><p class="mini">Last 100 run summaries in this browser, for this tenant. Summaries survive reopening; full backups and executable undo remain in Session changes or exported run files.</p><div class="tb-actions"><button class="btn" data-mrpane="changes">Session changes & undo</button><button class="btn" data-mrpane="recovery">Run files & recovery</button><button class="btn" data-mrpane="reports">Open current reports</button></div>${project.historyError ? `<p role="alert">${esc(project.historyError)}</p>` : ""}<div class="t28-panel">${project.history.length ? project.history.slice().reverse().map((r) => `<details class="t28-history"><summary><b>${esc(r.title)}</b> · ${esc(reportTime(r.at))}</summary><p class="mini">${Number(r.ok) || 0} verified · ${Number(r.bad) || 0} require review${r.stopped ? " · stopped" : ""}</p>${(r.lines || []).map((l) => `<p class="mini">${esc(l)}</p>`).join("")}</details>`).join("") : '<p>No changes recorded in this browser yet. Automatic reads do not create change records.</p>'}</div>`;
@@ -645,7 +646,64 @@ const MdeRolloutV2Tool = (() => {
   }
   function saveCfg(c) {
     cfg = M.normConfig(c);
-    try { window.localStorage.setItem(cfgKey(), JSON.stringify(cfg)); return true; } catch { return false; }
+    let ok = true;
+    try { window.localStorage.setItem(cfgKey(), JSON.stringify(cfg)); } catch { ok = false; }
+    stateDirty();
+    return ok;
+  }
+
+  // 10715 (Phase 1.3, state home 2): THE PROJECT'S STATE IN THE TENANT.
+  // What the project decided (the batched / migrated pilots, a retired ⊘
+  // pair, the hold-back reasons, the sync stamps, the ✓ list, the 🧩 Edge
+  // list, the history) is read from the anchor group's open extension at
+  // every open and written back after every change; the browser keeps its
+  // copy as the cache, and every pane keeps reading that copy (T28State
+  // mirrors the keys). Without the anchor group — created with ⚡ ⓪ like
+  // the project's other groups — the state stays in this browser, said.
+  let state28 = { status: "browser", group: null, exists: false, at: "", by: "", why: "", last: null, timer: 0, writing: false, queued: false };
+  //   status: browser (no anchor group) · tenant (read, in sync) · empty (group there, nothing written yet) · error (a read or write failed — the browser's copy is in use)
+  function stateGroupName() { const C = mcfg(); return C && C.stateGroup ? C.stateGroup : ""; }
+  async function stateRead() {
+    const name = stateGroupName();
+    if (!name) { state28 = Object.assign(state28, { status: "browser", group: null, why: "no anchor group name in the rules" }); return; }
+    let g = null;
+    try { const f = await M.findGroups([name]); g = f.found.get(lc(name)) || null; if (f.dupes.some((d) => lc(d.name) === lc(name))) { state28 = Object.assign(state28, { status: "error", group: null, why: `${name}: more than one group carries this name — rename or delete the extra in Entra` }); return; } }
+    catch (e) { state28 = Object.assign(state28, { status: "error", group: null, why: `${name}: ${GroupUse.shortErr(e, 120)}` }); return; }
+    if (!g) { state28 = Object.assign(state28, { status: "browser", group: null, exists: false, why: "" }); return; }
+    state28.group = { id: lc(g.id), name: g.displayName || name };
+    try {
+      const r = await T28State.read(state28.group.id);
+      if (!r.found) { state28 = Object.assign(state28, { status: "empty", exists: false, at: "", by: "", why: "", last: null }); stateDirty(); return; }
+      const changed = T28State.apply(tenantKey(), r.state);
+      state28 = Object.assign(state28, { status: "tenant", exists: true, at: r.at, by: r.by, why: "", last: r.state });
+      if (changed.length) { loadCfg(); extLoadStored(); projectLoadHistory(); }
+    } catch (e) { state28 = Object.assign(state28, { status: "error", why: `${state28.group.name}: ${GroupUse.shortErr(e, 160)} — this browser's copy is in use, nothing written` }); }
+  }
+  function stateDirty() {
+    if (!state28.group || state28.status === "browser" || state28.status === "error") return;
+    if (state28.timer) clearTimeout(state28.timer);
+    state28.timer = setTimeout(() => { state28.timer = 0; stateWrite(); }, 1500);
+  }
+  async function stateWrite() {
+    if (!state28.group) return;
+    if (state28.writing) { state28.queued = true; return; }
+    const st = T28State.collect(tenantKey());
+    if (state28.exists && T28State.same(st, state28.last)) return;
+    state28.writing = true;
+    try {
+      const who = (Graph.accountUpn && Graph.accountUpn()) || "";
+      const r = await T28State.write(state28.group.id, st, who, state28.exists);
+      state28 = Object.assign(state28, { status: "tenant", exists: true, at: r.at, by: r.by, why: "", last: st });
+    } catch (e) { state28 = Object.assign(state28, { status: "error", why: `${state28.group.name}: the state could not be written (${GroupUse.shortErr(e, 160)}) — this browser keeps it; ↻ Read to try again` }); }
+    finally { state28.writing = false; if (state28.queued) { state28.queued = false; stateDirty(); } const el = $("mvStateCard"); if (el) el.outerHTML = stateCard(); }
+  }
+  function stateCard() {
+    const S = state28, name = stateGroupName();
+    const body = S.status === "tenant" ? `<b>🗂 Project state — in the tenant.</b> ${esc(S.group.name)} · ${S.at ? `written ${esc(S.at.replace("T", " ").slice(0, 16))}` : ""}${S.by ? ` by ${esc(S.by)}` : ""} · ${esc(T28State.line(S.last))}. Every browser on this tenant reads the same state.`
+      : S.status === "empty" ? `<b>🗂 Project state — ${esc(S.group.name)} is there, nothing written yet.</b> This browser's state is being written to it now.`
+      : S.status === "error" ? `<b>🗂 Project state — ${esc(S.why)}.</b>`
+      : `<b>🗂 Project state — in this browser only.</b> The batched and migrated pilots, the hold-back reasons, the sync stamps and the Edge list live here; another browser starts without them. Create <b>${esc(name)}</b> with ⚡ ⓪ and every browser shares one state.`;
+    return `<div id="mvStateCard" class="${S.status === "tenant" ? "gu-ok" : S.status === "error" ? "gu-fail" : "gu-warn"}" style="margin:0 0 12px"><span class="mini" style="line-height:1.5">${body}</span></div>`;
   }
 
   // --------------------------------------------------------- names --
@@ -712,6 +770,8 @@ const MdeRolloutV2Tool = (() => {
       let groupError = "";
       try { const f = await M.findGroups(cfg.lookup, prog); if (!projectValid(epoch)) return false; found = f.found; dupes = f.dupes; }
       catch (e) { if (!projectValid(epoch)) return false; found = null; dupes = []; groupError = GroupUse.shortErr(e, 120); }
+      prog("Reading the project's state…");
+      await stateRead(); if (!projectValid(epoch)) return false;   // 10715: the tenant's copy into this browser before anything derives
       derive(); prog("");
       const errors = [templateError, groupError, ...model.missing.map((m) => m.id)].filter(Boolean);
       projectSource("policies", errors.length ? "partial" : "ready", errors.join("; "));
@@ -1423,7 +1483,7 @@ const MdeRolloutV2Tool = (() => {
     const carried = cfgCarried ? `<p class="mini" style="margin:0 0 10px"><b>Carried over.</b> These rules came from the rules the original T28 screen saved for this tenant in this browser (it was removed in build 10661). Check them before the next rollout step.</p>` : "";
     const ta = (id, list) => `<textarea id="${id}" rows="${Math.max(3, list.length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px"${ro ? " readonly" : ""}>${esc(list.join("\n"))}</textarea>`;
     const count = (g) => model.policies.filter((P) => P.generation === g).length;
-    return `<div class="list-card" style="margin-top:0">${projectFileCard()}${carried}<fieldset style="border:0;padding:0;margin:0;min-width:0"${ro ? " disabled" : ""}>
+    return `<div class="list-card" style="margin-top:0">${projectFileCard()}${stateCard()}${carried}<fieldset style="border:0;padding:0;margin:0;min-width:0"${ro ? " disabled" : ""}>
       <p class="mini muted" style="margin:0 0 12px">A policy's generation is read from its NAME. One prefix per line; case, spaces and dash kinds do not matter, and a prefix ends on a boundary (<code>WIN-SEC</code> does not claim <code>WIN-SECURITY</code>). Order of the verdict: out of scope first, then <code>(TO-BE-REMOVED)</code> (old, retiring), then new, then old. Kept for this tenant in this browser.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
         <label class="wi-f"><span>🎯 New set — name starts with</span>${ta("mvRuleNew", cfg.newPrefixes)}</label>
@@ -2287,7 +2347,9 @@ const MdeRolloutV2Tool = (() => {
   }
   function extSaveList() {
     try { if (ext.list) window.localStorage.setItem(extListKey(), JSON.stringify(ext.list)); else window.localStorage.removeItem(extListKey()); return true; } catch { return false; }
+      stateDirty();
   }
+
   function extSaveName(id, name) {
     ext.names.set(lc(id), { status: "unverified", name, source: "operator" });
     try {
@@ -2296,7 +2358,9 @@ const MdeRolloutV2Tool = (() => {
       given[lc(id)] = name;
       window.localStorage.setItem(extNamesKey(), JSON.stringify(given));
     } catch { /* this browser would not keep it */ }
+      stateDirty();
   }
+
   function extPolicies() {
     if (!model) return [];
     return model.policies.filter((P) => P.sectionId === "settingsCatalog" && MdeAsr.inNewSet(P, model.cfg) && P.raw && MdeEdgeExt.isEdgeExtPolicy(P.raw.__detail || []));
@@ -2825,7 +2889,7 @@ const MdeRolloutV2Tool = (() => {
   // ticked regions nested in their wave — in one members-style plan.
   function holdGroupsState() {
     const C = mcfg();
-    return { revert: cs.extra ? cs.extra.revert : null, pinnedGroup: mem.input ? mem.input.pinnedGroup : null, skipGroup: mem.input ? mem.input.skipGroup : null,
+    return { revert: cs.extra ? cs.extra.revert : null, pinnedGroup: mem.input ? mem.input.pinnedGroup : null, skipGroup: mem.input ? mem.input.skipGroup : null, stateGroup: state28.group,
       tests: tm.test, regions: rollRegions ? new Set(rollRegions) : null, read: !!(mem.input && cs.extra), testsRead: tm.all, cfg: C };
   }
   function holdGroupsPlan() {
@@ -3732,7 +3796,7 @@ const MdeRolloutV2Tool = (() => {
         else if (ex.base) { ex.base.groups = { user: G.user && gone.has(lc(G.user.id)) ? null : G.user, device: G.device && gone.has(lc(G.device.id)) ? null : G.device }; }
       }
       // ⚡ ⓪ (10701): the test groups are read again so the row says "in place"
-      if (p.holdGroups) { tm.test.clear(); tm.all = false; tm.allAt = 0; setTimeout(() => tmReadAll(), 0); }
+      if (p.holdGroups) { tm.test.clear(); tm.all = false; tm.allAt = 0; setTimeout(() => tmReadAll(), 0); if (!state28.group && createdGroups.some((g) => lc(g.displayName) === lc(stateGroupName()))) setTimeout(async () => { await stateRead(); render(); }, 0); }
       // 🌊 (10711): the created or renamed groups are known to the lookup
       if (p.waves || p.renameWaves) setTimeout(() => wavesAfterRun(p, createdGroups, verifiedDone), 0);
       // 🧪 (10688): the region's test groups are read again, the list's
@@ -3797,7 +3861,7 @@ const MdeRolloutV2Tool = (() => {
   const reasonsKey = () => `tuno.t28.revert.reasons.${tenantKey()}`;
   const rvListKey = () => `tuno.t28.revert.list.${tenantKey()}`;
   const readJson = (k) => { try { return JSON.parse(window.localStorage.getItem(k) || "{}") || {}; } catch { return {}; } };
-  const writeJson = (k, v) => { try { window.localStorage.setItem(k, JSON.stringify(v)); } catch { /* private window */ } };
+  const writeJson = (k, v) => { try { window.localStorage.setItem(k, JSON.stringify(v)); } catch { /* private window */ } stateDirty(); };
   let csCache = null;
   function csModel() {
     if (!mem.model || !mem.input || !cs.extra) return null;
@@ -5629,6 +5693,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
+    _state28: () => state28, _stateRead: stateRead, _stateWrite: stateWrite, _saveCfg: (c) => { saveCfg(c); derive(); render(); },
     _projectFile: (pf) => { if (pf !== undefined) { projectFile = pf; loadCfg(); derive(); render(); } return projectFile; }, _projectFileText: projectFileText,
     _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, wc, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, ob, dash, dashModel, dashInput, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),
     _pane: (p) => { pane = p; render(); },

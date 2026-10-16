@@ -1374,6 +1374,9 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 .gu-fail{border:1px solid var(--border);border-left:3px solid var(--off);border-radius:10px;
   padding:8px 12px;margin-top:8px;font-size:12.5px;background:var(--soft2)}
 .gu-skip{border-left-color:var(--muted)}
+/* 10714/10715 T28 ⚙️ Project setup cards: the same card, green or amber */
+.gu-ok{border:1px solid var(--border);border-left:3px solid var(--on);border-radius:10px;padding:8px 12px;margin-top:8px;font-size:12.5px;background:var(--soft2)}
+.gu-warn{border:1px solid var(--border);border-left:3px solid var(--report);border-radius:10px;padding:8px 12px;margin-top:8px;font-size:12.5px;background:var(--soft2)}
 .gu-row-link{cursor:pointer}
 .gu-row-link:hover td{background:var(--soft)}
 .gu-num{text-align:right;font-variant-numeric:tabular-nums}
