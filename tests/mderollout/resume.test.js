@@ -120,7 +120,7 @@ async function run() {
   ok("the resume finishes the job: every step left done and verified, nothing done twice, the record names the run it resumed", r2.ok === left.length && r2.bad === 0 && !r2.stopped && r2.resumeOf === r1.id && /^Resume: /.test(r2.title), JSON.stringify(r2.lines));
   ok("the tenant: Germany's device group filled, both countries' groups nested in the Euro waves", (G("INT-SG-D-DEU")._devices || []).length >= 1 && (G("INT-SG-D-DEU").memberOf || []).includes(G("INT-SG-D-WAVE-Euro").id) && (G("INT-SG-U-DEU").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id), JSON.stringify([G("INT-SG-D-DEU") && G("INT-SG-D-DEU")._devices, G("INT-SG-D-DEU") && G("INT-SG-D-DEU").memberOf]));
   T._pane("changes"); await sleep(100);
-  ok("a clean run offers no resume; the stopped run still does (its steps stay the same), with ↶ Undo for both", !D.querySelector(`[data-mrresume="${idx + 1}"]`) && !!D.querySelector(`[data-mrresume="${idx}"]`) && !!D.querySelector(`[data-mrundo="${idx + 1}"]`));
+  ok("a clean run offers no resume; the stopped run stops offering it once its resume read back clean (10728); ↶ Undo stays on both", !D.querySelector(`[data-mrresume="${idx + 1}"]`) && !D.querySelector(`[data-mrresume="${idx}"]`) && !!D.querySelector(`[data-mrundo="${idx + 1}"]`));
 
   console.log(`T28 resume: ${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;

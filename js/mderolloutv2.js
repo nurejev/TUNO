@@ -1562,6 +1562,9 @@ const MdeRolloutV2Tool = (() => {
   }
 
   // ---------------------------------------------------- pane: changes --
+  // 10728: a run offers ↷ Resume while it left steps undone and no later
+  // run finished them (a resume of it that read back clean)
+  const resumable = (r) => (r.stopped || r.bad > 0) && Array.isArray(r.ops) && T28Plan.resume(r) && !runs.some((x) => x !== r && x.resumeOf && r.id && x.resumeOf === r.id && !x.bad && !x.stopped);
   function changesPane() {
     const home = `<p class="mini muted" style="margin:0 0 10px">${runsStore.error ? `⚠ ${esc(runsStore.error)}. ` : ""}Runs are kept in this browser${runsStore.where === "indexeddb" ? "'s database" : runsStore.where === "localstorage" ? "'s storage (no database available here — the last 50)" : ""} for this tenant, with their backup and undo, and survive a refresh; another browser has its own. Summaries of every run also sit in the project's state in the tenant.</p>`;
     if (!runs.length) return home + `<div class="list-card" style="margin-top:0"><p class="mini muted" style="margin:0">Nothing written from this browser yet. Every apply lands here with its backup, and can be undone from here — the undo is itself a plan, cut against the tenant as it is at that moment.</p></div>`;
@@ -1572,7 +1575,7 @@ const MdeRolloutV2Tool = (() => {
         <h4 style="margin:0 0 4px">${esc(r.title)} <span class="mini muted">${esc(today ? when.toLocaleTimeString() : when.toLocaleString())}${r.by ? ` · ${esc(r.by)}` : ""}</span></h4>
         <p class="mini" style="margin:0 0 6px">${r.ok} written &amp; verified · ${r.bad} not clean${r.stopped ? " · stopped early" : ""}${r.kind === "groups" || r.kind === "members" ? "" : ` · ${plural(r.backup.policies.length, "policy", "policies")} in the backup`}</p>
         <ul class="mini" style="margin:0 0 8px;padding-left:18px">${r.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
-        ${r.kind === "groups" ? "" : r.kind === "members" ? ((r.done && r.done.some((d) => d.type !== "create")) || ((r.stopped || r.bad > 0) && Array.isArray(r.ops) && T28Plan.resume(r)) ? `<div class="tb-actions">${r.done && r.done.some((d) => d.type !== "create") ? `<button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button>` : ""}${(r.stopped || r.bad > 0) && Array.isArray(r.ops) && T28Plan.resume(r) ? `<button class="btn primary" data-mrresume="${idx}">↷ Resume this run — plan the steps left</button>` : ""}</div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
+        ${r.kind === "groups" ? "" : r.kind === "members" ? ((r.done && r.done.some((d) => d.type !== "create")) || (resumable(r)) ? `<div class="tb-actions">${r.done && r.done.some((d) => d.type !== "create") ? `<button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button>` : ""}${resumable(r) ? `<button class="btn primary" data-mrresume="${idx}">↷ Resume this run — plan the steps left</button>` : ""}</div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
       </div>`;
     }).join("");
   }
