@@ -89,6 +89,22 @@ const MdeRolloutV2Tool = (() => {
   // the last model with the key it was computed for
   const ob = { busy: false, status: "", error: "", read: null, at: null, managed: null };
   const dash = { region: null, list: "", open: new Set(), allPairs: false, memo: null, memoKey: "" };
+  // 10717 (Phase 1.5): THE ONE REGION. Four panes each kept their own
+  // region — 👥 Wave members (mem.region), 🧪 test members (tm.region), 📡
+  // Landing (ld.region) and the dashboard (dash.region) — so a region chosen
+  // in one was forgotten in the next. There is one now: regionSel. The
+  // four properties stay as accessors so every pane reads and writes the
+  // same choice; null means "all" where a pane can show all (dashboard,
+  // landing's first read picks the first region with members), and 👥 falls
+  // back to the first region it knows without writing the choice.
+  let regionSel = null;
+  const regionDefault = () => (mem.model && mem.model.regions && mem.model.regions.length ? mem.model.regions[0].region : null);
+  const regionGet = () => regionSel;
+  const regionSet = (v) => { regionSel = v || null; };
+  Object.defineProperty(mem, "region", { get: () => regionSel || regionDefault(), set: regionSet, enumerable: true, configurable: true });
+  Object.defineProperty(tm, "region", { get: regionGet, set: regionSet, enumerable: true, configurable: true });
+  Object.defineProperty(ld, "region", { get: regionGet, set: regionSet, enumerable: true, configurable: true });
+  Object.defineProperty(dash, "region", { get: regionGet, set: regionSet, enumerable: true, configurable: true });
   const devCounts = () => (dv.idx ? M.deviceCounts(pairs, dv.idx) : null);
   const open = new Set();      // expanded rows
   let plan = null;             // composed plan + meta
@@ -5721,7 +5737,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state28: () => state28, _stateRead: stateRead, _stateWrite: stateWrite, _runsStore: () => runsStore, _loadRuns: loadRuns, _saveCfg: (c) => { saveCfg(c); derive(); render(); },
+    _state28: () => state28, _stateRead: stateRead, _stateWrite: stateWrite, _runsStore: () => runsStore, _loadRuns: loadRuns, _region: (r) => { if (r !== undefined) regionSet(r); return regionSel; }, _saveCfg: (c) => { saveCfg(c); derive(); render(); },
     _projectFile: (pf) => { if (pf !== undefined) { projectFile = pf; loadCfg(); derive(); render(); } return projectFile; }, _projectFileText: projectFileText,
     _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, wc, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, ob, dash, dashModel, dashInput, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),
     _pane: (p) => { pane = p; render(); },

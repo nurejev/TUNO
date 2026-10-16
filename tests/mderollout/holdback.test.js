@@ -33,7 +33,7 @@ async function run() {
   ok("an earlier ↩ Revert name saved in the rules becomes the default", MM.normConfig({ revertUser: "INT-SG-U-MDE-Revert", revertDevice: "int-sg-d-mde-revert" }).revertUser === "INT-SG-U-MDE-HoldBack" && MM.normConfig({ revertDevice: "int-sg-d-mde-revert" }).revertDevice === "INT-SG-D-MDE-HoldBack");
   ok("…any other name is kept", MM.normConfig({ revertUser: "X-HOLD" }).revertUser === "X-HOLD");
   ok("HOLD_OLD names the earlier pair", MM.HOLD_OLD.user.join() === "INT-SG-U-MDE-Revert" && MM.HOLD_OLD.device.join() === "INT-SG-D-MDE-Revert");
-  ok("⚡ ⓪ creates the pair under the new name, for ⏸", (() => { const p = MM.planHoldGroups(cfg, { revert: {}, pinnedGroup: {}, skipGroup: {} }); return p.ops.filter((o) => o.type === "create").map((o) => `${o.name}|${o.who}`).join() === "INT-SG-U-MDE-HoldBack|⏸ Hold-back,INT-SG-D-MDE-HoldBack|⏸ Hold-back"; })());
+  ok("⚡ ⓪ creates the pair under the new name, for ⏸", (() => { const p = MM.planHoldGroups(cfg, { revert: {}, pinnedGroup: {}, skipGroup: {}, stateGroup: {} }); return p.ops.filter((o) => o.type === "create").map((o) => `${o.name}|${o.who}`).join() === "INT-SG-U-MDE-HoldBack|⏸ Hold-back,INT-SG-D-MDE-HoldBack|⏸ Hold-back"; })());
 
   // readExtra: the tenant still has the ↩ Revert pair → used as is, legacy said
   const realReadAll = w.Graph.readAll;

@@ -691,6 +691,16 @@ async function run() {
   ok("a file for another tenant is not used: the browser's rules again, editable, the mismatch said", st().cfg.newPrefixes.join() === prevNew && /for another tenant/.test($("mvBody").textContent) && !!$("mvRuleSave"));
   T28._projectFile({ status: "none", rules: null, meta: null, why: "" });
 
+  // ---------------------------------- the one region (10717, Phase 1.5) --
+  T28._region("Italy");
+  ok("one region: picked once, 👥, 🧪, 📡 and the dashboard all show Italy", st().mem.region === "Italy" && st().tm.region === "Italy" && st().ld.region === "Italy" && st().dash.region === "Italy");
+  T28._pane("members");
+  const euroTab = D.querySelector('[data-mrmemregion="Euro"]');
+  if (euroTab) euroTab.click();
+  ok("…a region clicked in 👥 is the dashboard's and the landing's region too", !!euroTab && st().dash.region === "Euro" && st().ld.region === "Euro" && st().tm.region === "Euro");
+  T28._region(null);
+  ok("…'all' (null): the dashboard and the landing show all, 👥 falls back to its first region without writing the choice", st().dash.region === null && st().ld.region === null && st().mem.region === "Euro" && T28._region() === null);
+
   // ------------------------------------------ 🧪 pilot batches (10640) --
   // Mihai: "split the adding of the pilot group in 4 even batches of users
   // and devices" — option A. The demo's Breda group is given four more
