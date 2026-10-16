@@ -101,7 +101,28 @@ const MdeRolloutV2Tool = (() => {
   let v2ExpectedMembers = null;
   let v2Binding = null, v2MemberBackup = null, v2Risk = null, v2Imported = null;
   let v2AllowLeftOut = false;
-  const runs = [];             // this session's writes
+  const runs = [];             // this browser's writes on this tenant — the cache of T28Runs (10716)
+  // 10716 (Phase 1.4, state home 3): every run goes to the browser's
+  // database the moment it is logged — plan, done steps, backup, lines —
+  // and this tenant's runs come back when the tool opens, so 📜 and ↶ Undo
+  // survive a refresh. runsStore says where they live and whether a save
+  // failed; the array stays what every pane reads.
+  const runsStore = { where: "", loaded: false, error: "", saved: 0 };
+  function logRun(run) {
+    if (!run.by) run.by = (Graph.accountUpn && Graph.accountUpn()) || "";
+    runs.push(run);
+    T28Runs.save(tenantKey(), run).then((r) => { run.id = r.id; runsStore.where = r.where; runsStore.saved++; runsStore.error = ""; })
+      .catch((e) => { runsStore.error = `this run could not be saved in the browser (${GroupUse.shortErr(e, 120)}) — export the run file before leaving`; });
+    return run;
+  }
+  async function loadRuns() {
+    try {
+      const rows = await T28Runs.list(tenantKey());
+      runs.length = 0; for (const r of rows) runs.push(r);
+      runsStore.where = T28Runs.where(); runsStore.loaded = true; runsStore.error = "";
+    } catch (e) { runsStore.loaded = true; runsStore.error = `earlier runs could not be read from the browser (${GroupUse.shortErr(e, 120)})`; }
+    project.savedRuns = runs.length;   // the history has these already
+  }
   let running = false, busy = false, enriching = "";
   let filterList = null;       // all assignment filters, for the bar
 
@@ -771,6 +792,8 @@ const MdeRolloutV2Tool = (() => {
       try { const f = await M.findGroups(cfg.lookup, prog); if (!projectValid(epoch)) return false; found = f.found; dupes = f.dupes; }
       catch (e) { if (!projectValid(epoch)) return false; found = null; dupes = []; groupError = GroupUse.shortErr(e, 120); }
       prog("Reading the project's state…");
+      if (!runsStore.loaded) await loadRuns();                     // 10716: this browser's runs on this tenant, with their undo
+      if (!projectValid(epoch)) return false;
       await stateRead(); if (!projectValid(epoch)) return false;   // 10715: the tenant's copy into this browser before anything derives
       derive(); prog("");
       const errors = [templateError, groupError, ...model.missing.map((m) => m.id)].filter(Boolean);
@@ -831,7 +854,7 @@ const MdeRolloutV2Tool = (() => {
     v2Imported = null; v2AllowLeftOut = false; pane = "overview";
     res = null; model = null; pairs = []; retire = []; waveRows = []; found = null; dupes = [];
     kinds = new Map(); labels = new Map(); names.clear(); sel.clear(); selPairs.clear(); selWaves.clear(); selRename.clear(); open.clear();
-    runs.length = 0; filterList = null; clearPlan();
+    runs.length = 0; runsStore.loaded = false; filterList = null; clearPlan();
     reps.assign = null; reps.config = null; reps.conflicts = null; reps.landing = null; reps.checks.length = 0; reps.busy = ""; reps.selected = "assign"; reps.error = "";
     Object.assign(ld, { busy: false, status: "", error: "", model: null, at: null, region: null, filter: "problems", q: "" });
     mem.input = null; mem.model = null; mem.loading = false; mem.region = null; mem.unmapped = false; mem.sel.clear(); mem.open.clear();
@@ -1454,11 +1477,13 @@ const MdeRolloutV2Tool = (() => {
 
   // ---------------------------------------------------- pane: changes --
   function changesPane() {
-    if (!runs.length) return `<div class="list-card" style="margin-top:0"><p class="mini muted" style="margin:0">Nothing written in this session yet. Every apply lands here with its backup, and can be undone from here — the undo is itself a plan, cut against the tenant as it is at that moment.</p></div>`;
-    return runs.slice().reverse().map((r, i) => {
+    const home = `<p class="mini muted" style="margin:0 0 10px">${runsStore.error ? `⚠ ${esc(runsStore.error)}. ` : ""}Runs are kept in this browser${runsStore.where === "indexeddb" ? "'s database" : runsStore.where === "localstorage" ? "'s storage (no database available here — the last 50)" : ""} for this tenant, with their backup and undo, and survive a refresh; another browser has its own. Summaries of every run also sit in the project's state in the tenant.</p>`;
+    if (!runs.length) return home + `<div class="list-card" style="margin-top:0"><p class="mini muted" style="margin:0">Nothing written from this browser yet. Every apply lands here with its backup, and can be undone from here — the undo is itself a plan, cut against the tenant as it is at that moment.</p></div>`;
+    return home + runs.slice().reverse().map((r, i) => {
       const idx = runs.length - 1 - i;
+      const when = new Date(r.at), today = new Date().toDateString() === when.toDateString();
       return `<div class="list-card" style="margin-top:${i ? 12 : 0}px">
-        <h4 style="margin:0 0 4px">${esc(r.title)} <span class="mini muted">${esc(new Date(r.at).toLocaleTimeString())}</span></h4>
+        <h4 style="margin:0 0 4px">${esc(r.title)} <span class="mini muted">${esc(today ? when.toLocaleTimeString() : when.toLocaleString())}${r.by ? ` · ${esc(r.by)}` : ""}</span></h4>
         <p class="mini" style="margin:0 0 6px">${r.ok} written &amp; verified · ${r.bad} not clean${r.stopped ? " · stopped early" : ""}${r.kind === "groups" || r.kind === "members" ? "" : ` · ${plural(r.backup.policies.length, "policy", "policies")} in the backup`}</p>
         <ul class="mini" style="margin:0 0 8px;padding-left:18px">${r.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
         ${r.kind === "groups" ? "" : r.kind === "members" ? (r.done && r.done.some((d) => d.type !== "create") ? `<div class="tb-actions"><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
@@ -1544,7 +1569,7 @@ const MdeRolloutV2Tool = (() => {
       <p style="margin:0 0 8px"><b>The rollout actions</b> (🌊 pane) are the same writes in bulk: ① every existing wave into each new policy of its kind, ② the exclusion group of the kind each new policy is assigned to, ③ the fixes above restricted to waves. Each is one plan — fresh read, backup, confirm, read-back, undo — and lists what it left out and why. In 🎯 and 🗄, the bar's <b>🌊 Waves</b> target does ① or ③ for the ticked policies only: each gets the waves of its kind, in the ticked regions. <b>⓪ Create the project's groups</b> (10701; Mihai: "bulk create all the revert groups"): every group T28 otherwise creates on first use — the ⏸ hold-back pair, 📌 Pinned, ⊝ Skip, and the 🧪 test pair of each ticked region, nested in its wave — in one plan: what exists is said as in place, a region whose wave does not exist yet is left out (🌊 first). Empty groups, assigned to nothing; the exclusion groups stay with 🌊. <b>④ Exclude W365/AVD by filter on the waves</b> (10706; Mihai: "first a check then the option to add the exclusion filter"): 🔎 Check reads Intune's assignment filters and finds the one named under ⚙️ (<code>PVM-DG-CORP-FILTER-W365/AVD</code>); per wave include of every new policy — device and user waves — the filter is in place, missing, or another filter. The dry run puts it on the missing ones in Exclude mode: the include stays, only the filter is added, so a session host or Cloud PC the filter matches stops taking the new set at its next check-in. Another filter on a wave include is listed, never replaced (one filter per assignment); a wave exclusion takes no filter; a policy also on MDE security settings management is flagged (Defender-only devices ignore filters). Backup, tick, apply, read-back and 📜 undo as every step; the undo puts the includes back without the filter.</p>
       <p style="margin:0 0 8px"><b>🧪 Pilots</b> (the tick in ⚔️ and ⚡, the names under ⚙️). When a plan completes the swap — every wave of the kind in the new policy and out of the old one — the pilot groups come off both: the new policy's pilot includes and the old policy's pilot exclusions, in the same plan. A pilot member in a wave keeps the new policy through the wave; one outside a wave is back on the old policy until their wave has them. A side that cannot go yet stays, with the reason: a new policy keeps a pilot while an old policy it collides with still excludes it (else neither), and an old policy keeps a pilot exclusion while a new policy it collides with still includes it (else both). <b>🧪 Pilots in the policies' bar</b> (10675): with a policy ticked, the bar's 🧪 Pilots target puts the pilot groups on it or takes them off, like the waves — a - D - policy takes the device names, a - U - one the user names, by tier (the ticks in the bar: Pilot, Pre-Pilot); the dry run shows what each group counts and what is left out, and nothing else on the policy is touched.</p>
       <p style="margin:0 0 8px"><b>What is refused.</b> Intune does not support excluding user groups from a policy assigned to device groups, or the reverse — "Intune doesn't evaluate user-to-device group relationships" (<a href="https://learn.microsoft.com/intune/device-configuration/assign-device-profile#exclude-groups-from-a-policy-assignment" target="_blank" rel="noopener">Microsoft Learn: Assign policies — support matrix</a>). Such a step is shown with its reason and never written. Devices managed by <b>MDE security settings management</b> (not enrolled in Intune) take assignments by device group only, and assignment filters do not apply to them (<a href="https://learn.microsoft.com/defender-endpoint/endpoint-security-policies-configure" target="_blank" rel="noopener">Learn</a>) — flagged as 🛰.</p>
-      <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes this session with its backup and an undo. Settings are never changed by these plans — only assignments.</p>
+      <p style="margin:0 0 8px"><b>The write.</b> ✏️ T11's engine: a dry run reads every touched policy fresh; ③ the backup file is taken before ④ Apply unlocks; each policy is re-read at apply time and skipped as drifted if somebody changed it meanwhile; every write is read back. Each run lands in 📜 Changes with its backup and an undo. Settings are never changed by these plans — only assignments.</p>
       <p style="margin:0 0 8px"><b>🎛 Adjust settings</b> (under Policies). One row per ASR rule and new-set policy carrying it, with its mode now and 🦠 T15's MDE baseline beside it. Change a mode (or <b>Set shown to baseline</b>), ② Dry run: each policy is read fresh and a rule whose mode moved since the read is left out as drifted. ③ the backup (the policies and all their settings, as read), confirm, ④ Apply: each policy is re-read, skipped if it changed since the dry run, written as a whole with only the chosen modes changed (the settings catalog takes a policy's settings only as a whole-policy PUT), and read back. Only the new set's settings-catalog policies, only a rule the policy already carries — a rule no new policy carries is listed, never created. Old and out-of-scope policies (AVD among them) are never edited here. Warn is not offered for the two rules that do not support it (LSASS, Office code injection). The run and its undo land in 📜.</p>
       <p style="margin:0 0 8px"><b>🧩 Edge extensions</b> (under Policies). The new set's settings-catalog policy that carries Edge's <b>Installed silently</b> list (the force list: on every user the policy reaches, not removable by them, and it wins over the block list) or its <b>Exempt from the block list</b> list (users may install those themselves). Each row is named by the Edge Add-ons store from its ID, through a lookup route set on the pane — the store sends no CORS headers, so a page here cannot call it: a self-hosted instance forwards a path, or a relay URL is set (its host must also be in the page's connect-src). Without a route the pane runs in paste mode: an ID, an Edge store link or a Chrome Web Store link (which gets the Chrome update URL behind the ID) is always accepted, with the name as typed or as the list gave it, marked unverified. The two Edge Copilot components OIB ships in the force list are 🔒 built-in and kept; an ID the store answers 404 to is ⚠ a finding, never a guess. 📋 the approved list (TSV / CSV with a header, or one name per line; kept per tenant in this browser) is matched to the store by name — a unique hit names a row, several hits ask for a pick, none asks for the ID — and added in one go as exempt or silent, rows moved one by one. ② Dry run reads the policy fresh, lists every change with what the reached users get, the likely impact and the way back; ③ the backup (the policy and all its settings), confirm, ④ Apply: re-read and skipped as drifted when it changed, written as a whole with only the two collections changed, read back; the run and its undo in 📜. Taking a live silent install away is a recorded risk: Edge uninstalls it from every reached user.</p>
       <p style="margin:0 0 8px"><b>📡 Landing</b> (Waves → Verification, 10689). Did the new set land: Intune's own check-in status per new policy — the report behind the portal's <i>View report</i>, one per policy; since 10694 the read tries the documented forms in order on the first policy (the cached report as Microsoft Learn's example has it, then with the policy base types in its filter, then <code>getConfigurationPolicyNonComplianceReport</code>, the report action T12's device read uses) and keeps the one the tenant answers — a refusal is said once, with Intune's own words, never once per policy — joined to the waves' members, so every member of a wave a policy includes is expected to report it (minus the policy's excluded groups). Per policy and per wave: landed / expected with the conflicts, errors, pending and <b>no status</b> counted, and since 10697 <b>⊘ reached though excluded</b> — a member of the ⊘ exclusion group that a policy's assignments do not exclude (⚡ Rollout actions ② puts the groups on every new policy), and an excluded member Intune still reports a state for (the device has to check in; a state newer than the exclusion means the assignment still reaches it); per member a chip per policy and a verdict. A conflict is explained by T12's setting-level read (the setting) and the ⚔️ pairs (the old policy the device is also in conflict on). <i>Pending</i> and <i>no status</i> are things to watch, not failures: Intune's status lags the device, and a fresh wave can take a day to fill in. Reads only; 📑 Landing check saves it as a report with a CSV.</p>
@@ -2075,7 +2100,7 @@ const MdeRolloutV2Tool = (() => {
       L.finish();
       const ok = r.results.filter((x) => x.ok && x.verified);
       for (const x of ok) M.patchAssignments(model, x.op.policy.surface, x.op.policy.id, x.op.after, names, res.filters);
-      runs.push({
+      logRun({
         at: Date.now(), title: p.title, kind: p.undo ? "undo" : "assign",
         ok: ok.length, bad: r.results.length - ok.length, stopped: r.stopped,
         risk: v2Risk, backup: JSON.parse(AssignEdit.backupOf(p.changes, p.head)),
@@ -2090,7 +2115,7 @@ const MdeRolloutV2Tool = (() => {
       render();
       const note = document.createElement("p");
       note.className = "mini muted"; note.style.margin = "8px 0 0";
-      note.textContent = `${ok.length} written & verified. The verdicts above moved with the verified writes; 🧭 Read the tenant for a full re-read. The run and its undo are in 📜 Changes this session.`;
+      note.textContent = `${ok.length} written & verified. The verdicts above moved with the verified writes; 🧭 Read the tenant for a full re-read. The run and its undo are in 📜 Changes.`;
       $("mvLedger").appendChild(note);
       const disc = $("mvDiscard"); if (disc) disc.textContent = "Close";
     } catch (e) {
@@ -2285,7 +2310,7 @@ const MdeRolloutV2Tool = (() => {
         } catch (e) { const why = GroupUse.shortErr(e, 200); L.fail(i, why); lines.push(`${x.name}: failed — ${why}`); halt = stopOnFail; }
       }
       L.finish();
-      runs.push({ at: Date.now(), title: p.title, kind: "settings", ok: okN, bad: p.items.length - okN, stopped: L.stopped,
+      logRun({ at: Date.now(), title: p.title, kind: "settings", ok: okN, bad: p.items.length - okN, stopped: L.stopped,
         risk: v2Risk, backup: JSON.parse(asrBackup(p)), done, lines });
       PolicyCache.invalidate();
       for (const d of done) for (const c of d.changes) asr.edits.delete(`${d.key}|${c.slug}`);
@@ -2294,7 +2319,7 @@ const MdeRolloutV2Tool = (() => {
       render();
       const note = document.createElement("p");
       note.className = "mini muted"; note.style.margin = "8px 0 0";
-      note.textContent = `${okN} written & verified. The rows above read the verified settings; devices take the new modes at their next sync. The run and its undo are in 📜 Changes this session.`;
+      note.textContent = `${okN} written & verified. The rows above read the verified settings; devices take the new modes at their next sync. The run and its undo are in 📜 Changes.`;
       $("mvLedger").appendChild(note);
       const disc = $("mvDiscard"); if (disc) disc.textContent = "Close";
     } catch (e) {
@@ -2748,7 +2773,7 @@ const MdeRolloutV2Tool = (() => {
       ${p.unread.length ? `<div class="gu-fail" style="margin-bottom:8px"><b>Could not read fresh:</b><span class="why">${p.unread.map(esc).join("<br>")} — left out rather than written blind.</span></div>` : ""}
       ${p.items.length ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:170px"><col style="width:90px"><col><col style="width:34%"></colgroup><thead><tr><th>List</th><th>Change</th><th>Extension</th><th>What the reached users get</th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="mr-extbox warn"><b>Likely impact</b><div class="mini muted">Reaches ${reach}. The settings catalog takes a policy's settings only as a whole: the policy is re-sent with every setting exactly as read, the two lists changed; the block list and the external-extensions block ride along untouched. Edge applies the lists at its next policy refresh after the Intune sync — minutes to hours, not at once.${addsForce ? ` <b>Silent installs:</b> the ${plural(addsForce, "added extension")} appear${addsForce === 1 ? "s" : ""} in every reached user's Edge and cannot be removed or disabled by them; the force list also wins over the block list.` : ""}${removesLive ? ` <b>Removals:</b> ${plural(removesLive, "extension")} ${removesLive === 1 ? "is" : "are"} uninstalled from every reached user's Edge at the next refresh.` : ""}${addsAllow ? ` <b>Exemptions:</b> the ${plural(addsAllow, "added extension")} become${addsAllow === 1 ? "s" : ""} installable by the user; nothing is installed for them.` : ""}${removesAllow ? ` <b>Exemptions taken away:</b> ${plural(removesAllow, "extension")} ${removesAllow === 1 ? "is" : "are"} blocked again and disabled where a user installed ${removesAllow === 1 ? "it" : "them"}.` : ""}</div></div>
-      <div class="mr-extbox ok"><b>The way back</b><div class="mini muted">③ takes the backup — the policy and all its settings, as a file. After the apply, 📜 Changes this session holds this run with an <b>Undo</b> that writes the previous lists back through the same pipeline — fresh read, drift check, read-back. An undo takes a silent install away again (uninstalled at the next refresh) and puts an exemption back under the block list. A policy that changed in the tenant since this dry run is skipped as drifted, never overwritten.</div></div>
+      <div class="mr-extbox ok"><b>The way back</b><div class="mini muted">③ takes the backup — the policy and all its settings, as a file. After the apply, 📜 Changes holds this run with an <b>Undo</b> that writes the previous lists back through the same pipeline — fresh read, drift check, read-back. An undo takes a silent install away again (uninstalled at the next refresh) and puts an exemption back under the block list. A policy that changed in the tenant since this dry run is skipped as drifted, never overwritten.</div></div>
       <div style="margin-top:12px">
         <div class="tb-actions"><button class="btn" id="mvBackup">③ ⭳ Take the backup <span class="mini">— the policy and all its settings, as a file</span></button></div>
         <label class="chk" style="display:inline-flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="mvConfirmTick"> I have read the plan — ${plural(p.items.length, "policy", "policies")}</label>
@@ -2808,7 +2833,7 @@ const MdeRolloutV2Tool = (() => {
         } catch (e) { const why = GroupUse.shortErr(e, 200); L.fail(i, why); lines.push(`${x.name}: failed — ${why}`); halt = stopOnFail; }
       }
       L.finish();
-      runs.push({ at: Date.now(), title: p.title, kind: "edgeext", ok: okN, bad: p.items.length - okN, stopped: L.stopped,
+      logRun({ at: Date.now(), title: p.title, kind: "edgeext", ok: okN, bad: p.items.length - okN, stopped: L.stopped,
         risk: v2Risk, backup: JSON.parse(extBackup(p)), done: done.length ? done[0].changes : [], lines });
       PolicyCache.invalidate();
       for (const d of done) for (const c of d.changes) ext.edits.delete(MdeEdgeExt.keyOf(c.list, c.entry.id));
@@ -2817,7 +2842,7 @@ const MdeRolloutV2Tool = (() => {
       render();
       const note = document.createElement("p");
       note.className = "mini muted"; note.style.margin = "8px 0 0";
-      note.textContent = `${okN} written & verified. The lists above read the verified settings; users take the new lists at their next policy refresh. The run and its undo are in 📜 Changes this session.`;
+      note.textContent = `${okN} written & verified. The lists above read the verified settings; users take the new lists at their next policy refresh. The run and its undo are in 📜 Changes.`;
       $("mvLedger").appendChild(note);
       const disc = $("mvDiscard"); if (disc) disc.textContent = "Close";
     } catch (e) {
@@ -3820,7 +3845,7 @@ const MdeRolloutV2Tool = (() => {
         for (const [k, v] of okBy) if (v) synced[k] = at;
         writeJson(syncKey(), synced);
       }
-      runs.push({ at: Date.now(), title: p.title, kind: "members", runKind: p.runKind || null, region: p.region || undefined, reason: p.reason || undefined, exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [], membership: v2MemberBackup }, risk: v2Risk,
+      logRun({ at: Date.now(), title: p.title, kind: "members", runKind: p.runKind || null, region: p.region || undefined, reason: p.reason || undefined, exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [], membership: v2MemberBackup }, risk: v2Risk,
         done: verifiedDone, uncertainDone: actualDone.filter((x) => !verifiedDone.includes(x)), pilots: !!p.pilotsReady, migrate: migrated, lines: r.results.map((x) => `${opWord(x.op)} · ${opLabel(x.op)}${x.op.who ? ` (${x.op.who})` : ""}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`).concat(preSkipped) });
       plan = null;
       // 📋 (10651): the list's rows move with any run; a list run starts
@@ -3840,7 +3865,7 @@ const MdeRolloutV2Tool = (() => {
       else mem.sel.clear();
       const ledger = $("mvLedger").innerHTML;
       render();
-      planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px"><h4 style="margin:0 0 6px">${esc(p.title)} — done</h4><div id="mvLedger">${ledger}</div><p class="mini muted" style="margin:8px 0 0">${preSkipped.length ? `<span style="color:var(--report)">${preSkipped.map(esc).join("<br>")}</span><br>` : ""}${okN} of ${r.results.length} steps written &amp; verified. The rows above moved with them; ↻ Read again for the tenant's own view. The run and its undo are in 📜 Changes this session.</p></div>`;
+      planEl().innerHTML = `<div class="list-card" style="margin-top:14px;padding:16px 18px"><h4 style="margin:0 0 6px">${esc(p.title)} — done</h4><div id="mvLedger">${ledger}</div><p class="mini muted" style="margin:8px 0 0">${preSkipped.length ? `<span style="color:var(--report)">${preSkipped.map(esc).join("<br>")}</span><br>` : ""}${okN} of ${r.results.length} steps written &amp; verified. The rows above moved with them; ↻ Read again for the tenant's own view. The run and its undo are in 📜 Changes.</p></div>`;
     } catch (e) {
       const el = document.createElement("div"); el.className = "gu-fail"; el.innerHTML = `<b>${esc(GroupUse.shortErr(e, 300))}</b>`;
       $("mvLedger").appendChild(el);
@@ -4361,7 +4386,7 @@ const MdeRolloutV2Tool = (() => {
   function exmForget() {
     if (busy) return;
     saveCfg(Object.assign({}, cfg, { exclusionDevice: "", exclusionUser: "" }));
-    runs.push({ at: Date.now(), title: "⊘ retired — the exclusion pair forgotten in the project rules", kind: "groups", ok: 1, bad: 0, backup: { policies: [] }, lines: ["exclusionDevice and exclusionUser set to nothing; ⊘ Exclude from new and ⊘→⏸ Migrate exclusions left the rail; ⚡② says retired"] });
+    logRun({ at: Date.now(), title: "⊘ retired — the exclusion pair forgotten in the project rules", kind: "groups", ok: 1, bad: 0, backup: { policies: [] }, lines: ["exclusionDevice and exclusionUser set to nothing; ⊘ Exclude from new and ⊘→⏸ Migrate exclusions left the rail; ⚡② says retired"] });
     ex.base = null; ex.scan = null;
     derive();
     pane = "revert"; render();
@@ -5138,6 +5163,9 @@ const MdeRolloutV2Tool = (() => {
       catch { for (const g of createdGroups) if (found) found.set(lc(g.displayName), g); }
       const ids = createdGroups.map((g) => lc(g.id));
       try { kinds = await M.readKinds(ids, null, kinds); } catch { /* kinds stay by name */ }
+      // 10716: the test groups' wave references are read again, so ⚡ ⓪
+      // stops saying "the wave does not exist yet" right after it was made
+      tm.test.clear(); tm.all = false; tm.allAt = 0; setTimeout(() => tmReadAll(), 0);
     }
     if (p.renameWaves) {
       for (const d of verifiedDone) if (d.type === "rename" && found && found.get(lc(d.from)) && lc(found.get(lc(d.from)).id) === lc(d.group.id)) found.set(lc(d.from), null);
@@ -5693,7 +5721,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
-    _state28: () => state28, _stateRead: stateRead, _stateWrite: stateWrite, _saveCfg: (c) => { saveCfg(c); derive(); render(); },
+    _state28: () => state28, _stateRead: stateRead, _stateWrite: stateWrite, _runsStore: () => runsStore, _loadRuns: loadRuns, _saveCfg: (c) => { saveCfg(c); derive(); render(); },
     _projectFile: (pf) => { if (pf !== undefined) { projectFile = pf; loadCfg(); derive(); render(); } return projectFile; }, _projectFileText: projectFileText,
     _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, wc, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, ob, dash, dashModel, dashInput, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),
     _pane: (p) => { pane = p; render(); },

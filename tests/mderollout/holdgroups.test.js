@@ -42,8 +42,10 @@ function boot() {
   w.URL.createObjectURL = () => "blob:x"; w.URL.revokeObjectURL = () => {};
   w.msal = undefined;
   w.fetch = () => Promise.reject(new Error("no network in tests"));
+  // 10716: a browser database for the run bundles
+  const fidb = require("fake-indexeddb"); w.indexedDB = fidb.indexedDB; w.IDBKeyRange = fidb.IDBKeyRange;
   const src = files.map((f) => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n");
-  const bridge = ";Object.assign(window,{Graph,PolicyCache,MdeRolloutV2Tool,MdeMembers,MdeTest,TUNO_DEMO_GRAPH,TOOL_VERSIONS,T28State,TunoTenant});";
+  const bridge = ";Object.assign(window,{Graph,PolicyCache,MdeRolloutV2Tool,MdeMembers,MdeTest,TUNO_DEMO_GRAPH,TOOL_VERSIONS,T28State,T28Runs,TunoTenant});";
   const realErr = console.error, realLog = console.log, realWarn = console.warn;
   console.error = () => {}; console.log = () => {}; console.warn = () => {};
   let err = null;
@@ -143,6 +145,19 @@ async function run() {
   w.Graph.get = realGet;
   await T28._stateRead();
   ok("…and the next read is back in the tenant", T28._state28().status === "tenant");
+
+  // ------------------------------- 10716: the runs survive in the browser --
+  const RS = T28._runsStore();
+  ok("every run of this session went to the browser's database as it was logged, with who did it", RS.where === "indexeddb" && RS.saved >= st().runs.length && st().runs.length >= 1 && st().runs.every((r) => r.id && r.by !== undefined), JSON.stringify([RS, st().runs.length]));
+  const before = st().runs.map((r) => [r.id, r.title, r.ok, r.done && r.done.length]);
+  const stored = await w.T28Runs.list(w.TunoTenant.tenantId());
+  ok("the database holds the same runs: titles, counts, the done steps (the undo's source) and the backup", stored.length === before.length && stored.every((r, i) => r.id === before[i][0] && r.title === before[i][1] && r.ok === before[i][2] && (r.done || []).length === before[i][3]) && stored.some((r) => r.backup && Array.isArray(r.backup.membership)));
+  // "a refresh": the array emptied and loaded back from the database
+  st().runs.length = 0;
+  await T28._loadRuns();
+  ok("after a reload the runs come back in order and the history is not fed twice", st().runs.map((r) => r.id).join() === before.map((b) => b[0]).join() && st().project.savedRuns === st().runs.length);
+  T28._pane("changes");
+  ok("📜 says where the runs live and still offers ↶ Undo for the member run", /kept in this browser's database/.test($("mvBody").textContent) && !!D.querySelector("[data-mrundo]") && new RegExp(before[0][1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test($("mvBody").textContent));
 }
 
 run().then(() => {
