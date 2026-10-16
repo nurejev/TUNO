@@ -3759,42 +3759,21 @@ const MdeRolloutV2Tool = (() => {
     busy = true;
     const p = plan;
     try {
-      await Graph.ensureScopes(GroupMigrate.SCOPES.groupWrite);
-      if (!v2MemberBackup || !await T28V2Safety.unchanged(v2MemberBackup)) throw new Error("Group membership changed after the backup. Discard this plan, read again and make a new plan.");
-      if (plan !== p || !gateOk()) throw new Error("Plan context changed. Make a fresh plan.");
-      $("mvMemApply").disabled = true;
-      const preSkipped = [];
-      // 10712 (R3): the hold-back read AGAIN, transitively, right here —
-      // whoever was put in it since the 👥 read is dropped from every add
-      // now, named; a hold-back that cannot be read refuses the apply
-      if (!p.allowAll && p.runKind !== "revert" && p.ops.some((x) => x.type === "add" && (x.ids || []).length)) {
-        let now;
-        try { now = await MdeRevert.readHoldNow(holdBackGroups()); }
-        catch (e) { throw new Error(`The hold-back could not be read right before writing (${GroupUse.shortErr(e, 160)}) — nothing was written. ↻ Read again and make a new plan.`); }
-        const ctx = holdGuardCtx(p);
-        const before = new Set([...ctx.users].map((id) => `user|${id}`).concat([...ctx.devices].map((id) => `device|${id}`)));
-        now.users.forEach((id) => ctx.users.add(id)); now.devices.forEach((id) => ctx.devices.add(id));
-        const nameOf0 = ctx.nameOf; ctx.nameOf = (k, id) => nameOf0(k, id) || now.names.get(`${k}|${lc(id)}`) || "";
-        ctx.unread = "";
-        const g = MdeRevert.guardHeld(p.ops, ctx);
-        if (g.refused) throw new Error(g.refused);
-        const fresh = [...now.users].filter((id) => !before.has(`user|${id}`)).length + [...now.devices].filter((id) => !before.has(`device|${id}`)).length;
-        if (g.stripped.users + g.stripped.devices) {
-          p.ops = g.ops;
-          preSkipped.push(`⏸ ${plural(g.stripped.users + g.stripped.devices, "member")} held back since the read — left out: ${g.skipped.slice(0, 5).join("; ")}${g.skipped.length > 5 ? " …" : ""}`);
-          if (fresh) preSkipped.push(`⏸ the hold-back grew by ${plural(fresh, "member")} after the 👥 read`);
-          if (!p.ops.length) throw new Error("Everyone this plan would add is held back now — nothing to write. ↻ Read again.");
-        }
-      }
-      let me = null;
-      if (p.ops.some((x) => x.type === "create")) { try { me = await M.readMe(); } catch { me = null; } }
-      const L = RunLedger.create($("mvLedger"), { unit: "steps", title: p.title, items: p.ops.map((x) => ({ label: `${opWord(x)} · ${opLabel(x)}`, sub: x.who || "" })) });
-      const r = await MdeMembers.applyOps(p.ops, { ledger: L, me });
-      L.finish();
-      const createdGroups = [...r.created.entries()].map(([name, id]) => ({ id, displayName: p.ops.find((x) => x.type === "create" && lc(x.name) === name) ? p.ops.find((x) => x.type === "create" && lc(x.name) === name).name : name, groupTypes: [] }));
-      const actualDone = T28V2Safety.actualOps(r, v2MemberBackup);
-      const verifiedDone = T28V2Safety.verifiedOps(Object.assign({}, r, { done: actualDone }));
-      const uncertain = actualDone.length !== verifiedDone.length;
+      // 10721 (Phase 2.1): THE PLAN CONTRACT — the backup check, the hold-back
+      // re-read and guard, the write and the read-back live in T28Plan.run,
+      // once, for every plan; this function keeps the screen and what each
+      // pane does with a finished run.
+      const out = await T28Plan.run(p, {
+        ensureScopes: (sc) => Graph.ensureScopes(sc), writeScopes: GroupMigrate.SCOPES.groupWrite,
+        backup: v2MemberBackup, unchanged: (b) => T28V2Safety.unchanged(b),
+        stillCurrent: () => plan === p && gateOk(),
+        holdBackGroups, readHoldNow: (g) => MdeRevert.readHoldNow(g), guardCtx: holdGuardCtx, guardHeld: (ops, ctx) => MdeRevert.guardHeld(ops, ctx),
+        readMe: () => M.readMe(),
+        ledger: (pl) => { $("mvMemApply").disabled = true; return RunLedger.create($("mvLedger"), { unit: "steps", title: pl.title, items: pl.ops.map((x) => ({ label: `${opWord(x)} · ${opLabel(x)}`, sub: x.who || "" })) }); },
+        applyOps: (ops, o) => MdeMembers.applyOps(ops, o),
+        actualOps: (r, b) => T28V2Safety.actualOps(r, b), verifiedOps: (r) => T28V2Safety.verifiedOps(r),
+      });
+      const { r, createdGroups, actualDone, verifiedDone, uncertain, preSkipped } = out;
       const pinMade = createdGroups.find((g) => lc(g.displayName) === lc(mcfg().pinnedDevice));
       const skipMade = createdGroups.find((g) => lc(g.displayName) === lc(mcfg().skipDevice));
       if (mem.input && skipMade) { mem.input.skipGroup = { id: lc(skipMade.id), name: skipMade.displayName }; if (!mem.input.skip) mem.input.skip = new Set(); }
@@ -3860,8 +3839,8 @@ const MdeRolloutV2Tool = (() => {
         for (const [k, v] of okBy) if (v) synced[k] = at;
         writeJson(syncKey(), synced);
       }
-      logRun({ at: Date.now(), title: p.title, kind: "members", runKind: p.runKind || null, region: p.region || undefined, reason: p.reason || undefined, exclusions: !!p.exclusions, ok: okN, bad: r.results.length - okN, stopped: L.stopped, backup: { policies: [], membership: v2MemberBackup }, risk: v2Risk,
-        done: verifiedDone, uncertainDone: actualDone.filter((x) => !verifiedDone.includes(x)), pilots: !!p.pilotsReady, migrate: migrated, lines: r.results.map((x) => `${opWord(x.op)} · ${opLabel(x.op)}${x.op.who ? ` (${x.op.who})` : ""}: ${x.ok ? (x.verified ? "done · verified" : "done · NOT verified") : (x.skipped ? "skipped" : "failed — " + (x.note || ""))}`).concat(preSkipped) });
+      logRun(T28Plan.record(p, out, { opWord, opLabel, backupOf: () => ({ policies: [], membership: v2MemberBackup }) },
+        { region: p.region || undefined, reason: p.reason || undefined, exclusions: !!p.exclusions, risk: v2Risk, pilots: !!p.pilotsReady, migrate: migrated }));
       plan = null;
       // 📋 (10651): the list's rows move with any run; a list run starts
       // its ticks again (what failed is ticked for another go)
