@@ -24,7 +24,7 @@ function model() {
   vm.runInContext(fs.readFileSync(path.join(ROOT, "js/t28spine.js"), "utf8") + ";globalThis.S = T28Spine;", ctx);
   const S = ctx.S;
   const full = () => ({ region: "Euro", waves: { user: { exists: true }, device: { exists: true } }, tests: { user: { exists: true, nested: true }, device: { exists: true, nested: true } }, project: { holdBack: true, state: true },
-    rows: [{ country: "Netherlands", ugNested: true, dgNested: true, uInSync: true, inSync: true, unread: "" }, { country: "Germany", ugNested: true, dgNested: true, uInSync: true, inSync: true, unread: "" }], membersRead: true,
+    rows: [{ country: "Netherlands", ugNested: true, dgNested: true, uInSync: true, inSync: true, unread: "", users: 9, devices: 13 }, { country: "Germany", ugNested: true, dgNested: true, uInSync: true, inSync: true, unread: "", users: 6, devices: 7 }], membersRead: true,
     assign: { include: 0, excludeOld: 0, filter: 0 }, landing: { read: true, devices: 12, ok: 12, problems: 0 }, held: { users: 1, devices: 0, pinned: 0, skipped: 0 } });
   const st = (r) => Object.fromEntries(r.stages.map((s) => [s.id, s.state]));
 
@@ -44,7 +44,7 @@ function model() {
   const i5 = full(); i5.rows[0].unread = "429";
   const r5 = S.stages(i5);
   ok("members: a country that did not read is unknown, never ok; the next step is to read again", st(r5).members === "unknown" && /not read/.test(r5.stages[1].detail) && /Read the members again: Netherlands/.test(r5.next.text));
-  const i6 = full(); i6.rows[0].batched = true;
+  const i6 = full(); i6.rows[0].batched = true; i6.rows[0].ugNested = false;
   const r6 = S.stages(i6);
   ok("a pilot in batches keeps stage 2 todo with the batch as the next step", st(r6).members === "todo" && /in batches/.test(r6.stages[1].detail) && /next batch of Netherlands/.test(r6.next.text));
   const i7 = full(); i7.assign = { include: 25, excludeOld: 0, filter: 0 };
@@ -67,6 +67,12 @@ function model() {
   ok("verify: nothing reported yet → wait, not a failure", st(r12).verify === "wait" && !r12.done);
   const i13 = full(); i13.held = null;
   ok("exceptions unread → unknown; a stage never guesses", st(S.stages(i13)).exceptions === "unknown");
+  const i15 = full(); i15.rows.push({ country: "Luxembourg", ugNested: false, dgNested: null, uInSync: false, inSync: false, unread: "", users: 0, devices: 0 }, { country: "NL Breda", ugNested: false, dgNested: null, uInSync: false, inSync: false, unread: "", users: 1, devices: 1, migrated: true, parentCountry: "Netherlands" }, { country: "France", ugNested: true, dgNested: null, uInSync: true, inSync: false, unread: "", users: 1, devices: 0 });
+  const r15 = S.stages(i15);
+  ok("a country with nobody to place, a pilot migrated into its country and a country with users but no devices are all in place (the acceptance walk, 10729)", st(r15).members === "ok" && r15.stages[1].lines.some((l) => l.ok && /Luxembourg.*nobody to place/.test(l.text)) && r15.stages[1].lines.some((l) => l.ok && /NL Breda.*in the wave through Netherlands/.test(l.text)) && r15.stages[1].lines.some((l) => l.ok && /^France — 1 user, 0 devices$/.test(l.text)), JSON.stringify(r15.stages[1].lines));
+  const i16 = full(); i16.rows[0].dynamicNested = true;
+  const r16 = S.stages(i16);
+  ok("a country whose dynamic group still carries the wave is open: ⇄ swap in Sync country groups", st(r16).members === "todo" && /⇄ swap \(Sync country groups\)/.test(r16.stages[1].lines[0].text));
   ok("the five stages carry the pane each opens (A: today's panes)", S.STAGES.map((s) => s.pane).join() === "waves,members,waves,landing,revert");
   // 3.2: the counts the panes compute, one line each
   const r14 = S.stages(Object.assign(full(), { rows: [{ country: "Netherlands", ugNested: true, dgNested: true, uInSync: true, inSync: true, unread: "", users: 9, devices: 13 }, { country: "Germany", ugNested: false, dgNested: true, uInSync: true, inSync: true, unread: "", users: 6, devices: 7 }], assign: { include: 25, excludeOld: 0, filter: 2 }, landing: { read: true, devices: 12, ok: 9, problems: 3 }, held: { users: 1, devices: 2, pinned: 1, skipped: 3 } }));

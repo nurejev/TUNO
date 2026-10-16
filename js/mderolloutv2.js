@@ -495,7 +495,7 @@ const MdeRolloutV2Tool = (() => {
     const X = cs.extra;
     const project = { holdBack: X ? !!(X.revert && X.revert.user && X.revert.device) : undefined, state: state28.status === "browser" ? false : state28.group ? true : undefined };
     const C = mcfg();
-    const rows = mem.model ? mem.model.rows.filter((r) => r.region === region).map((r) => ({ country: r.country, ugNested: !!r.ugNested, dgNested: !!r.dgNested, uInSync: r.uInSync, inSync: r.inSync, unread: r.unread || "", pilot: !!r.pilot, batched: !!(r.batch && !r.batch.finished), migrated: C.migrated.some((m) => lc(m) === lc(r.suffix)), users: r.uWant.size, devices: r.want.size })) : [];
+    const rows = mem.model ? mem.model.rows.filter((r) => r.region === region).map((r) => ({ country: r.country, ugNested: !!r.ugNested, dgNested: !!r.dgNested, uInSync: r.uInSync, inSync: r.inSync, unread: r.unread || "", pilot: !!r.pilot, batched: !!(r.batch && !r.batch.finished), migrated: !!r.migrated || C.migrated.some((m) => lc(m) === lc(r.suffix)), parentCountry: r.parentCountry || "", users: r.uWant.size, devices: r.want.size, uAdd: r.uAdd.length, add: r.add.length, uRemove: r.uRemove.length, remove: r.remove.length, dynamicNested: !!(r.ugNestedSrc && !r.ugNestedStatic) })) : [];
     let assign = null;
     if (model && found) {
       const ctx = Object.assign(rolloutCtx(), { regions: new Set([region]) });

@@ -71,8 +71,17 @@ const T28Spine = (() => {
       else if (!rows.length) { s.state = "ok"; s.detail = "no countries in this wave"; }
       else {
         const unread = rows.filter((r) => r.unread);
-        const done = rows.filter((r) => r.ugNested && r.dgNested && r.uInSync !== false && r.inSync !== false && !r.unread);
-        const batched = rows.filter((r) => r.batched && !r.migrated);
+        const n = (v) => (Array.isArray(v) ? v.length : Number(v) || 0);
+        // a country with nobody to place is in place by definition
+        const empty = rows.filter((r) => !r.unread && !(r.users || 0) && !(r.devices || 0) && !n(r.uAdd) && !n(r.add) && !n(r.uRemove) && !n(r.remove));
+        // a pilot migrated into its country is in the wave through that country
+        const migrated = rows.filter((r) => r.migrated && !r.unread);
+        // a side with nobody on it needs no group nested (a country with users but no Windows devices, or the reverse)
+        const uOk = (r) => r.ugNested || !(r.users || 0), dOk = (r) => r.dgNested || !(r.devices || 0);
+        // in sync counts per side only where that side has somebody (no device group → inSync is false by construction)
+        const uSync = (r) => r.uInSync !== false || !(r.users || 0), dSync = (r) => r.inSync !== false || !(r.devices || 0);
+        const done = rows.filter((r) => empty.includes(r) || migrated.includes(r) || (uOk(r) && dOk(r) && uSync(r) && dSync(r) && !n(r.uAdd) && !n(r.add) && !n(r.uRemove) && !n(r.remove) && !r.unread && !r.dynamicNested));
+        const batched = rows.filter((r) => r.batched && !r.migrated && !done.includes(r));
         const open = rows.filter((r) => !done.includes(r) && !batched.includes(r) && !unread.includes(r));
         if (unread.length) { s.state = "unknown"; s.detail = `${plural(unread.length, "country", "countries")} not read — ↻ Read again`; s.next = { text: `Read the members again: ${unread.map((r) => r.country).join(", ")} did not read`, pane: "members" }; }
         else if (open.length) { s.state = "todo"; s.detail = `${done.length} of ${rows.length} countries nested${batched.length ? ` · ${plural(batched.length, "pilot")} in batches` : ""}`; s.next = { text: `Fill and nest ${open.map((r) => r.country).join(", ")} (👥)`, pane: "members" }; }
@@ -80,9 +89,22 @@ const T28Spine = (() => {
         else { s.state = "ok"; s.detail = `${rows.length} of ${rows.length} countries nested and in sync`; }
         // 3.2: one line per country — the counts 👥 computes
         for (const r of rows) {
-          const n = `${plural(r.users || 0, "user")}, ${plural(r.devices || 0, "device")}`;
-          const why = r.unread ? "not read" : done.includes(r) ? "" : batched.includes(r) ? "in batches" : !r.ugNested && !r.dgNested ? "not nested" : !r.ugNested ? "user group not nested" : !r.dgNested ? "device group not nested" : "out of sync";
-          s.lines.push({ ok: done.includes(r), text: `${r.country} — ${n}${why ? ` · ${why}` : ""}` });
+          const cnt = `${plural(r.users || 0, "user")}, ${plural(r.devices || 0, "device")}`;
+          const parts = [];
+          if (r.unread) parts.push("not read");
+          else if (migrated.includes(r)) parts.push(`in the wave through ${r.parentCountry || "its country"}`);
+          else if (empty.includes(r)) parts.push("nobody to place");
+          else if (!done.includes(r)) {
+            if (batched.includes(r)) parts.push("in batches");
+            const adds = n(r.uAdd) + n(r.add), rems = n(r.uRemove) + n(r.remove);
+            if (adds) parts.push(`${adds} to add`);
+            if (rems) parts.push(`${rems} to take out (apply removals)`);
+            if (!uOk(r) && !dOk(r)) parts.push("not nested");
+            else if (!uOk(r)) parts.push("user group not nested");
+            else if (!dOk(r)) parts.push("device group not nested");
+            if (uOk(r) && dOk(r) && r.dynamicNested) parts.push("the dynamic group still carries the wave — ⇄ swap (Sync country groups)");
+          }
+          s.lines.push({ ok: done.includes(r), text: `${r.country} — ${cnt}${parts.length ? ` · ${parts.join(" · ")}` : ""}` });
         }
       }
     }
