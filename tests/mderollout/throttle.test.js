@@ -99,6 +99,29 @@ async function run() {
   ok("applyOps: the first add did 20 then stopped; the add and the nest after it are skipped as stopped, not sent", ra.stopped && ra.results[0].ok === false && ra.results[1].skipped && /stopped/.test(ra.results[1].note) && ra.results[2].skipped && calls.filter((c) => c[0] === "PATCH").length === 7, JSON.stringify(ra.results.map((r) => [r.ok, r.skipped, r.note])));
   ok("what was done stays in the undo (20 devices), labelled STOPPED in the ledger", ra.done.length === 1 && ra.done[0].ids.length === 20 && fails[0] && /STOPPED/.test(fails[0][2]) && skips.length === 2);
 
+  // ------------------------------ 10725: creates and nests get the same patience --
+  calls.length = 0; waits.length = 0;
+  const made = new Map();
+  let createFaults = [throttle(2), throttle(null)];
+  w.Graph.post = async (p, body) => {
+    calls.push(["POST", p]);
+    if (p === "/groups") { const e = createFaults.shift(); if (e) throw e; const g = { id: `new-${made.size + 1}`, displayName: body.displayName, securityEnabled: true, mailEnabled: false, owners: [] }; made.set(g.id, g); return { id: g.id, displayName: g.displayName }; }
+    if (/members\/\$ref$/.test(p)) { const e = createFaults.shift(); if (e) throw e; return null; }
+    return null;
+  };
+  w.Graph.readOne = async (p) => { const m = /\/groups\/([^/?]+)/.exec(p); return m && made.get(m[1]) ? made.get(m[1]) : null; };
+  w.Graph.get = w.Graph.readOne;
+  w.Graph.readAll = async (p) => { const m = /\/groups\/([^/?]+)\/owners/.exec(p); if (m) return []; if (/members\/microsoft\.graph\.group/.test(p)) return [{ id: "new-1" }]; return []; };
+  const Lc = { stopped: false, start() {}, skip() {}, fail() {}, done() {}, progress() {} };
+  const rc = await MM.applyOps([{ type: "create", key: "x", name: "INT-SG-D-XXX", description: "" }], { ledger: Lc, me: null });
+  ok("a create that is throttled twice waits (2 s, then 4 s) and sends the SAME POST again until it goes", rc.results[0].ok === true && calls.filter((c) => c[0] === "POST" && c[1] === "/groups").length === 3 && waits.join() === "2250,4250", JSON.stringify([rc.results[0], waits]));
+  calls.length = 0; waits.length = 0; createFaults = [throttle(null), throttle(null), throttle(null), throttle(null), throttle(null), throttle(null), throttle(null)];
+  const rc2 = await MM.applyOps([{ type: "create", key: "y", name: "INT-SG-D-YYY", description: "" }, { type: "nest", key: "y", parent: { id: "wd", name: "WAVE" }, child: { ref: "INT-SG-D-YYY", name: "INT-SG-D-YYY" }, kind: "device", size: 0 }], { ledger: Lc, me: null });
+  ok("a create whose throttle never lifts (1 + 5 tries) stops the run; the nest after it is skipped as stopped, never sent", rc2.results[0].ok === false && /throttled — stopped at step 1 of 2/.test(rc2.results[0].note) && rc2.results[1].skipped && /stopped/.test(rc2.results[1].note) && rc2.stopped && calls.filter((c) => c[0] === "POST" && c[1] === "/groups").length === 6 && waits.length === 5, JSON.stringify([rc2.results.map((r) => [r.ok, r.skipped, r.note]), calls.length]));
+  calls.length = 0; waits.length = 0; createFaults = [throttle(1), null];
+  const rc3 = await MM.applyOps([{ type: "nest", key: "z", parent: { id: "wd", name: "WAVE" }, child: { id: "new-1", name: "INT-SG-D-XXX" }, kind: "device", size: 0 }], { ledger: Lc, me: null });
+  ok("a nest that is throttled once waits and goes", rc3.results[0].ok === true && waits.join() === "1250" && calls.filter((c) => /members\/\$ref$/.test(c[1])).length === 2, JSON.stringify([rc3.results[0], waits]));
+
   console.log(`T28 throttle: ${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
 }

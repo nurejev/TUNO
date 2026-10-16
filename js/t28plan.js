@@ -88,6 +88,50 @@ const T28Plan = (() => {
     return { r, ops, createdGroups, actualDone, verifiedDone, uncertain, okN, preSkipped, stopped: r.stopped || "", ledgerStopped };
   }
 
+  // ------------------------------------------- the per-item contract --
+  // (10725, Phase 2.5) The policy engines — ⚔️ ASR modes, 🧩 Edge lists —
+  // write one policy per step: read it fresh, refuse if it drifted since
+  // the dry run, write, read back, verify; stop at the first failure when
+  // asked. That loop existed twice; it lives here once.
+  // deps: ensureScopes, writeScopes, stillCurrent, ledger(plan) → L,
+  //   stopOnFail, readFresh(item) → fr, drifted(item, fr) → bool,
+  //   prepare(item, fr) → { body, missing: [] } | the write input,
+  //   write(item, fr, prepared), readBack(item) → back,
+  //   verified(item, back) → bool, afterItem(item, back) (optional),
+  //   summary(item) → text for the line, notVerifiedWhy, missingWord
+  // → { done: [{ id, key, name, changes }], lines, okN, stopped }
+  async function runItems(plan, deps) {
+    const p = plan;
+    if (!p || !Array.isArray(p.items)) throw new Error("No plan to apply.");
+    await deps.ensureScopes(deps.writeScopes);
+    if (deps.stillCurrent && !deps.stillCurrent()) throw new Error("Plan context changed. Create a new plan.");
+    const L = deps.ledger ? deps.ledger(p) : null;
+    const done = [], lines = [];
+    let okN = 0, halt = false;
+    for (let i = 0; i < p.items.length; i++) {
+      const x = p.items[i];
+      if ((L && L.stopped) || halt) { if (L) L.skip(i, L.stopped ? "stopped" : "stopped at the first failure"); lines.push(`${x.name}: skipped`); continue; }
+      if (L) L.start(i);
+      try {
+        const fr = await deps.readFresh(x);
+        if (deps.drifted(x, fr)) { if (L) L.skip(i, "changed in the tenant since the dry run — not written", "drifted"); lines.push(`${x.name}: drifted — not written`); continue; }
+        const w = deps.prepare(x, fr);
+        if (w && Array.isArray(w.missing) && w.missing.length) { if (L) L.fail(i, `${deps.missingWord || "setting"} not found: ${w.missing.join(", ")}`, "not written"); lines.push(`${x.name}: not written — ${deps.missingWord || "setting"} not found`); halt = !!deps.stopOnFail; continue; }
+        await deps.write(x, fr, w);
+        const back = await deps.readBack(x);
+        if (deps.afterItem) deps.afterItem(x, back);
+        const summary = deps.summary ? deps.summary(x) : "";
+        if (deps.verified(x, back)) {
+          if (L) L.done(i, "", "written · verified"); okN++;
+          done.push({ id: x.id, key: x.key, name: x.name, changes: x.changes });
+          lines.push(`${x.name}: ${summary} — written · verified`);
+        } else { if (L) L.fail(i, deps.notVerifiedWhy || "the read-back does not show the change", "written · NOT verified"); lines.push(`${x.name}: ${summary} — written · NOT verified`); halt = !!deps.stopOnFail; }
+      } catch (e) { const why = shortErr(e, 200); if (L) L.fail(i, why); lines.push(`${x.name}: failed — ${why}`); halt = !!deps.stopOnFail; }
+    }
+    if (L && L.finish) L.finish();
+    return { done, lines, okN, stopped: !!(L && L.stopped) || halt };
+  }
+
   // ----------------------------------------------------- the record --
   // The run as 📜 and T28Runs keep it. opWord / opLabel come from the
   // controller (they know the wording of each op kind); extra holds the
@@ -141,5 +185,5 @@ const T28Plan = (() => {
     return `${op.type}|${lc(op.group && (op.group.id || op.group.ref))}|${op.memberKind || "device"}|${(op.ids || []).map(lc).sort().join(",")}`;
   }
 
-  return { run, record, resume, opKey };
+  return { run, runItems, record, resume, opKey };
 })();

@@ -1515,7 +1515,7 @@ const MdeRolloutV2Tool = (() => {
         <h4 style="margin:0 0 4px">${esc(r.title)} <span class="mini muted">${esc(today ? when.toLocaleTimeString() : when.toLocaleString())}${r.by ? ` · ${esc(r.by)}` : ""}</span></h4>
         <p class="mini" style="margin:0 0 6px">${r.ok} written &amp; verified · ${r.bad} not clean${r.stopped ? " · stopped early" : ""}${r.kind === "groups" || r.kind === "members" ? "" : ` · ${plural(r.backup.policies.length, "policy", "policies")} in the backup`}</p>
         <ul class="mini" style="margin:0 0 8px;padding-left:18px">${r.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
-        ${r.kind === "groups" ? "" : r.kind === "members" ? ((r.done && r.done.some((d) => d.type !== "create")) || (r.stopped && Array.isArray(r.ops) && T28Plan.resume(r)) ? `<div class="tb-actions">${r.done && r.done.some((d) => d.type !== "create") ? `<button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button>` : ""}${r.stopped && Array.isArray(r.ops) && T28Plan.resume(r) ? `<button class="btn primary" data-mrresume="${idx}">↷ Resume this run — plan the steps left</button>` : ""}</div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
+        ${r.kind === "groups" ? "" : r.kind === "members" ? ((r.done && r.done.some((d) => d.type !== "create")) || ((r.stopped || r.bad > 0) && Array.isArray(r.ops) && T28Plan.resume(r)) ? `<div class="tb-actions">${r.done && r.done.some((d) => d.type !== "create") ? `<button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button>` : ""}${(r.stopped || r.bad > 0) && Array.isArray(r.ops) && T28Plan.resume(r) ? `<button class="btn primary" data-mrresume="${idx}">↷ Resume this run — plan the steps left</button>` : ""}</div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
       </div>`;
     }).join("");
   }
@@ -2328,39 +2328,24 @@ const MdeRolloutV2Tool = (() => {
     busy = true;
     const p = plan;
     try {
-      await Graph.ensureScopes(AssignEdit.WRITE());
-      if (plan !== p || !gateOk()) throw new Error("Plan context changed. Create a new plan.");
-      $("mvApply").disabled = true;
-      const L = RunLedger.create($("mvLedger"), { unit: "policies", title: p.title,
-        items: p.items.map((x) => ({ label: x.name, sub: x.changes.map((c) => `${c.name}: ${modeWord(c.from)} → ${modeWord(c.to)}`).join(" · ") })) });
-      const stopOnFail = $("mvStop") && $("mvStop").checked;
-      const done = [], lines = [];
-      let okN = 0, halt = false;
-      for (let i = 0; i < p.items.length; i++) {
-        const x = p.items[i];
-        if (L.stopped || halt) { L.skip(i, L.stopped ? "stopped" : "stopped at the first failure"); lines.push(`${x.name}: skipped`); continue; }
-        L.start(i);
-        try {
-          const fr = await asrReadOne(x.id);
-          const moved = (fr.policy && fr.policy.lastModifiedDateTime) !== x.lastMod || x.changes.some((c) => MdeAsr.modeIn(fr.settings, c.slug) !== c.from);
-          if (moved) { L.skip(i, "changed in the tenant since the dry run — not written", "drifted"); lines.push(`${x.name}: drifted — not written`); continue; }
-          const w = MdeAsr.withModes(fr.settings, x.changes);
-          if (w.missing.length) { L.fail(i, `rule not found: ${w.missing.join(", ")}`, "not written"); lines.push(`${x.name}: not written — rule not found`); halt = stopOnFail; continue; }
-          await Graph.put(Graph.BETA + asrPolUrl(x.id), MdeAsr.putBody(fr.policy, w.settings), { scopes: AssignEdit.WRITE() });
-          const back = await Graph.readAll(`${asrPolUrl(x.id)}/settings?$expand=settingDefinitions&$top=1000`, { scopes: Graph.SCOPES.config, beta: true, retry: true });
-          const P = model.byKey.get(x.key);
-          if (P && P.raw) P.raw.__detail = back;
-          const summary = x.changes.map((c) => `${c.name} ${modeWord(c.from)} → ${modeWord(c.to)}`).join("; ");
-          if (MdeAsr.verified(back, x.changes)) {
-            L.done(i, "", "written · verified"); okN++;
-            done.push({ id: x.id, key: x.key, name: x.name, changes: x.changes });
-            lines.push(`${x.name}: ${summary} — written · verified`);
-          } else { L.fail(i, "the read-back does not show the new mode", "written · NOT verified"); lines.push(`${x.name}: ${summary} — written · NOT verified`); halt = stopOnFail; }
-        } catch (e) { const why = GroupUse.shortErr(e, 200); L.fail(i, why); lines.push(`${x.name}: failed — ${why}`); halt = stopOnFail; }
-      }
-      L.finish();
-      logRun({ at: Date.now(), title: p.title, kind: "settings", ok: okN, bad: p.items.length - okN, stopped: L.stopped,
-        risk: v2Risk, backup: JSON.parse(asrBackup(p)), done, lines });
+      // 10725 (Phase 2.5): the per-item contract — read fresh, refuse drift, write, read back, verify — lives in T28Plan.runItems
+      const out = await T28Plan.runItems(p, {
+        ensureScopes: (sc) => Graph.ensureScopes(sc), writeScopes: AssignEdit.WRITE(),
+        stillCurrent: () => plan === p && gateOk(),
+        ledger: (pl) => { $("mvApply").disabled = true; return RunLedger.create($("mvLedger"), { unit: "policies", title: pl.title, items: pl.items.map((x) => ({ label: x.name, sub: x.changes.map((c) => `${c.name}: ${modeWord(c.from)} → ${modeWord(c.to)}`).join(" · ") })) }); },
+        stopOnFail: $("mvStop") && $("mvStop").checked,
+        readFresh: (x) => asrReadOne(x.id),
+        drifted: (x, fr) => (fr.policy && fr.policy.lastModifiedDateTime) !== x.lastMod || x.changes.some((c) => MdeAsr.modeIn(fr.settings, c.slug) !== c.from),
+        prepare: (x, fr) => MdeAsr.withModes(fr.settings, x.changes), missingWord: "rule",
+        write: (x, fr, w) => Graph.put(Graph.BETA + asrPolUrl(x.id), MdeAsr.putBody(fr.policy, w.settings), { scopes: AssignEdit.WRITE() }),
+        readBack: (x) => Graph.readAll(`${asrPolUrl(x.id)}/settings?$expand=settingDefinitions&$top=1000`, { scopes: Graph.SCOPES.config, beta: true, retry: true }),
+        afterItem: (x, back) => { const P = model.byKey.get(x.key); if (P && P.raw) P.raw.__detail = back; },
+        summary: (x) => x.changes.map((c) => `${c.name} ${modeWord(c.from)} → ${modeWord(c.to)}`).join("; "),
+        verified: (x, back) => MdeAsr.verified(back, x.changes), notVerifiedWhy: "the read-back does not show the new mode",
+      });
+      const { done, lines, okN } = out;
+      logRun({ at: Date.now(), title: p.title, kind: "settings", ok: okN, bad: p.items.length - okN, stopped: out.stopped,
+        risk: v2Risk, backup: JSON.parse(asrBackup(p)), done, lines, items: p.items.map((x) => ({ id: x.id, key: x.key, name: x.name })) });
       PolicyCache.invalidate();
       for (const d of done) for (const c of d.changes) asr.edits.delete(`${d.key}|${c.slug}`);
       plan = null; backupTaken = false;
@@ -2850,40 +2835,23 @@ const MdeRolloutV2Tool = (() => {
     busy = true;
     const p = plan;
     try {
-      await Graph.ensureScopes(AssignEdit.WRITE());
-      if (plan !== p || !gateOk()) throw new Error("Plan context changed. Create a new plan.");
-      $("mvApply").disabled = true;
-      const L = RunLedger.create($("mvLedger"), { unit: "policies", title: p.title,
-        items: p.items.map((x) => ({ label: x.name, sub: x.changes.map(extChangeLine).join(" · ") })) });
-      const stopOnFail = $("mvStop") && $("mvStop").checked;
-      const done = [], lines = [];
-      let okN = 0, halt = false;
-      for (let i = 0; i < p.items.length; i++) {
-        const x = p.items[i];
-        if (L.stopped || halt) { L.skip(i, L.stopped ? "stopped" : "stopped at the first failure"); lines.push(`${x.name}: skipped`); continue; }
-        L.start(i);
-        try {
-          const fr = await asrReadOne(x.id);
-          const nowL = MdeEdgeExt.listsIn(fr.settings);
-          const moved = (fr.policy && fr.policy.lastModifiedDateTime) !== x.lastMod || !MdeEdgeExt.same(nowL.force, x.before.force) || !MdeEdgeExt.same(nowL.allow, x.before.allow);
-          if (moved) { L.skip(i, "changed in the tenant since the dry run — not written", "drifted"); lines.push(`${x.name}: drifted — not written`); continue; }
-          const w = MdeEdgeExt.withLists(fr.settings, x.after);
-          if (w.missing.length) { L.fail(i, `setting not found: ${w.missing.join(", ")}`, "not written"); lines.push(`${x.name}: not written — setting not found`); halt = stopOnFail; continue; }
-          await Graph.put(Graph.BETA + asrPolUrl(x.id), MdeEdgeExt.putBody(fr.policy, w.settings), { scopes: AssignEdit.WRITE() });
-          const back = await Graph.readAll(`${asrPolUrl(x.id)}/settings?$expand=settingDefinitions&$top=1000`, { scopes: Graph.SCOPES.config, beta: true, retry: true });
-          const P = model.byKey.get(x.key);
-          if (P && P.raw) P.raw.__detail = back;
-          const summary = x.changes.map(extChangeLine).join("; ");
-          if (MdeEdgeExt.verified(back, x.after)) {
-            L.done(i, "", "written · verified"); okN++;
-            done.push({ id: x.id, key: x.key, name: x.name, changes: x.changes });
-            lines.push(`${x.name}: ${summary} — written · verified`);
-          } else { L.fail(i, "the read-back does not show the new lists", "written · NOT verified"); lines.push(`${x.name}: ${summary} — written · NOT verified`); halt = stopOnFail; }
-        } catch (e) { const why = GroupUse.shortErr(e, 200); L.fail(i, why); lines.push(`${x.name}: failed — ${why}`); halt = stopOnFail; }
-      }
-      L.finish();
-      logRun({ at: Date.now(), title: p.title, kind: "edgeext", ok: okN, bad: p.items.length - okN, stopped: L.stopped,
-        risk: v2Risk, backup: JSON.parse(extBackup(p)), done: done.length ? done[0].changes : [], lines });
+      const out = await T28Plan.runItems(p, {
+        ensureScopes: (sc) => Graph.ensureScopes(sc), writeScopes: AssignEdit.WRITE(),
+        stillCurrent: () => plan === p && gateOk(),
+        ledger: (pl) => { $("mvApply").disabled = true; return RunLedger.create($("mvLedger"), { unit: "policies", title: pl.title, items: pl.items.map((x) => ({ label: x.name, sub: x.changes.map(extChangeLine).join(" · ") })) }); },
+        stopOnFail: $("mvStop") && $("mvStop").checked,
+        readFresh: (x) => asrReadOne(x.id),
+        drifted: (x, fr) => { const nowL = MdeEdgeExt.listsIn(fr.settings); return (fr.policy && fr.policy.lastModifiedDateTime) !== x.lastMod || !MdeEdgeExt.same(nowL.force, x.before.force) || !MdeEdgeExt.same(nowL.allow, x.before.allow); },
+        prepare: (x, fr) => MdeEdgeExt.withLists(fr.settings, x.after), missingWord: "setting",
+        write: (x, fr, w) => Graph.put(Graph.BETA + asrPolUrl(x.id), MdeEdgeExt.putBody(fr.policy, w.settings), { scopes: AssignEdit.WRITE() }),
+        readBack: (x) => Graph.readAll(`${asrPolUrl(x.id)}/settings?$expand=settingDefinitions&$top=1000`, { scopes: Graph.SCOPES.config, beta: true, retry: true }),
+        afterItem: (x, back) => { const P = model.byKey.get(x.key); if (P && P.raw) P.raw.__detail = back; },
+        summary: (x) => x.changes.map(extChangeLine).join("; "),
+        verified: (x, back) => MdeEdgeExt.verified(back, x.after), notVerifiedWhy: "the read-back does not show the new lists",
+      });
+      const { done, lines, okN } = out;
+      logRun({ at: Date.now(), title: p.title, kind: "edgeext", ok: okN, bad: p.items.length - okN, stopped: out.stopped,
+        risk: v2Risk, backup: JSON.parse(extBackup(p)), done: done.length ? done[0].changes : [], lines, items: p.items.map((x) => ({ id: x.id, key: x.key, name: x.name })) });
       PolicyCache.invalidate();
       for (const d of done) for (const c of d.changes) ext.edits.delete(MdeEdgeExt.keyOf(c.list, c.entry.id));
       plan = null; backupTaken = false;

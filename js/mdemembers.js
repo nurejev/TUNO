@@ -1708,6 +1708,21 @@ const MdeMembers = (() => {
   const throttleWait = (e, attempt) => { const ra = parseInt(e && e.retryAfter, 10); return (Number.isFinite(ra) && ra > 0 ? ra * 1000 : THROTTLE_BACKOFF[Math.min(attempt, THROTTLE_BACKOFF.length - 1)]) + 250; };
   // the outcome of a write that timed out is unknown — never resent here
   const unknownOutcome = (e) => !!e && (e.kind === "network" || e.status === 504 || /did not complete|timed? ?out/i.test(msg(e)));
+  // 10725 (Phase 2.5, a devcf lab finding): the creates, nests, renames and
+  // deletes get the same patience as the member writes — a 429 / 503 waits
+  // Retry-After (else the ladder) and sends the SAME request again, up to
+  // THROTTLE_TRIES; a throttle that never lifts stops the run there
+  async function withThrottle(fn) {
+    let throttles = 0;
+    for (;;) {
+      try { return await fn(); }
+      catch (e) {
+        if (throttled(e) && throttles < THROTTLE_TRIES) { await wait(throttleWait(e, throttles++)); continue; }
+        if (throttled(e)) { e.neverLifted = true; }
+        throw e;
+      }
+    }
+  }
   const stoppedWhy = (op, i, n) => `throttled — stopped at ${op} ${i} of ${n}: the tenant kept refusing after ${THROTTLE_TRIES} waits. Nothing after it was sent; ↻ Read again before the next run.`;
   // Twenty per PATCH — Graph's limit. A new group can refuse references for
   // a few seconds while it replicates (Learn: "Add members", note), so a
@@ -1811,8 +1826,8 @@ const MdeMembers = (() => {
       try {
         if (op.type === "create") {
           let r;
-          try { r = await MdeRollout.createWave(op.name, op.description, o.me || null); }
-          catch (e) { failedCreates.add(lc(op.name)); fail(msg(e).slice(0, 240)); continue; }
+          try { r = await withThrottle(() => MdeRollout.createWave(op.name, op.description, o.me || null)); }
+          catch (e) { failedCreates.add(lc(op.name)); if (e && e.neverLifted) { fail(stoppedWhy("step", i + 1, ops.length), "STOPPED"); stopRun = stoppedWhy("step", i + 1, ops.length); } else fail(msg(e).slice(0, 240)); continue; }
           if (r.skipped && r.group) { created.set(lc(op.name), lc(r.group.id)); if (L) L.done(i, r.why, "exists — used as is"); results.push({ op, ok: true, verified: true, note: r.why }); continue; }
           if (!r.group || !r.group.id) { failedCreates.add(lc(op.name)); fail("the create returned no group"); continue; }
           created.set(lc(op.name), lc(r.group.id));
@@ -1876,11 +1891,11 @@ const MdeMembers = (() => {
           if (!child) { fail(op.child && op.child.ref && failedCreates.has(lc(op.child.ref)) ? "its group was not created" : "the group to nest has no id"); continue; }
           const parent = op.parent.id;
           if (op.type === "nest") {
-            try { await Graph.post(`/groups/${enc(parent)}/members/$ref`, { "@odata.id": ref(child) }, { scopes: W() }); }
-            catch (e) { if (!already(e)) throw e; }
+            try { await withThrottle(() => Graph.post(`/groups/${enc(parent)}/members/$ref`, { "@odata.id": ref(child) }, { scopes: W() })); }
+            catch (e) { if (e && e.neverLifted) { fail(stoppedWhy("step", i + 1, ops.length), "STOPPED"); stopRun = stoppedWhy("step", i + 1, ops.length); continue; } if (!already(e)) throw e; }
           } else {
-            try { await Graph.del(`/groups/${enc(parent)}/members/${enc(child)}/$ref`, { scopes: W() }); }
-            catch (e) { if (!(e && (e.kind === "notfound" || e.status === 404))) throw e; }
+            try { await withThrottle(() => Graph.del(`/groups/${enc(parent)}/members/${enc(child)}/$ref`, { scopes: W() })); }
+            catch (e) { if (e && e.neverLifted) { fail(stoppedWhy("step", i + 1, ops.length), "STOPPED"); stopRun = stoppedWhy("step", i + 1, ops.length); continue; } if (!(e && (e.kind === "notfound" || e.status === 404))) throw e; }
           }
           let verified = false, note = "";
           try { const now = await readGroupIds(parent); verified = op.type === "nest" ? now.has(lc(child)) : !now.has(lc(child)); if (!verified) note = "the read-back does not show it yet"; }

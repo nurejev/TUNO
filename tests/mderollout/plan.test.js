@@ -94,6 +94,31 @@ async function main() {
   ok("a run with everything done, or without saved ops, has nothing to resume", P.resume({ ops: stoppedRun.ops, done: stoppedRun.ops }) === null && P.resume({ title: "old (10716)", done: [] }) === null);
   ok("opKey tells ops apart by kind, target and members, and ignores order of ids", P.opKey(addOp(["u2", "u3"])) === P.opKey(addOp(["u3", "u2"])) && P.opKey(addOp(["u2"])) !== P.opKey(addOp(["u2"], { group: { id: "su-de" } })) && P.opKey({ type: "nest", parent: { id: "A" }, child: { ref: "x" } }) === "nest|a|x");
 
+  // ------------------------------------------- runItems (10725) --
+  const items = [{ id: "p1", key: "k1", name: "Policy one", changes: [1], lastMod: "a" }, { id: "p2", key: "k2", name: "Policy two", changes: [1], lastMod: "b" }, { id: "p3", key: "k3", name: "Policy three", changes: [1], lastMod: "c" }];
+  const log = [];
+  const L2 = { stopped: false, start: (i) => log.push(["start", i]), skip: (i, w) => log.push(["skip", i, w]), fail: (i, w, l) => log.push(["fail", i, w, l]), done: (i, w, l) => log.push(["done", i, l]), finish: () => log.push(["finish"]) };
+  const base = (over) => Object.assign({
+    ensureScopes: async () => {}, writeScopes: ["x"], stillCurrent: () => true, ledger: () => L2, stopOnFail: false,
+    readFresh: async (x) => ({ policy: { lastModifiedDateTime: x.lastMod }, settings: [] }),
+    drifted: (x, fr) => fr.policy.lastModifiedDateTime !== x.lastMod,
+    prepare: () => ({ settings: [], missing: [] }), write: async () => {}, readBack: async () => ["back"], verified: () => true, summary: (x) => `${x.name} changed`, notVerifiedWhy: "no", missingWord: "rule",
+  }, over || {});
+  const ri = await P.runItems({ items }, base());
+  ok("runItems: every item read fresh, written, read back, verified — done, lines, okN; the ledger walked start → done, then finished", ri.okN === 3 && ri.done.length === 3 && ri.lines.every((l) => /written · verified/.test(l)) && !ri.stopped && log.filter((e) => e[0] === "done").length === 3 && log[log.length - 1][0] === "finish");
+  log.length = 0;
+  const ri2 = await P.runItems({ items }, base({ readFresh: async (x) => ({ policy: { lastModifiedDateTime: x.id === "p2" ? "moved" : x.lastMod }, settings: [] }) }));
+  ok("a policy that drifted since the dry run is skipped as drifted, not written; the others go", ri2.okN === 2 && /drifted — not written/.test(ri2.lines[1]) && log.some((e) => e[0] === "skip" && e[1] === 1 && /changed in the tenant/.test(e[2])));
+  log.length = 0;
+  const ri3 = await P.runItems({ items }, base({ stopOnFail: true, prepare: (x) => ({ settings: [], missing: x.id === "p1" ? ["Block abc"] : [] }) }));
+  ok("stop on fail: a rule not found fails its step and the rest is skipped as stopped at the first failure", ri3.okN === 0 && ri3.stopped && /not written — rule not found/.test(ri3.lines[0]) && ri3.lines[1] === "Policy two: skipped" && ri3.lines[2] === "Policy three: skipped");
+  const ri4 = await P.runItems({ items }, base({ verified: (x) => x.id !== "p3" }));
+  ok("a write that does not read back is 'written · NOT verified' and not counted done", ri4.okN === 2 && /written · NOT verified/.test(ri4.lines[2]) && ri4.done.length === 2);
+  const ri5 = await P.runItems({ items }, base({ write: async (x) => { if (x.id === "p2") throw new Error("503 boom"); } }));
+  ok("a write that throws fails that item with the error; the others go", ri5.okN === 2 && /failed — 503 boom/.test(ri5.lines[1]));
+  let threw2 = ""; try { await P.runItems({ items }, base({ stillCurrent: () => false })); } catch (e) { threw2 = e.message; }
+  ok("the plan on screen changed → refused before anything is written", /Plan context changed/.test(threw2));
+
   console.log(`T28 plan contract: ${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
 }
