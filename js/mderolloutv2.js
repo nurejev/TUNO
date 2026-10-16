@@ -1513,7 +1513,7 @@ const MdeRolloutV2Tool = (() => {
         <h4 style="margin:0 0 4px">${esc(r.title)} <span class="mini muted">${esc(today ? when.toLocaleTimeString() : when.toLocaleString())}${r.by ? ` · ${esc(r.by)}` : ""}</span></h4>
         <p class="mini" style="margin:0 0 6px">${r.ok} written &amp; verified · ${r.bad} not clean${r.stopped ? " · stopped early" : ""}${r.kind === "groups" || r.kind === "members" ? "" : ` · ${plural(r.backup.policies.length, "policy", "policies")} in the backup`}</p>
         <ul class="mini" style="margin:0 0 8px;padding-left:18px">${r.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
-        ${r.kind === "groups" ? "" : r.kind === "members" ? (r.done && r.done.some((d) => d.type !== "create") ? `<div class="tb-actions"><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
+        ${r.kind === "groups" ? "" : r.kind === "members" ? ((r.done && r.done.some((d) => d.type !== "create")) || (r.stopped && Array.isArray(r.ops) && T28Plan.resume(r)) ? `<div class="tb-actions">${r.done && r.done.some((d) => d.type !== "create") ? `<button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button>` : ""}${r.stopped && Array.isArray(r.ops) && T28Plan.resume(r) ? `<button class="btn primary" data-mrresume="${idx}">↷ Resume this run — plan the steps left</button>` : ""}</div>` : "") : `<div class="tb-actions"><button class="btn" data-mrrunbk="${idx}">⭳ Backup file</button><button class="btn" data-mrundo="${idx}">↶ Undo this run — plan it</button></div>`}
       </div>`;
     }).join("");
   }
@@ -3680,6 +3680,23 @@ const MdeRolloutV2Tool = (() => {
       title: undoOf ? `Undo: ${undoOf.title}` : `Wave members — ${plural(new Set(p.ops.map((x) => x.key)).size, "country", "countries")}${p.migrate && p.migrate.length ? ` · 🧪 ${p.migrate.map((m) => m.country).join(", ")} migrated to the wave` : ""}` });
     renderMemPlan();
   }
+  // ↷ (10723, Phase 2.3): RESUME a run that stopped — a throttle the tenant
+  // never lifted, a failed step, a closed tab. The steps the run did not do
+  // (by T28Plan.opKey, so a step verified later is not done twice) become a
+  // new plan through the whole contract: a NEW backup reads the targets
+  // again, the hold-back is re-read at Apply, and the apply refuses if the
+  // targets changed meanwhile. Nothing from the saved plan is trusted
+  // blindly.
+  function resumeRun(idx) {
+    const r = runs[idx];
+    if (!r || busy || r.kind !== "members") return;
+    const p = T28Plan.resume(r);
+    if (!p) { planAnchor = null; clearPlan(); seatPlan(); planError("Nothing left to resume — every step of that run read back clean."); return; }
+    pane = "members"; render();
+    planAnchor = null; clearPlan(); seatPlan();
+    plan = Object.assign(p, { members: true, region: r.region || undefined, exclusions: !!r.exclusions, resumeOf: r.id || null, title: p.title });
+    renderMemPlan();
+  }
   const OP_WORD = { create: "create group", add: "add devices", remove: "remove devices", nest: "nest", unnest: "take out", swapcheck: "check the sets", rename: "rename group", deletegroup: "delete group" };
   const opWord = (x) => (x.type === "add" || x.type === "remove") && x.memberKind === "user" ? (x.type === "add" ? "add users" : "remove users") : OP_WORD[x.type];
   const opLabel = (x) => x.type === "create" ? `${x.name}` : x.type === "rename" ? `${x.from} → ${x.to}` : x.type === "deletegroup" ? `${x.group.name} — empty, on no assignment` : x.type === "add" || x.type === "remove" ? `${x.group.name} · ${x.label}` : x.type === "swapcheck" ? `every user of ${x.source.name} is in ${x.target.name}, and it is in ${x.wave.name} — else ${x.source.name} stays` : `${x.child.name} → ${x.parent.name}`;
@@ -3730,6 +3747,8 @@ const MdeRolloutV2Tool = (() => {
         ? "Likely impact: an added member gets the new MDE policies at its next Intune check-in (the old ones leave once ⚡③ excluded the wave); a removed one goes back to the old set. Held-back members stay out unless re-included with the confirm. Way back: 📜 Undo — the inverse of what was written."
         : p.runKind === "testmembers"
         ? "Likely impact: at their next Intune check-in the added users and devices get what the wave is assigned — the new MDE policies, and once ⚡③ excluded the wave, no longer the old ones. A member moved to live changes nothing on the device: the same wave through the nested country group, only the test route goes. A test member taken out completely goes back to whatever their country gives them. The test group is not a country group: no 👥 / 🔄 sync adds to it or takes from it. Way back: 📜 Undo — the inverse of what was written (a group this run created is left in place, empty after the undo)."
+        : p.resumeOf
+        ? "Likely impact: the steps the stopped run did not do, nothing else — the backup below reads the groups again, the hold-back is read again at Apply, and Apply refuses if the groups changed since the backup. Way back: 📜 undo of this run."
         : p.runKind === "waves"
         ? "Likely impact: none on any device — empty assigned security groups, owned by you, on no assignment; a group found under the same name meanwhile is used as is, never made twice. Way back: a group this run created is listed in 📜; delete it in Entra (an empty group on no assignment) — 📜 cannot undo a create."
         : p.runKind === "renamewaves"
@@ -3853,7 +3872,7 @@ const MdeRolloutV2Tool = (() => {
         writeJson(syncKey(), synced);
       }
       logRun(T28Plan.record(p, out, { opWord, opLabel, backupOf: () => ({ policies: [], membership: v2MemberBackup }) },
-        { region: p.region || undefined, reason: p.reason || undefined, exclusions: !!p.exclusions, risk: v2Risk, pilots: !!p.pilotsReady, migrate: migrated }));
+        { region: p.region || undefined, reason: p.reason || undefined, exclusions: !!p.exclusions, risk: v2Risk, pilots: !!p.pilotsReady, migrate: migrated, resumeOf: p.resumeOf || undefined }));
       plan = null;
       // 📋 (10651): the list's rows move with any run; a list run starts
       // its ticks again (what failed is ticked for another go)
@@ -5309,6 +5328,7 @@ const MdeRolloutV2Tool = (() => {
       }
       const bk = t.closest("[data-mrrunbk]"); if (bk) { const r = runs[Number(bk.dataset.mrrunbk)]; if (r) download(`t28-assignments-before-${stamp()}.json`, JSON.stringify(r.backup, null, 2), "application/json"); return; }
       const un = t.closest("[data-mrundo]"); if (un) { undoRun(Number(un.dataset.mrundo)); return; }
+      const rsm = t.closest("[data-mrresume]"); if (rsm) { resumeRun(Number(rsm.dataset.mrresume)); return; }
       // 🎛 Adjust settings (10657)
       const af = t.closest("[data-mrasrf]"); if (af) { asr.filter = af.dataset.mrasrf; render(); return; }
       if (t.id === "mvAsrBase") { asrSetBaseline(); return; }
@@ -5731,7 +5751,7 @@ const MdeRolloutV2Tool = (() => {
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
     _readCache: () => Graph.readCache.stats(), _readGen: () => readGen,
-    _state28: () => state28, _stateRead: stateRead, _stateWrite: stateWrite, _runsStore: () => runsStore, _loadRuns: loadRuns, _region: (r) => { if (r !== undefined) regionSet(r); return regionSel; }, _saveCfg: (c) => { saveCfg(c); derive(); render(); },
+    _resumeRun: resumeRun, _state28: () => state28, _stateRead: stateRead, _stateWrite: stateWrite, _runsStore: () => runsStore, _loadRuns: loadRuns, _region: (r) => { if (r !== undefined) regionSet(r); return regionSel; }, _saveCfg: (c) => { saveCfg(c); derive(); render(); },
     _projectFile: (pf) => { if (pf !== undefined) { projectFile = pf; loadCfg(); derive(); render(); } return projectFile; }, _projectFileText: projectFileText,
     _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, wc, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, ob, dash, dashModel, dashInput, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),
     _pane: (p) => { pane = p; render(); },

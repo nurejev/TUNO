@@ -101,7 +101,7 @@ const T28Plan = (() => {
       ok: okN, bad: r.results.length - okN, stopped: out.ledgerStopped || !!r.stopped,
       backup: backupOf ? backupOf() : { policies: [] },
       done: verifiedDone, uncertainDone: actualDone.filter((x) => !verifiedDone.includes(x)),
-      ops: plan.ops, lines,
+      ops: plan.ops, created: [...(r.created || new Map()).entries()], lines,
     }, extra || {});
   }
 
@@ -114,7 +114,17 @@ const T28Plan = (() => {
   function resume(run) {
     if (!run || !Array.isArray(run.ops) || !run.ops.length) return null;
     const doneKeys = new Set((run.done || []).map(opKey));
-    const left = run.ops.filter((op) => !doneKeys.has(opKey(op)));
+    // a step that pointed at a group the run was to create ({ ref: name })
+    // points at the group the run DID create, by its id
+    const created = new Map((run.created || []).map(([n, id]) => [lc(n), id]));
+    const fix = (g) => (g && !g.id && g.ref && created.has(lc(g.ref)) ? Object.assign({}, g, { id: created.get(lc(g.ref)) }) : g);
+    const left = run.ops.filter((op) => !doneKeys.has(opKey(op))).map((op) => {
+      const o = Object.assign({}, op);
+      if (o.group) o.group = fix(o.group);
+      if (o.child) o.child = fix(o.child);
+      if (o.parent) o.parent = fix(o.parent);
+      return o;
+    });
     if (!left.length) return null;
     return { ops: left, skipped: [], warnings: [], inPlace: [], hasRemoval: left.some((o) => o.type === "remove" || o.type === "unnest"), runKind: run.runKind || null,
       title: `Resume: ${run.title}`, resumeOf: run.id || null,
