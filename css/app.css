@@ -1387,6 +1387,8 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 .t28-stage-dot.ok{background:color-mix(in srgb,var(--on) 18%,transparent);border-color:var(--on);color:var(--on)}
 .t28-stage-dot.now{background:color-mix(in srgb,var(--report) 18%,transparent);border-color:var(--report);color:var(--report);font-weight:600}
 .t28-stage-dot.unk{border-color:var(--report);color:var(--report)}
+.t28-stage-lines{margin:4px 0 0;padding-left:0;list-style:none;color:var(--muted)}
+.t28-stage-lines li.todo{color:var(--text)}
 .t28-next{margin-top:12px;padding:10px 14px;border-radius:10px;background:var(--soft2)}
 .t28-next p{margin:2px 0 8px}
 .gu-row-link{cursor:pointer}

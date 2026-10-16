@@ -38,7 +38,7 @@ const T28Spine = (() => {
   //   held              { users, devices } held back in this wave; pinned, skipped counts; or null
   function stages(input) {
     const I = input || {};
-    const out = STAGES.map((s) => Object.assign({}, s, { state: "unknown", detail: "", next: null }));
+    const out = STAGES.map((s) => Object.assign({}, s, { state: "unknown", detail: "", next: null, lines: [] }));
     const by = Object.fromEntries(out.map((s) => [s.id, s]));
 
     // 1 · Set up
@@ -57,6 +57,12 @@ const T28Spine = (() => {
       else if (missing.length) { s.state = "todo"; s.detail = `${missing.join(", ")} to create`; s.next = { text: `Create the ${missing.length === 1 ? missing[0] : plural(missing.length, "group")} for ${I.region} (🌊 / ⚡ ⓪)`, pane: "waves" }; }
       else if (T && testMissing.length) { s.state = "todo"; s.detail = `${plural(testMissing.length, "test group")} to create or nest`; s.next = { text: `Create and nest the ${I.region} test groups (⚡ ⓪)`, pane: "waves" }; }
       else { s.state = "ok"; s.detail = T ? "groups in place, test groups nested" : "groups in place"; }
+      // 3.2: the groups, one line each
+      if (I.waves) {
+        s.lines.push({ ok: !!(w.user && w.user.exists), text: `user wave${w.user && w.user.exists ? "" : " — to create"}` }, { ok: !!(w.device && w.device.exists), text: `device wave${w.device && w.device.exists ? "" : " — to create"}` });
+        if (P.holdBack !== undefined) s.lines.push({ ok: !!P.holdBack, text: `hold-back pair${P.holdBack ? "" : " — to create (⚡ ⓪)"}` });
+        if (T) for (const k of ["user", "device"]) { const t = T[k] || {}; s.lines.push({ ok: !!(t.exists && t.nested), text: `${k} test members${t.exists ? (t.nested ? "" : " — not nested yet") : " — to create (⚡ ⓪)"}` }); }
+      }
     }
     // 2 · Members
     {
@@ -72,6 +78,12 @@ const T28Spine = (() => {
         else if (open.length) { s.state = "todo"; s.detail = `${done.length} of ${rows.length} countries nested${batched.length ? ` · ${plural(batched.length, "pilot")} in batches` : ""}`; s.next = { text: `Fill and nest ${open.map((r) => r.country).join(", ")} (👥)`, pane: "members" }; }
         else if (batched.length) { s.state = "todo"; s.detail = `${done.length} of ${rows.length} nested · ${batched.map((r) => r.country).join(", ")} in batches`; s.next = { text: `Run the next batch of ${batched.map((r) => r.country).join(", ")} (👥)`, pane: "members" }; }
         else { s.state = "ok"; s.detail = `${rows.length} of ${rows.length} countries nested and in sync`; }
+        // 3.2: one line per country — the counts 👥 computes
+        for (const r of rows) {
+          const n = `${plural(r.users || 0, "user")}, ${plural(r.devices || 0, "device")}`;
+          const why = r.unread ? "not read" : done.includes(r) ? "" : batched.includes(r) ? "in batches" : !r.ugNested && !r.dgNested ? "not nested" : !r.ugNested ? "user group not nested" : !r.dgNested ? "device group not nested" : "out of sync";
+          s.lines.push({ ok: done.includes(r), text: `${r.country} — ${n}${why ? ` · ${why}` : ""}` });
+        }
       }
     }
     // 3 · Assign
@@ -83,6 +95,10 @@ const T28Spine = (() => {
         if (A.include) parts.push(`${plural(A.include, "new policy", "new policies")} still without the wave`);
         if (A.excludeOld) parts.push(`${plural(A.excludeOld, "old policy", "old policies")} still reaching it`);
         if (A.filter) parts.push(`the W365/AVD filter on ${plural(A.filter, "assignment")}`);
+        // 3.2: the counts ⚡ computes, one line per step
+        s.lines.push({ ok: !A.include, text: `① include the wave in the new policies${A.include ? ` — ${plural(A.include, "policy", "policies")} to plan` : " — in place"}` },
+          { ok: !A.excludeOld, text: `③ exclude the wave from the old policies${A.excludeOld ? ` — ${plural(A.excludeOld, "policy", "policies")} to plan` : " — in place"}` },
+          { ok: !A.filter, text: `④ W365/AVD filter on the wave assignments${A.filter ? ` — ${plural(A.filter, "assignment")} to plan` : " — in place"}` });
         if (!parts.length) { s.state = "ok"; s.detail = "every new policy includes the wave, the old ones exclude it"; }
         else {
           s.state = by.members.state === "ok" ? "todo" : "wait";
@@ -98,6 +114,7 @@ const T28Spine = (() => {
       else if (L.problems) { s.state = "todo"; s.detail = `${plural(L.problems, "device")} with errors or conflicts of ${L.devices}`; s.next = { text: `Look at the ${plural(L.problems, "device")} that report a problem (📡)`, pane: "landing" }; }
       else if (!L.devices) { s.state = "wait"; s.detail = "no device has reported yet"; }
       else { s.state = "ok"; s.detail = `${L.ok} of ${L.devices} devices report clean`; }
+      if (L && L.read) s.lines.push({ ok: !L.problems, text: `${plural(L.devices, "device")} reporting · ${L.ok} clean · ${L.problems} with a problem` });
     }
     // 5 · Exceptions
     {
@@ -108,6 +125,9 @@ const T28Spine = (() => {
         const extra = [H.pinned ? plural(H.pinned, "pin") : "", H.skipped ? `${H.skipped} skipped` : ""].filter(Boolean).join(" · ");
         s.state = "ok";
         s.detail = n ? `${plural(n, "member")} held back${extra ? ` · ${extra}` : ""}` : `nobody held back${extra ? ` · ${extra}` : ""}`;
+        s.lines.push({ ok: true, text: `${plural(H.users || 0, "user")}, ${plural(H.devices || 0, "device")} held back` });
+        if (H.pinned) s.lines.push({ ok: true, text: `${plural(H.pinned, "device")} pinned to a country` });
+        if (H.skipped) s.lines.push({ ok: true, text: `${plural(H.skipped, "device")} out of scope (skipped)` });
       }
     }
     // the one thing to do next: the first stage that has something to do
@@ -117,5 +137,14 @@ const T28Spine = (() => {
     return { stages: out, current: current ? current.id : null, next: next || (done ? { text: `${I.region} is complete — every stage is in place`, pane: null } : null), done };
   }
 
-  return { STAGES, stages };
+  // 3.3 (Phase 3.3): THE FIVE PLAIN WORDS — what every pane says; the old
+  // names in parentheses are what the tenant's groups are called
+  const WORDS = [
+    { word: "wave", means: "a region's rollout — one user group and one device group the new MDE policies are assigned to (INT-SG-U/D-WAVE-<region>)" },
+    { word: "country group", means: "the static group per country that is nested into its wave, filled from the PVM-UG source group (INT-SG-U/D-<ISO3>)" },
+    { word: "test members", means: "the people and devices that try a wave first, in the wave's test group (INT-SG-U/D-WAVE-<region>-Test)" },
+    { word: "hold-back", means: "a user or device kept on the old policies for now — out of every route into the wave (INT-SG-U/D-MDE-HoldBack)" },
+    { word: "out of scope", means: "a device or policy the rollout never touches — W365/AVD, '-vdi-', the skip group, the leave-out list" },
+  ];
+  return { STAGES, WORDS, stages };
 })();

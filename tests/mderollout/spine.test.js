@@ -68,6 +68,15 @@ function model() {
   const i13 = full(); i13.held = null;
   ok("exceptions unread → unknown; a stage never guesses", st(S.stages(i13)).exceptions === "unknown");
   ok("the five stages carry the pane each opens (A: today's panes)", S.STAGES.map((s) => s.pane).join() === "waves,members,waves,landing,revert");
+  // 3.2: the counts the panes compute, one line each
+  const r14 = S.stages(Object.assign(full(), { rows: [{ country: "Netherlands", ugNested: true, dgNested: true, uInSync: true, inSync: true, unread: "", users: 9, devices: 13 }, { country: "Germany", ugNested: false, dgNested: true, uInSync: true, inSync: true, unread: "", users: 6, devices: 7 }], assign: { include: 25, excludeOld: 0, filter: 2 }, landing: { read: true, devices: 12, ok: 9, problems: 3 }, held: { users: 1, devices: 2, pinned: 1, skipped: 3 } }));
+  const L = (id) => r14.stages.find((s) => s.id === id).lines.map((l) => `${l.ok ? "✓" : "·"} ${l.text}`);
+  ok("set up lines: one per group, with what is left to do", L("setup").length === 5 && L("setup")[0] === "✓ user wave" && L("setup").some((l) => /hold-back pair/.test(l)) && L("setup").some((l) => /user test members/.test(l)));
+  ok("members lines: one per country with its users and devices and why it is open", L("members")[0] === "✓ Netherlands — 9 users, 13 devices" && L("members")[1] === "· Germany — 6 users, 7 devices · user group not nested");
+  ok("assign lines: the three ⚡ steps with their counts", L("assign")[0] === "· ① include the wave in the new policies — 25 policies to plan" && L("assign")[1] === "✓ ③ exclude the wave from the old policies — in place" && L("assign")[2] === "· ④ W365/AVD filter on the wave assignments — 2 assignments to plan");
+  ok("verify and exceptions lines carry the counts", L("verify")[0] === "· 12 devices reporting · 9 clean · 3 with a problem" && L("exceptions")[0] === "✓ 1 user, 2 devices held back" && L("exceptions")[1] === "✓ 1 device pinned to a country" && L("exceptions")[2] === "✓ 3 devices out of scope (skipped)");
+  // 3.3: the five plain words
+  ok("the five plain words, each with what it means", S.WORDS.map((w) => w.word).join() === "wave,country group,test members,hold-back,out of scope" && S.WORDS.every((w) => w.means.length > 20));
 }
 
 function boot() {
@@ -131,6 +140,15 @@ async function screen() {
   ok("Open stage opens today's pane for that stage", st().pane === target && ["waves", "members", "landing", "revert"].includes(target));
   D.querySelector('.mr-navigation [data-mrpane="wavehome"]').click(); await sleep(50);
   ok("back on the rail: the spine again, the region kept", st().pane === "spine" && T._region() === other.dataset.mrspineRegion, JSON.stringify([st().pane, T._region(), other.dataset.mrspineRegion]));
+  // 3.2 on screen: the current stage shows its lines, another stage unfolds on +
+  const cur = D.querySelector(".t28-stage.current");
+  ok("the current stage shows its detail lines; the others fold until +", !!cur && !!cur.querySelector(".t28-stage-lines") && [...D.querySelectorAll(".t28-stage:not(.current)")].every((e) => !e.querySelector(".t28-stage-lines")));
+  const plus = [...D.querySelectorAll("[data-mrstagelines]")].find((b) => b.textContent === "+");
+  if (plus) { const id = plus.dataset.mrstagelines; plus.click(); await sleep(50); ok("+ unfolds a stage's lines", !!D.querySelector(`[data-mrstagelines="${id}"]`).closest(".t28-stage").querySelector(".t28-stage-lines") && D.querySelector(`[data-mrstagelines="${id}"]`).textContent === "−", id); }
+  // 3.3 on screen: the tabs and Help speak the five words
+  ok("the Waves tabs speak the five words", [...D.querySelectorAll(".t28-subnav button")].map((b) => b.textContent.trim()).join("|") === "Wave|Countries|Country groups|Sync country groups|Wave groups & test members|Verify");
+  T._pane("how"); await sleep(50);
+  ok("Help opens with the five words", /Five words\./.test($("mvBody").textContent) && /country group — the static group per country/.test($("mvBody").textContent) && /out of scope — a device or policy the rollout never touches/.test($("mvBody").textContent));
 }
 
 (async () => {

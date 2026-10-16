@@ -183,11 +183,12 @@ const MdeRolloutV2Tool = (() => {
     { id: "journal", label: "Journal", icon: "📜", panes: ["journal", "changes", "reports", "recovery"] }
   ];
   const PROJECT_PANES = {
-    overview: "Dashboard", attention: "Needs attention", spine: "Wave", wavehome: "Country workspace", members: "Membership & pilots",
-    countrysync: "Country sync", waves: "Wave groups & tests", landing: "Verification", new: "New policies", old: "Old policies",
+    // 10728 (Phase 3.3): the five plain words — wave, country group, test members, hold-back, out of scope
+    overview: "Dashboard", attention: "Needs attention", spine: "Wave", wavehome: "Countries", members: "Country groups",
+    countrysync: "Sync country groups", waves: "Wave groups & test members", landing: "Verify", new: "New policies", old: "Old policies",
     conflicts: "Conflicts", asr: "ASR settings", edgeext: "Edge extensions", retire: "Retirement", out: "Out of scope",
-    exceptionhome: "Hold-back & resume", exclusions: "⊘ Exclude from new (legacy)", exmigrate: "⊘→⏸ Migrate exclusions", revert: "⏸ Hold-back", journal: "Project history",
-    changes: "Session changes & undo", reports: "Reports", recovery: "Run files & recovery", rules: "Project setup", how: "How it works"
+    exceptionhome: "Hold-back", exclusions: "⊘ Exclude from new (legacy)", exmigrate: "⊘→⏸ Migrate exclusions", revert: "⏸ Hold-back list", journal: "History",
+    changes: "Changes & undo", reports: "Reports", recovery: "Run files & recovery", rules: "Project setup", how: "How it works"
   };
   const projectArea = () => PROJECT_AREAS.find((a) => a.panes.includes(pane));
   const projectReadBusy = () => project.starting || running || mem.loading || ex.loading || ld.busy || dv.busy || ob.busy || !!reps.busy || !!project.task;
@@ -494,7 +495,7 @@ const MdeRolloutV2Tool = (() => {
     const X = cs.extra;
     const project = { holdBack: X ? !!(X.revert && X.revert.user && X.revert.device) : undefined, state: state28.status === "browser" ? false : state28.group ? true : undefined };
     const C = mcfg();
-    const rows = mem.model ? mem.model.rows.filter((r) => r.region === region).map((r) => ({ country: r.country, ugNested: !!r.ugNested, dgNested: !!r.dgNested, uInSync: r.uInSync, inSync: r.inSync, unread: r.unread || "", pilot: !!r.pilot, batched: !!(r.batch && !r.batch.finished), migrated: C.migrated.some((m) => lc(m) === lc(r.suffix)) })) : [];
+    const rows = mem.model ? mem.model.rows.filter((r) => r.region === region).map((r) => ({ country: r.country, ugNested: !!r.ugNested, dgNested: !!r.dgNested, uInSync: r.uInSync, inSync: r.inSync, unread: r.unread || "", pilot: !!r.pilot, batched: !!(r.batch && !r.batch.finished), migrated: C.migrated.some((m) => lc(m) === lc(r.suffix)), users: r.uWant.size, devices: r.want.size })) : [];
     let assign = null;
     if (model && found) {
       const ctx = Object.assign(rolloutCtx(), { regions: new Set([region]) });
@@ -513,6 +514,7 @@ const MdeRolloutV2Tool = (() => {
     }
     return { region, waves: wr.length ? { user: wave("user"), device: wave("device") } : null, tests, project, rows, membersRead: !!mem.model, assign, landing, held };
   }
+  const spineOpen = new Set();   // 3.2: the stages whose detail lines the operator unfolded
   function spinePane() {
     const regions = model ? [...new Set(model.cfg.groups.filter((g) => g.role === "wave").map((g) => g.region))] : [];
     if (!regions.length) return '<div class="t28-panel">No waves configured. Open Project setup to define the rollout.</div>';
@@ -522,7 +524,11 @@ const MdeRolloutV2Tool = (() => {
     const countries = mem.model ? mem.model.rows.filter((r) => r.region === region) : [];
     const sub = countries.length ? `${countries.map((r) => r.country).join(" · ")} — ${plural(countries.reduce((n, r) => n + r.uWant.size, 0), "user")}, ${plural(countries.reduce((n, r) => n + r.want.size, 0), "device")}` : (mem.model ? "no countries mapped to this wave" : "members loading…");
     const glyph = (st, n) => st === "ok" ? '<span class="t28-stage-dot ok">✓</span>' : st === "todo" ? '<span class="t28-stage-dot now">→</span>' : st === "unknown" ? '<span class="t28-stage-dot unk">?</span>' : `<span class="t28-stage-dot">${n}</span>`;
-    const rows = sp.stages.map((st) => `<div class="t28-stage ${st.state}${sp.current === st.id ? " current" : ""}">${glyph(st.state, st.n)}<div class="t28-stage-body"><b>${st.n} · ${esc(st.label)}</b><span class="mini ${st.state === "todo" ? "" : "muted"}">${esc(st.detail)}</span></div><button class="btn" data-mrstage="${esc(st.pane)}" title="Open ${esc(st.label)}">Open</button></div>`).join("");
+    const rows = sp.stages.map((st) => {
+      const open = sp.current === st.id || spineOpen.has(st.id);
+      const lines = open && st.lines.length ? `<ul class="t28-stage-lines mini">${st.lines.map((l) => `<li class="${l.ok ? "ok" : "todo"}">${l.ok ? "✓" : "·"} ${esc(l.text)}</li>`).join("")}</ul>` : "";
+      return `<div class="t28-stage ${st.state}${sp.current === st.id ? " current" : ""}">${glyph(st.state, st.n)}<div class="t28-stage-body"><b>${st.n} · ${esc(st.label)}</b><span class="mini ${st.state === "todo" ? "" : "muted"}">${esc(st.detail)}</span>${lines}</div><div class="tb-actions" style="flex:none;gap:4px">${st.lines.length ? `<button class="btn" data-mrstagelines="${st.id}" title="${open ? "Hide" : "Show"} the details">${open ? "−" : "+"}</button>` : ""}<button class="btn" data-mrstage="${esc(st.pane)}" title="Open ${esc(st.label)}">Open</button></div></div>`;
+    }).join("");
     const next = sp.next ? `<div class="t28-next"><div class="mini muted">Next step</div><p>${esc(sp.next.text)}</p>${sp.next.pane ? `<div class="tb-actions"><button class="btn primary" data-mrstage="${esc(sp.next.pane)}">Open stage →</button></div>` : ""}</div>` : "";
     return `<section class="t28-panel t28-spine">
       <div class="t28-chips" style="margin-bottom:10px">${regions.map((r) => fchip("data-mrspine-region", r, r, undefined, r === region)).join("")}</div>
@@ -1656,6 +1662,7 @@ const MdeRolloutV2Tool = (() => {
 
   function howPane() {
     return `<div class="list-card" style="margin-top:0"><div class="mini" style="line-height:1.55">
+      <p style="margin:0 0 8px"><b>Five words.</b> ${T28Spine.WORDS.map((w) => `<b>${esc(w.word)}</b> — ${esc(w.means)}`).join("; ")}. The 🌊 Wave screen walks a wave through five stages — Set up · Members · Assign · Verify · Exceptions — lit from what the tenant holds; the next step is said in these words.</p>
       <p style="margin:0 0 8px"><b>The read.</b> The shared policy read (settings catalog, legacy endpoint security intents, device configurations, administrative templates) — the same one T05, T11, T19 and T26 use — plus the legacy templates' names, the wave groups by name, and each involved group's kind. In scope is what 🧭 T20 classifies as endpoint security, MDE or Edge, plus any policy setting an MDE-area setting (BitLocker, WHfB, App Control…), and custom OMA-URIs under those CSPs. Opening the tool reads nothing: it offers ↻ Read the tenant, and the sign-in read when TUNO already holds one.</p>
       <p style="margin:0 0 8px"><b>Collisions.</b> A new and an old policy collide when both set the same setting (the settingDefinitionId; ASR per rule — a one-rule WIN-SEC policy meets that rule inside an old all-rules policy, including the old "guid=mode" string form). <b>Different value</b> is a conflict Intune reports on the device and resolves by applying neither; <b>same value</b> is double management, harmless until one side changes. A legacy template or ADMX cannot be compared setting by setting and meets the new set by category (<b>other format</b>). Reach is 🔗 T12's verdict — <b>can</b> (shared group or tenant-wide), <b>may</b> (different groups, or a filter), plus <b>staged</b> (the new policy is not assigned yet) and <b>resolved</b> (every group the new policy includes is already excluded from the old one).</p>
       <p style="margin:0 0 8px"><b>The fix.</b> Exclude the new policy's include groups from the old policy. Where the old policy already includes that group, the include is removed instead (an exclusion on an include is a contradiction). Where the new policy is not assigned yet, the existing wave groups of its kind are proposed (a <code>- D -</code> policy's device waves, a <code>- U -</code> policy's user waves), marked planned. Where a wave would be excluded from an old policy of the OTHER kind — Intune's unsupported user ↔ device mix — the same region's twin is proposed instead, and excluding the twin counts as resolved.</p>
@@ -5305,6 +5312,7 @@ const MdeRolloutV2Tool = (() => {
       const dc = t.closest("[data-dash-consent]"); if (dc) { if (dc.dataset.dashConsent === "hunting") readOnboarding(true); else projectStart(true); return; }
       const spineRegion = t.closest("[data-mrspine-region]"); if (spineRegion) { regionSet(spineRegion.dataset.mrspineRegion); render(); return; }
       const stageBtn = t.closest("[data-mrstage]"); if (stageBtn) { pane = stageBtn.dataset.mrstage; render(); return; }
+      const stageLines = t.closest("[data-mrstagelines]"); if (stageLines) { const id = stageLines.dataset.mrstagelines; if (spineOpen.has(id)) spineOpen.delete(id); else spineOpen.add(id); render(); return; }
       const countryButton = t.closest("[data-project-country]");
       if (countryButton) { project.country = countryButton.dataset.projectCountry; pane = "wavehome"; render(); return; }
       const countryTab = t.closest("[data-project-wtab]");
