@@ -506,7 +506,6 @@ const MdeRolloutV2Tool = (() => {
     project.history = project.history.slice(-100); project.savedRuns = runs.length;
     try { window.localStorage.setItem(projectHistoryKey(), JSON.stringify(project.history)); project.historyError = ""; }
     catch { project.historyError = "Browser history could not be saved. Download run files before leaving."; }
-    stateDirty();
   }
   function projectJournal() {
     return `<h3>The project remembers.</h3><p class="mini">Last 100 run summaries in this browser, for this tenant. Summaries survive reopening; full backups and executable undo remain in Session changes or exported run files.</p><div class="tb-actions"><button class="btn" data-mrpane="changes">Session changes & undo</button><button class="btn" data-mrpane="recovery">Run files & recovery</button><button class="btn" data-mrpane="reports">Open current reports</button></div>${project.historyError ? `<p role="alert">${esc(project.historyError)}</p>` : ""}<div class="t28-panel">${project.history.length ? project.history.slice().reverse().map((r) => `<details class="t28-history"><summary><b>${esc(r.title)}</b> · ${esc(reportTime(r.at))}</summary><p class="mini">${Number(r.ok) || 0} verified · ${Number(r.bad) || 0} require review${r.stopped ? " · stopped" : ""}</p>${(r.lines || []).map((l) => `<p class="mini">${esc(l)}</p>`).join("")}</details>`).join("") : '<p>No changes recorded in this browser yet. Automatic reads do not create change records.</p>'}</div>`;
@@ -712,7 +711,7 @@ const MdeRolloutV2Tool = (() => {
       const r = await T28State.read(state28.group.id);
       if (!r.found) { state28 = Object.assign(state28, { status: "empty", exists: false, at: "", by: "", why: "", last: null }); stateDirty(); return; }
       const changed = T28State.apply(tenantKey(), r.state);
-      state28 = Object.assign(state28, { status: "tenant", exists: true, at: r.at, by: r.by, why: "", last: r.state });
+      state28 = Object.assign(state28, { status: "tenant", exists: { parts: r.parts }, at: r.at, by: r.by, why: "", last: r.state });
       if (changed.length) { loadCfg(); extLoadStored(); projectLoadHistory(); }
     } catch (e) { state28 = Object.assign(state28, { status: "error", why: `${state28.group.name}: ${GroupUse.shortErr(e, 160)} — this browser's copy is in use, nothing written` }); }
   }
@@ -730,7 +729,7 @@ const MdeRolloutV2Tool = (() => {
     try {
       const who = (Graph.accountUpn && Graph.accountUpn()) || "";
       const r = await T28State.write(state28.group.id, st, who, state28.exists);
-      state28 = Object.assign(state28, { status: "tenant", exists: true, at: r.at, by: r.by, why: "", last: st });
+      state28 = Object.assign(state28, { status: "tenant", exists: { parts: r.parts }, at: r.at, by: r.by, why: "", last: st });
     } catch (e) { state28 = Object.assign(state28, { status: "error", why: `${state28.group.name}: the state could not be written (${GroupUse.shortErr(e, 160)}) — this browser keeps it; ↻ Read to try again` }); }
     finally { state28.writing = false; if (state28.queued) { state28.queued = false; stateDirty(); } const el = $("mvStateCard"); if (el) el.outerHTML = stateCard(); }
   }

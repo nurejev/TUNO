@@ -38,8 +38,8 @@ async function run() {
   store.set(K.edgeList, JSON.stringify(["abc", "def"]));
   const st = S.collect(T);
   ok("collect takes the STATE of the rules blob — fixWith, pilotGroupsOff, a retired ⊘ pair, batched, migrated — and none of the rules", st.rulesState.fixWith === "groups" && st.rulesState.pilotGroupsOff === false && st.rulesState.exclusionDevice === "" && st.members.batched.join() === "NL-Breda" && st.members.migrated.join() === "NL-Breda" && !("newPrefixes" in st.rulesState) && !("revertUser" in st.rulesState) && !("countryMap" in st.members));
-  ok("…and the other keys as they are; an absent key is null", st.reasons.u1 === "VIP, waits for Q1" && st.groupsync.nl === 1792000000000 && st.edgeList.join() === "abc,def" && st.revertList === null && st.history === null && st.v === 1);
-  ok("the line says what the project decided", /1 batched/.test(S.line(st)) && /1 migrated/.test(S.line(st)) && /⊘ retired/.test(S.line(st)) && /1 hold-back reasons/.test(S.line(st)) && /1 sync stamps/.test(S.line(st)) && /Edge list of 2/.test(S.line(st)));
+  ok("…and the other keys as they are; an absent key is null; the history is NOT in the tenant copy (10719)", st.reasons.u1 === "VIP, waits for Q1" && st.groupsync.nl === 1792000000000 && st.edgeList.join() === "abc,def" && st.revertList === null && !("history" in st) && st.v === 1);
+  ok("the line says what the project decided", /1 batched/.test(S.line(st)) && /1 migrated/.test(S.line(st)) && /⊘ retired/.test(S.line(st)) && /1 hold-back reasons/.test(S.line(st)) && /1 sync stamps/.test(S.line(st)) && /Edge list of 2/.test(S.line(st)) && !/history/.test(S.line(st)));
   ok("same() compares what would be written", S.same(st, S.collect(T)) && !S.same(st, Object.assign({}, st, { reasons: {} })));
 
   // ------------------------------------------------------------- apply --
@@ -55,11 +55,24 @@ async function run() {
   getAnswer = Object.assign(new Error("Not Found"), { kind: "notfound", status: 404 });
   const r404 = await S.read("G1");
   ok("read: a 404 is 'no extension yet', not an error", r404.found === false && r404.state === null && /\/groups\/G1\/extensions\/nl\.limonit\.tuno\.t28$/.test(calls[0][1]));
-  getAnswer = { id: S.EXT, state: JSON.stringify(fromTenant), at: "2026-10-16T07:00:00Z", by: "adm@x", v: 1 };
+  getAnswer = { id: S.EXT, state: JSON.stringify(Object.assign({ history: [{ title: "old" }] }, fromTenant)), at: "2026-10-16T07:00:00Z", by: "adm@x", v: 1 };
   const r = await S.read("G1");
-  ok("read: the extension's state parsed, with at / by / v", r.found && r.state.members.batched.join() === "NL-Breda,IT" && r.at === "2026-10-16T07:00:00Z" && r.by === "adm@x" && r.v === 1);
+  ok("read: a 10715 single-extension state still parses, with at / by / v; its history is dropped", r.found && r.state.members.batched.join() === "NL-Breda,IT" && r.at === "2026-10-16T07:00:00Z" && r.by === "adm@x" && r.v === 1 && r.parts === 0 && !("history" in r.state));
+  // 10719: the state in PARTS (Graph caps an open extension at 2 KB)
+  const big = Object.assign({}, fromTenant, { reasons: Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`user-${i}`, `reason number ${i} for the hold-back, written by hand`])) });
+  const text = JSON.stringify(big), n = Math.ceil(text.length / S.PART);
+  const answers = { [`/groups/G1/extensions/${S.EXT}`]: { id: S.EXT, at: "2026-10-16T08:00:00Z", by: "adm@x", v: 2, parts: n, bytes: text.length } };
+  for (let i = 0; i < n; i++) answers[`/groups/G1/extensions/${S.EXT}.p${i + 1}`] = { data: text.slice(i * S.PART, (i + 1) * S.PART) };
+  Graph.get = async (p) => { calls.push(["GET", p]); if (!answers[p]) throw Object.assign(new Error("Not Found"), { kind: "notfound", status: 404 }); return answers[p]; };
+  const rp = await S.read("G1");
+  ok("read: meta then the parts, joined and parsed", n >= 3 && rp.found && rp.parts === n && Object.keys(rp.state.reasons).length === 60 && rp.state.members.batched.join() === "NL-Breda,IT" && rp.v === 2);
+  delete answers[`/groups/G1/extensions/${S.EXT}.p2`];
+  threw = "";
+  try { await S.read("G1"); } catch (e) { threw = e.message; }
+  ok("read: a missing part is an error (incomplete), never a partial state", /incomplete/.test(threw) && new RegExp(`${n - 1} of ${n} parts`).test(threw));
+  Graph.get = async (p) => { calls.push(["GET", p]); if (getAnswer instanceof Error) throw getAnswer; return getAnswer; };
   getAnswer = Object.assign(new Error("429 Too Many Requests"), { kind: "throttled", status: 429 });
-  let threw = "";
+  threw = "";
   try { await S.read("G1"); } catch (e) { threw = e.message; }
   ok("read: any other failure throws — an unread state is never an empty one", /429/.test(threw));
   getAnswer = { id: S.EXT, state: "{not json", at: "", by: "", v: 1 };
@@ -70,9 +83,21 @@ async function run() {
   // ------------------------------------------------------------- write --
   calls.length = 0;
   const w1 = await S.write("G1", st, "adm@x", false);
-  ok("write: the first time POSTs the open extension with its name, the state as JSON, at, by, v", calls[0][0] === "POST" && calls[0][1] === "/groups/G1/extensions" && calls[0][2]["@odata.type"] === "microsoft.graph.openTypeExtension" && calls[0][2].extensionName === S.EXT && JSON.parse(calls[0][2].state).members.batched.join() === "NL-Breda" && calls[0][2].by === "adm@x" && w1.created === true && /^\d{4}-/.test(w1.at));
-  const w2 = await S.write("G1", st, "adm@x", true);
-  ok("write: after that PATCHes the extension by name", calls[1][0] === "PATCH" && calls[1][1] === "/groups/G1/extensions/nl.limonit.tuno.t28" && !("extensionName" in calls[1][2]) && w2.created === false);
+  const posts = calls.filter((c) => c[0] === "POST");
+  ok("write: the first time POSTs the part(s) first and the meta last — the meta names the parts, each part carries ≤ PART chars of the JSON", posts.length === 2 && posts[0][2].extensionName === `${S.EXT}.p1` && posts[0][2].data.length <= S.PART && JSON.parse(posts[0][2].data).members.batched.join() === "NL-Breda" && posts[1][2].extensionName === S.EXT && posts[1][2].parts === 1 && posts[1][2].by === "adm@x" && posts[1][2].v === 2 && w1.created === true && w1.parts === 1 && /^\d{4}-/.test(w1.at));
+  calls.length = 0;
+  const w2 = await S.write("G1", st, "adm@x", { parts: 1 });
+  ok("write: after that PATCHes the part and the meta by name", calls.length === 2 && calls[0][0] === "PATCH" && calls[0][1] === `/groups/G1/extensions/${S.EXT}.p1` && calls[1][0] === "PATCH" && calls[1][1] === `/groups/G1/extensions/${S.EXT}` && !("extensionName" in calls[1][2]) && w2.created === false);
+  calls.length = 0;
+  const w3 = await S.write("G1", big, "adm@x", { parts: 1 });
+  ok("write: a state that grew PATCHes the part it had and POSTs the new ones, then the meta with the new count", w3.parts === n && calls.filter((c) => c[0] === "PATCH" && /\.p1$/.test(c[1])).length === 1 && calls.filter((c) => c[0] === "POST").length === n - 1 && calls[calls.length - 1][1] === `/groups/G1/extensions/${S.EXT}` && calls[calls.length - 1][2].parts === n);
+  Graph.del = async (p) => { calls.push(["DELETE", p]); return null; };
+  calls.length = 0;
+  const w4 = await S.write("G1", st, "adm@x", { parts: n });
+  ok("write: a state that shrank deletes the parts beyond the new count, after the meta", w4.parts === 1 && calls.filter((c) => c[0] === "DELETE").length === n - 1 && calls.findIndex((c) => c[0] === "DELETE") > calls.findIndex((c) => c[1] === `/groups/G1/extensions/${S.EXT}`));
+  threw = "";
+  try { await S.write("G1", { pad: "x".repeat(S.PART * (S.MAX_PARTS + 1)) }, "adm@x", false); } catch (e) { threw = e.message; }
+  ok("write: a state beyond MAX_PARTS is refused before anything is written", /too large/.test(threw));
 
   console.log(`T28 project state: ${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;

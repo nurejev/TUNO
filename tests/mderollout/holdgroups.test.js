@@ -125,12 +125,13 @@ async function run() {
   // ------------------------------------ 10715: the state in the tenant --
   const anchor = () => G().find((g) => g.displayName === "INT-SG-TUNO-T28-State");
   const extOf = () => (anchor()._ext || {})["nl.limonit.tuno.t28"];
-  ok("after ⓪ the anchor group is read and this browser's state written to its open extension — ⚙️ says in the tenant", await until(() => T28._state28().status === "tenant" && extOf(), 10000, "state written") && T28._state28().group.id === anchor().id.toLowerCase() && extOf().extensionName === undefined && /^\d{4}-/.test(extOf().at) && (T28._pane("rules"), /Project state — in the tenant/.test($("mvBody").textContent)));
-  const written = JSON.parse(extOf().state);
-  ok("the state carries the project's decisions, not the rules: this run in the history, no prefixes, no names", written.v === 1 && Array.isArray(written.history) && written.history.some((h) => /⓪/.test(h.title)) && !("newPrefixes" in written) && !written.rulesState.newPrefixes && !written.rulesState.revertUser);
+  const stateText = () => { const m = extOf(); if (!m) return null; let t = ""; for (let i = 1; i <= (m.parts || 0); i++) t += ((anchor()._ext || {})[`nl.limonit.tuno.t28.p${i}`] || {}).data || ""; return t; };
+  ok("after ⓪ the anchor group is read and this browser's state written to its open extensions — the meta names the parts, ⚙️ says in the tenant", await until(() => T28._state28().status === "tenant" && extOf(), 10000, "state written") && T28._state28().group.id === anchor().id.toLowerCase() && extOf().parts >= 1 && extOf().v === 2 && /^\d{4}-/.test(extOf().at) && stateText().length === extOf().bytes && (T28._pane("rules"), /Project state — in the tenant/.test($("mvBody").textContent)));
+  const written = JSON.parse(stateText());
+  ok("the state carries the project's decisions, not the rules and not the history (2 KB cap, 10719): no prefixes, no names, no run lines", written.v === 1 && !("history" in written) && !("newPrefixes" in written) && !written.rulesState.newPrefixes && !written.rulesState.revertUser);
   // a decision made here lands in the tenant after the debounce
   const c2 = JSON.parse(JSON.stringify(st().cfg)); c2.members.batched = ["NL-Breda", "IT"]; T28._saveCfg(c2);
-  ok("a change (IT batched) is written to the tenant within seconds", await until(() => { const e = extOf(); return e && JSON.parse(e.state).members.batched.join() === "NL-Breda,IT"; }, 8000, "state update") && T28._state28().last.members.batched.join() === "NL-Breda,IT");
+  ok("a change (IT batched) is written to the tenant within seconds", await until(() => { const t = stateText(); return t && JSON.parse(t).members.batched.join() === "NL-Breda,IT"; }, 8000, "state update") && T28._state28().last.members.batched.join() === "NL-Breda,IT");
   // a second browser: the keys gone, the open reads them back
   const K = w.T28State.keysFor(w.TunoTenant.tenantId());   // the demo tenant's id, as the tool keys its storage
   for (const k of Object.values(K)) w.localStorage.removeItem(k);
