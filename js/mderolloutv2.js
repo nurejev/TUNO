@@ -653,7 +653,7 @@ const MdeRolloutV2Tool = (() => {
     if (!j || j.v !== 1 || !j.rules || typeof j.rules !== "object") { projectFile = { status: "invalid", rules: null, meta: null, why: "expected { v: 1, rules: { … } }" }; return; }
     const tid = tenantKey();
     if (j.tenantId && tid && tid !== "demo" && lc(j.tenantId) !== lc(tid)) { projectFile = { status: "mismatch", rules: null, meta: j, why: `the file is for tenant ${j.tenantId}, this is ${tid}` }; return; }
-    projectFile = { status: "loaded", rules: j.rules, meta: { project: String(j.project || ""), customer: String(j.customer || ""), tenantId: String(j.tenantId || ""), updated: String(j.updated || "") }, why: "" };
+    projectFile = { status: "loaded", rules: j.rules, meta: { project: String(j.project || ""), customer: String(j.customer || ""), tenantId: String(j.tenantId || ""), updated: String(j.updated || ""), lab: j.lab === true }, why: "" };
   }
   // the file as ⭳ exports it: the rules of this browser, state keys left out
   function projectFileText() {
@@ -795,6 +795,8 @@ const MdeRolloutV2Tool = (() => {
     try {
       readGeneration();   // 10722: a refresh is a new read generation for every pane
       await loadProjectFile();
+      // 10724: the fault switch exists on a lab instance only (devcf, or a project file saying lab: true)
+      if (typeof T28Fault !== "undefined") T28Fault.install(Graph, { tenantId: TunoTenant.tenantId(), projectFile: projectFile.meta });
       loadCfg();
       if (!attach) clearPlan();
       render();
@@ -1530,12 +1532,32 @@ const MdeRolloutV2Tool = (() => {
       : `<b>📁 No ${esc(PROJECT_FILE)} served.</b> The rules below live in <b>this browser only</b> — another browser starts from the defaults. A self-hosted instance ships them as /${esc(PROJECT_FILE)} next to index.html (⭳ makes the file from these rules); the production site never reads it.`;
     return `<div class="${P.status === "loaded" ? "gu-ok" : "gu-fail"}" style="margin:0 0 12px;display:flex;gap:10px;align-items:flex-start;justify-content:space-between"><span class="mini" style="line-height:1.5">${body}</span><button class="btn" id="mvRuleFile" style="white-space:nowrap" title="Download the rules as ${esc(PROJECT_FILE)}">⭳ ${esc(PROJECT_FILE)}</button></div>`;
   }
+  // 🧪 (10724, Phase 2.4): the fault switch's card — rendered on a lab
+  // instance only; arms the next matching Graph call to answer with a fault
+  function faultCard() {
+    if (typeof T28Fault === "undefined") return "";
+    const F = T28Fault.status();
+    if (!F.allowed) return "";
+    const groups = [];
+    if (mem.model) for (const r of mem.model.rows) for (const g of [r.ug, r.sug, r.dg]) if (g && g.id) groups.push({ id: lc(g.id), name: g.displayName });
+    const armed = F.armed ? `<b>Armed:</b> ${esc(T28Fault.KINDS.find((k) => k.kind === F.armed.kind).label)}${F.armed.group ? ` — ${esc(F.armed.group.name)}` : ""} · ${F.armed.times} call${F.armed.times === 1 ? "" : "s"} left. Do the action now.` : "Nothing armed.";
+    const fired = F.fired.length ? `<div class="mini muted" style="margin-top:6px">Last faults delivered: ${F.fired.slice(-3).map((f) => `${esc(f.kind)} at ${esc(new Date(f.at).toLocaleTimeString())}`).join(" · ")}</div>` : "";
+    return `<div class="gu-warn" style="margin:0 0 12px"><span class="mini" style="line-height:1.5"><b>🧪 Fault switch — lab only.</b> Makes the NEXT matching Graph call answer with a fault, once, so the safety path can be watched on this lab: ${T28Fault.KINDS.map((k) => `<i>${esc(k.label)}</i> (${esc(k.what)})`).join("; ")}. Never rendered outside a lab instance.</span>
+      <div class="tb-actions" style="margin-top:8px;flex-wrap:wrap;gap:6px">
+        <button class="btn" type="button" data-mrfault="read429">${esc(T28Fault.KINDS[0].label)}</button>
+        <button class="btn" type="button" data-mrfault="write503">${esc(T28Fault.KINDS[1].label)}</button>
+        <select id="mvFaultGroup" class="mini" style="max-width:260px"${groups.length ? "" : " disabled"}>${groups.length ? groups.map((g) => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join("") : `<option value="">read 👥 first</option>`}</select>
+        <button class="btn" type="button" data-mrfault="groupread"${groups.length ? "" : " disabled"}>${esc(T28Fault.KINDS[2].label)}</button>
+        <button class="btn" type="button" data-mrfault="clear"${F.armed ? "" : " disabled"}>Clear</button>
+      </div>
+      <div class="mini" style="margin-top:8px" id="mvFaultArmed">${armed}</div>${fired}</div>`;
+  }
   function rulesPane() {
     const ro = fileRules();
     const carried = cfgCarried ? `<p class="mini" style="margin:0 0 10px"><b>Carried over.</b> These rules came from the rules the original T28 screen saved for this tenant in this browser (it was removed in build 10661). Check them before the next rollout step.</p>` : "";
     const ta = (id, list) => `<textarea id="${id}" rows="${Math.max(3, list.length + 1)}" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px"${ro ? " readonly" : ""}>${esc(list.join("\n"))}</textarea>`;
     const count = (g) => model.policies.filter((P) => P.generation === g).length;
-    return `<div class="list-card" style="margin-top:0">${projectFileCard()}${stateCard()}${carried}<fieldset style="border:0;padding:0;margin:0;min-width:0"${ro ? " disabled" : ""}>
+    return `<div class="list-card" style="margin-top:0">${projectFileCard()}${stateCard()}${faultCard()}${carried}<fieldset style="border:0;padding:0;margin:0;min-width:0"${ro ? " disabled" : ""}>
       <p class="mini muted" style="margin:0 0 12px">A policy's generation is read from its NAME. One prefix per line; case, spaces and dash kinds do not matter, and a prefix ends on a boundary (<code>WIN-SEC</code> does not claim <code>WIN-SECURITY</code>). Order of the verdict: out of scope first, then <code>(TO-BE-REMOVED)</code> (old, retiring), then new, then old. Kept for this tenant in this browser.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
         <label class="wi-f"><span>🎯 New set — name starts with</span>${ta("mvRuleNew", cfg.newPrefixes)}</label>
@@ -5555,6 +5577,13 @@ const MdeRolloutV2Tool = (() => {
       }
       if (t.id === "mvRuleReset") { saveCfg(null); derive(); render(); enrich(); return; }
       if (t.id === "mvRuleFile") { download(PROJECT_FILE, projectFileText(), "application/json"); return; }
+      const fb = t.closest("[data-mrfault]"); if (fb) {
+        const k = fb.dataset.mrfault;
+        if (k === "clear") T28Fault.clear();
+        else if (k === "groupread") { const sel = $("mvFaultGroup"); const id = sel && sel.value; const name = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : ""; if (id) T28Fault.arm("groupread", 1, { id, name }); }
+        else T28Fault.arm(k, k === "write503" ? 6 : 1);
+        render(); return;
+      }
       // ⚔️ what a proposed fix excludes (10643)
       const fw = t.closest("[data-mrfixwith]"); if (fw) {
         if (cfg.fixWith !== fw.dataset.mrfixwith) { saveCfg(Object.assign({}, cfg, { fixWith: fw.dataset.mrfixwith })); clearPlan(); derive(); render(); }
