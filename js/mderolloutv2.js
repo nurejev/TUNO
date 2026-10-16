@@ -173,7 +173,8 @@ const MdeRolloutV2Tool = (() => {
     country: null, waveTab: "members", details: false, reportToken: "", history: [], historyError: "", savedRuns: 0 };
   const PROJECT_AREAS = [
     { id: "overview", label: "Overview", icon: "◉", panes: ["overview", "attention"] },
-    { id: "wavehome", label: "Waves", icon: "🌊", panes: ["wavehome", "members", "countrysync", "waves", "landing"] },
+    // 10726 (Phase 3.1): the wave spine is the area's home — one wave, five stages lit from state
+    { id: "wavehome", label: "Waves", icon: "🌊", panes: ["spine", "wavehome", "members", "countrysync", "waves", "landing"] },
     { id: "new", label: "Policies", icon: "🎯", panes: ["new", "old", "conflicts", "asr", "edgeext", "retire", "out"] },
     // 10702: one hold-back — ⏸ Hold-back is the list; ⊘ Exclude from new and
     // ⊘→⏸ Migrate exclusions stay on the rail only while the exclusion pair
@@ -182,7 +183,7 @@ const MdeRolloutV2Tool = (() => {
     { id: "journal", label: "Journal", icon: "📜", panes: ["journal", "changes", "reports", "recovery"] }
   ];
   const PROJECT_PANES = {
-    overview: "Dashboard", attention: "Needs attention", wavehome: "Country workspace", members: "Membership & pilots",
+    overview: "Dashboard", attention: "Needs attention", spine: "Wave", wavehome: "Country workspace", members: "Membership & pilots",
     countrysync: "Country sync", waves: "Wave groups & tests", landing: "Verification", new: "New policies", old: "Old policies",
     conflicts: "Conflicts", asr: "ASR settings", edgeext: "Edge extensions", retire: "Retirement", out: "Out of scope",
     exceptionhome: "Hold-back & resume", exclusions: "⊘ Exclude from new (legacy)", exmigrate: "⊘→⏸ Migrate exclusions", revert: "⏸ Hold-back", journal: "Project history",
@@ -361,7 +362,7 @@ const MdeRolloutV2Tool = (() => {
   }
   function projectNav() {
     const area = projectArea();
-    return `<div class="t28-nav-title">MDE project</div>${PROJECT_AREAS.map((a) => `<button type="button" class="ep-node${area === a ? " active" : ""}" data-mrpane="${a.id}"${area === a ? ' aria-current="page"' : ""}><span>${a.icon} ${a.label}</span>${areaDot(a.id)}</button>`).join("")}
+    return `<div class="t28-nav-title">MDE project</div>${PROJECT_AREAS.map((a) => `<button type="button" class="ep-node${area === a ? " active" : ""}" data-mrpane="${a.id}" data-mrhome="${a.panes[0]}"${area === a ? ' aria-current="page"' : ""}><span>${a.icon} ${a.label}</span>${areaDot(a.id)}</button>`).join("")}
       <div class="t28-nav-foot"><button class="ep-node${pane === "rules" ? " active" : ""}" data-mrpane="rules">⚙️ Project setup</button><button class="ep-node${pane === "how" ? " active" : ""}" data-mrpane="how">❓ Help</button></div>`;
   }
   // the exclusion pair retired (10702: "delete after migration") → its two
@@ -481,6 +482,56 @@ const MdeRolloutV2Tool = (() => {
     const m = dashModel(), tag = `${lc(tenantName() || "tenant").replace(/[^a-z0-9]+/g, "-")}${m.region ? `-${lc(m.region).replace(/[^a-z0-9]+/g, "-")}` : ""}`;
     if (kind === "csv") download(`t28-dashboard-${tag}-${stamp()}.csv`, MdeDash.csv(m), "text/csv");
     else download(`t28-dashboard-${tag}-${stamp()}.html`, MdeDash.exportHtml(m, dashMeta(), dashInput()), "text/html");
+  }
+  // 🌊 (10726, Phase 3.1): THE WAVE SPINE — the Waves area's home. One wave
+  // (the one region, 10717), its five stages lit from what the tenant
+  // holds, and the one thing to do next. "Open stage" opens today's pane.
+  function spineInput(region) {
+    const wr = waveRows.filter((w) => w.region === region);
+    const wave = (aud) => { const w = wr.find((x) => x.role === "wave" && x.audience === aud); return w ? { exists: !!w.exists } : { exists: false }; };
+    const t = tm.all ? tm.test.get(region) : null;
+    const tests = t ? { user: t.user && t.user.name ? { exists: !!t.user.group, nested: !!t.user.nested } : { exists: true, nested: true }, device: t.device && t.device.name ? { exists: !!t.device.group, nested: !!t.device.nested } : { exists: true, nested: true } } : null;
+    const X = cs.extra;
+    const project = { holdBack: X ? !!(X.revert && X.revert.user && X.revert.device) : undefined, state: state28.status === "browser" ? false : state28.group ? true : undefined };
+    const C = mcfg();
+    const rows = mem.model ? mem.model.rows.filter((r) => r.region === region).map((r) => ({ country: r.country, ugNested: !!r.ugNested, dgNested: !!r.dgNested, uInSync: r.uInSync, inSync: r.inSync, unread: r.unread || "", pilot: !!r.pilot, batched: !!(r.batch && !r.batch.finished), migrated: C.migrated.some((m) => lc(m) === lc(r.suffix)) })) : [];
+    let assign = null;
+    if (model && found) {
+      const ctx = Object.assign(rolloutCtx(), { regions: new Set([region]) });
+      const n = (which) => { try { return M.rolloutWants(which, model, ctx).wants.length; } catch { return 0; } };
+      assign = { include: n("includeWaves"), excludeOld: n("excludeWaves"), filter: wf.list ? n("filterWaves") : 0 };
+    }
+    let landing = null;
+    if (ld.model) {
+      const mine = ld.model.members.filter((e) => e.regions && e.regions.has(region));
+      landing = { read: true, devices: mine.length, problems: mine.filter((e) => e.problems > 0).length, ok: mine.filter((e) => !e.problems && e.landed > 0).length };
+    }
+    let held = null;
+    if (X && mem.model) {
+      const mine = mem.model.rows.filter((r) => r.region === region);
+      held = { users: mine.reduce((n, r) => n + (r.uHeld || 0), 0), devices: mine.reduce((n, r) => n + (r.heldIn ? r.heldIn.length : 0), 0), pinned: mem.input && mem.input.pinned ? mem.input.pinned.size : 0, skipped: mem.input && mem.input.skip ? mem.input.skip.size : 0 };
+    }
+    return { region, waves: wr.length ? { user: wave("user"), device: wave("device") } : null, tests, project, rows, membersRead: !!mem.model, assign, landing, held };
+  }
+  function spinePane() {
+    const regions = model ? [...new Set(model.cfg.groups.filter((g) => g.role === "wave").map((g) => g.region))] : [];
+    if (!regions.length) return '<div class="t28-panel">No waves configured. Open Project setup to define the rollout.</div>';
+    const region = regionSel && regions.includes(regionSel) ? regionSel : regions[0];
+    const sp = T28Spine.stages(spineInput(region));
+    const C = mcfg();
+    const countries = mem.model ? mem.model.rows.filter((r) => r.region === region) : [];
+    const sub = countries.length ? `${countries.map((r) => r.country).join(" · ")} — ${plural(countries.reduce((n, r) => n + r.uWant.size, 0), "user")}, ${plural(countries.reduce((n, r) => n + r.want.size, 0), "device")}` : (mem.model ? "no countries mapped to this wave" : "members loading…");
+    const glyph = (st, n) => st === "ok" ? '<span class="t28-stage-dot ok">✓</span>' : st === "todo" ? '<span class="t28-stage-dot now">→</span>' : st === "unknown" ? '<span class="t28-stage-dot unk">?</span>' : `<span class="t28-stage-dot">${n}</span>`;
+    const rows = sp.stages.map((st) => `<div class="t28-stage ${st.state}${sp.current === st.id ? " current" : ""}">${glyph(st.state, st.n)}<div class="t28-stage-body"><b>${st.n} · ${esc(st.label)}</b><span class="mini ${st.state === "todo" ? "" : "muted"}">${esc(st.detail)}</span></div><button class="btn" data-mrstage="${esc(st.pane)}" title="Open ${esc(st.label)}">Open</button></div>`).join("");
+    const next = sp.next ? `<div class="t28-next"><div class="mini muted">Next step</div><p>${esc(sp.next.text)}</p>${sp.next.pane ? `<div class="tb-actions"><button class="btn primary" data-mrstage="${esc(sp.next.pane)}">Open stage →</button></div>` : ""}</div>` : "";
+    return `<section class="t28-panel t28-spine">
+      <div class="t28-chips" style="margin-bottom:10px">${regions.map((r) => fchip("data-mrspine-region", r, r, undefined, r === region)).join("")}</div>
+      <h3 style="margin:0 0 2px">${esc(region)} wave</h3>
+      <p class="mini muted" style="margin:0 0 12px">${esc(sub)}${C.pilots.some((x) => countries.some((r) => lc(r.suffix) === lc(x))) ? " · pilot in this wave" : ""}</p>
+      <div class="t28-stages">${rows}</div>
+      ${next}
+      <p class="mini muted" style="margin:12px 0 0">The stages light from what the tenant holds at the last read, not from what was clicked. ↻ Refresh project reads again.</p>
+    </section>`;
   }
   function projectWave() {
     const rows = projectCountryRows(), row = rows.find((r) => r.key === project.country) || rows[0];
@@ -1651,6 +1702,7 @@ const MdeRolloutV2Tool = (() => {
     if (pane === "overview") main = v2Overview();
     else if (pane === "attention") main = projectAttention(false);
     else if (pane === "wavehome") main = projectWave();
+    else if (pane === "spine") main = spinePane();
     else if (pane === "exceptionhome") main = projectExceptions();
     else if (pane === "journal") main = projectJournal();
     else if (pane === "recovery") main = v2Recovery();
@@ -1679,7 +1731,7 @@ const MdeRolloutV2Tool = (() => {
     const pl = planEl();
     if (pl) pl.remove();
     $("mvGlobalExport").hidden = pane === "reports";
-    $("mvBody").innerHTML = `<div class="ep-wrap t28-project"><nav class="ep-rail mr-navigation" aria-label="Project">${railHtml()}</nav><main class="ep-main">${projectSources()}${projectStrip()}${projectTabs()}${missing}${["overview", "attention", "wavehome", "exceptionhome", "journal", "reports"].includes(pane) ? "" : head}${main}<div id="mvPlanSeat"></div></main></div>`;
+    $("mvBody").innerHTML = `<div class="ep-wrap t28-project"><nav class="ep-rail mr-navigation" aria-label="Project">${railHtml()}</nav><main class="ep-main">${projectSources()}${projectStrip()}${projectTabs()}${missing}${["overview", "attention", "spine", "wavehome", "exceptionhome", "journal", "reports"].includes(pane) ? "" : head}${main}<div id="mvPlanSeat"></div></main></div>`;
     if (pl) seatPlan(pl);
     syncSelbar();
     projectQueue();
@@ -5251,6 +5303,8 @@ const MdeRolloutV2Tool = (() => {
       if (t.closest("[data-dash-allpairs]")) { dash.allPairs = true; render(); return; }
       const de = t.closest("[data-dash-export]"); if (de) { dashExport(de.dataset.dashExport); return; }
       const dc = t.closest("[data-dash-consent]"); if (dc) { if (dc.dataset.dashConsent === "hunting") readOnboarding(true); else projectStart(true); return; }
+      const spineRegion = t.closest("[data-mrspine-region]"); if (spineRegion) { regionSet(spineRegion.dataset.mrspineRegion); render(); return; }
+      const stageBtn = t.closest("[data-mrstage]"); if (stageBtn) { pane = stageBtn.dataset.mrstage; render(); return; }
       const countryButton = t.closest("[data-project-country]");
       if (countryButton) { project.country = countryButton.dataset.projectCountry; pane = "wavehome"; render(); return; }
       const countryTab = t.closest("[data-project-wtab]");
@@ -5265,7 +5319,7 @@ const MdeRolloutV2Tool = (() => {
       const rdb = t.closest("[data-mrread]"); if (rdb) { run(rdb.dataset.mrread === "attach"); return; }
       const reportChoice = t.closest("[data-mrreport]");
       if (reportChoice) { reps.selected = reportChoice.dataset.mrreport; reps.error = ""; pane = "reports"; render(); focusOn(`[data-mrreport="${reps.selected}"]`); return; }
-      const nd = t.closest("[data-mrpane]"); if (nd) { e.preventDefault(); go(nd.dataset.mrpane); return; }
+      const nd = t.closest("[data-mrpane]"); if (nd) { e.preventDefault(); go(nd.dataset.mrhome || nd.dataset.mrpane); return; }   // 10726: an area opens on its home pane
       const op = t.closest("[data-mropen]"); if (op) { e.preventDefault(); openPolicy(op.dataset.mropen); return; }
       const c = t.closest("[data-mrcat]"); if (c) { view.cat = c.dataset.mrcat || null; render(); return; }
       const st = t.closest("[data-mrstate]"); if (st) { view.state = st.dataset.mrstate || null; render(); return; }
@@ -5748,7 +5802,7 @@ const MdeRolloutV2Tool = (() => {
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
     _readCache: () => Graph.readCache.stats(), _readGen: () => readGen,
-    _resumeRun: resumeRun, _state28: () => state28, _stateRead: stateRead, _stateWrite: stateWrite, _runsStore: () => runsStore, _loadRuns: loadRuns, _region: (r) => { if (r !== undefined) regionSet(r); return regionSel; }, _saveCfg: (c) => { saveCfg(c); derive(); render(); },
+    _resumeRun: resumeRun, _spine: () => T28Spine.stages(spineInput(regionSel || ((model && model.cfg.groups.find((g) => g.role === "wave")) || {}).region)), _state28: () => state28, _stateRead: stateRead, _stateWrite: stateWrite, _runsStore: () => runsStore, _loadRuns: loadRuns, _region: (r) => { if (r !== undefined) regionSet(r); return regionSel; }, _saveCfg: (c) => { saveCfg(c); derive(); render(); },
     _projectFile: (pf) => { if (pf !== undefined) { projectFile = pf; loadCfg(); derive(); render(); } return projectFile; }, _projectFileText: projectFileText,
     _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, wc, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, ob, dash, dashModel, dashInput, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),
     _pane: (p) => { pane = p; render(); },

@@ -1377,6 +1377,18 @@ footer #buildStampFoot{color:var(--muted);font-size:12px;font-family:ui-monospac
 /* 10714/10715 T28 ⚙️ Project setup cards: the same card, green or amber */
 .gu-ok{border:1px solid var(--border);border-left:3px solid var(--on);border-radius:10px;padding:8px 12px;margin-top:8px;font-size:12.5px;background:var(--soft2)}
 .gu-warn{border:1px solid var(--border);border-left:3px solid var(--report);border-radius:10px;padding:8px 12px;margin-top:8px;font-size:12.5px;background:var(--soft2)}
+/* 10726 T28 wave spine */
+.t28-spine .t28-stages{display:flex;flex-direction:column}
+.t28-stage{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.t28-stage:last-child{border-bottom:0}
+.t28-stage-body{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.t28-stage.wait .t28-stage-body b{color:var(--muted)}
+.t28-stage-dot{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);flex:none}
+.t28-stage-dot.ok{background:color-mix(in srgb,var(--on) 18%,transparent);border-color:var(--on);color:var(--on)}
+.t28-stage-dot.now{background:color-mix(in srgb,var(--report) 18%,transparent);border-color:var(--report);color:var(--report);font-weight:600}
+.t28-stage-dot.unk{border-color:var(--report);color:var(--report)}
+.t28-next{margin-top:12px;padding:10px 14px;border-radius:10px;background:var(--soft2)}
+.t28-next p{margin:2px 0 8px}
 .gu-row-link{cursor:pointer}
 .gu-row-link:hover td{background:var(--soft)}
 .gu-num{text-align:right;font-variant-numeric:tabular-nums}
