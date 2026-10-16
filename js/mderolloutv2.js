@@ -124,9 +124,17 @@ const MdeRolloutV2Tool = (() => {
   // survive a refresh. runsStore says where they live and whether a save
   // failed; the array stays what every pane reads.
   const runsStore = { where: "", loaded: false, error: "", saved: 0 };
+  // 10722 (Phase 2.2, the single reader): one READ GENERATION for every pane.
+  // A refresh, a ↻ Read or a write starts a new one; within one, the panes'
+  // reads of the same list (a wave's members, the managed devices, the
+  // hold-back) are answered once by Graph.readCache and shared.
+  let readGen = 0;
+  const readGeneration = () => { readGen++; Graph.readCache.begin(`t28:${tenantKey()}:${readGen}`); return readGen; };
+  const readShared = () => Graph.readCache.begin(`t28:${tenantKey()}:${readGen}`);
   function logRun(run) {
     if (!run.by) run.by = (Graph.accountUpn && Graph.accountUpn()) || "";
     runs.push(run);
+    readGeneration();   // the tenant changed — the next read of any pane is fresh
     T28Runs.save(tenantKey(), run).then((r) => { run.id = r.id; runsStore.where = r.where; runsStore.saved++; runsStore.error = ""; })
       .catch((e) => { runsStore.error = `this run could not be saved in the browser (${GroupUse.shortErr(e, 120)}) — export the run file before leaving`; });
     return run;
@@ -237,7 +245,10 @@ const MdeRolloutV2Tool = (() => {
     if (!busy) {
       // folded: one row of ticks, a partial or refused source with its answer
       const ticks = PROJECT_STEPS.map(([k, label]) => { const st = stepState(k), s = project.sources[k]; const cls = st === "ready" ? "ok" : st === "notread" ? "off" : "part"; const txt = st === "ready" ? `${label} ${shortTime(s.at)}` : st === "notread" ? `${label} — not read` : `${label} ${shortTime(s.at)} — ${projectStatus(k)}${s.error ? `: ${s.error}` : ""}`; return `<span class="${cls}" title="${esc(txt)}">${esc(txt)}</span>`; }).join("");
-      return `<div class="t28-strip done" role="status"><div class="t28-ticks">${ticks}</div><small>${sources.length ? esc(mmss(end - start)) : ""}</small></div>`;
+      // 10722: the read ledger — how many Graph lists this generation read, how many the panes shared
+      const rc = Graph.readCache && Graph.readCache.stats ? Graph.readCache.stats() : null;
+      const ledger = rc && rc.reads ? ` · ${rc.reads} lists read${rc.hits ? `, ${rc.hits} shared` : ""}` : "";
+      return `<div class="t28-strip done" role="status"><div class="t28-ticks">${ticks}</div><small>${sources.length ? esc(mmss(end - start)) : ""}${esc(ledger)}</small></div>`;
     }
     let done = 0, frac = 0, current = "";
     const steps = PROJECT_STEPS.map(([k, label], i) => {
@@ -782,6 +793,7 @@ const MdeRolloutV2Tool = (() => {
     running = true; $("mvRun").disabled = true;
     projectSource("policies", "reading"); reps.error = "";
     try {
+      readGeneration();   // 10722: a refresh is a new read generation for every pane
       await loadProjectFile();
       loadCfg();
       if (!attach) clearPlan();
@@ -3050,6 +3062,7 @@ const MdeRolloutV2Tool = (() => {
     if (mem.loading) return;
     const epoch = project.epoch;
     mem.loading = true; mem.error = ""; projectSource("members", "reading"); clearPlan(); render();
+    readShared();   // 10722: the automatic reads share one generation; a hand ↻ started a new one first
     try {
       await Graph.ensureScopes([...new Set([...Graph.SCOPES.groups, ...Graph.SCOPES.devices, ...Graph.SCOPES.deviceObjects, ...Graph.SCOPES.directory, ...(mcfg().useDefenderLogons ? Graph.SCOPES.hunting : [])])]);
       const waves = [...memWaves().values()].flatMap((w) => [w.user, w.device]).filter(Boolean);
@@ -4419,6 +4432,7 @@ const MdeRolloutV2Tool = (() => {
     if (ex.loading) return;
     const epoch = project.epoch;
     ex.loading = true; ex.error = ""; projectSource("exclusions", "reading"); render();
+    readShared();
     try {
       await Graph.ensureScopes(MdeExclude.scopes());
       const next = await MdeExclude.readBase(exGroups(), (m) => { const el = $("mvExProg"); if (el) el.textContent = m; projectLine("exclusions", m); });
@@ -4816,6 +4830,7 @@ const MdeRolloutV2Tool = (() => {
     if (ld.busy || !model || running) return false;
     const epoch = project.epoch;
     ld.busy = true; ld.error = ""; ld.status = "Reading…"; projectSource("landing", "reading"); render();
+    readShared();
     const say = (m) => { if (!projectValid(epoch)) return; ld.status = m; const el = $("mvLdStatus"); if (el) el.textContent = m; projectLine("landing", m); };
     try {
       const reportScopes = [...new Set([...Graph.SCOPES.config, ...Graph.SCOPES.devices])];
@@ -5340,7 +5355,7 @@ const MdeRolloutV2Tool = (() => {
       if (t.id === "mvRep_conflicts") { runConflictCheck(); return; }
       if (t.id === "mvRep_landing") { runLandingReport(true); return; }
       // 📡 Landing (10689)
-      if (t.closest("[data-mrldread]")) { readLanding(); return; }
+      if (t.closest("[data-mrldread]")) { readGeneration(); readLanding(); return; }   // 10722: a hand ↻ is fresh
       const ldr = t.closest("[data-mrldregion]"); if (ldr) { e.preventDefault(); ld.region = ldr.dataset.mrldregion || null; render(); return; }
       const ldf = t.closest("[data-mrldfilter]"); if (ldf) { e.preventDefault(); ld.filter = ldf.dataset.mrldfilter || "all"; render(); return; }
       if (t.id === "mvLdCsv") { if (ld.model) download(`MDE-rollout-landing-${stamp()}.csv`, MdeLanding.csv(ld.model), "text/csv"); return; }
@@ -5404,7 +5419,7 @@ const MdeRolloutV2Tool = (() => {
         mem.region = region; mem.unmapped = false; mem.sel.clear(); mem.sel.add(lc(suffix));
         memCompute(); clearPlan(); render(); return;
       }
-      if (t.id === "mvMemRead") { memRead(); return; }
+      if (t.id === "mvMemRead") { readGeneration(); memRead(); return; }
       // 🧪 pilot batches (10640)
       const bt = t.closest("[data-mrbatch]"); if (bt) { batchDryRun(bt.dataset.mrbatch, false); return; }
       const bf = t.closest("[data-mrbatchfin]"); if (bf) { batchDryRun(bf.dataset.mrbatchfin, true); return; }
@@ -5436,7 +5451,7 @@ const MdeRolloutV2Tool = (() => {
       const lrm = t.closest("[data-mrrvlrm]"); if (lrm) { rv.list = rv.list.filter((e) => e.key !== lrm.dataset.mrrvlrm); rvListChanged(); render(); return; }
       const rp = t.closest("[data-mrrvpick]"); if (rp) { const h = (rv.results || [])[Number(rp.dataset.mrrvpick)]; if (h) rvPick(h); return; }
       // ⊘ exclusions (10639)
-      if (t.id === "mvExRead") { exRead(); return; }
+      if (t.id === "mvExRead") { readGeneration(); exRead(); return; }
       if (t.id === "mvExGo") { exSearch(); return; }
       if (t.id === "mvExDry") { exDryRun(); return; }
       if (t.id === "mvExRemDry") { exRemoveDryRun(); return; }
@@ -5715,6 +5730,7 @@ const MdeRolloutV2Tool = (() => {
     init, run, onShow,
     // headless: hand the screen a read and drive it without Graph
     _setForTest: (r, t, f, k) => { res = r; templates = t || new Map(); found = f || null; kinds = k || new Map(); loadCfg(); derive(); render(); },
+    _readCache: () => Graph.readCache.stats(), _readGen: () => readGen,
     _state28: () => state28, _stateRead: stateRead, _stateWrite: stateWrite, _runsStore: () => runsStore, _loadRuns: loadRuns, _region: (r) => { if (r !== undefined) regionSet(r); return regionSel; }, _saveCfg: (c) => { saveCfg(c); derive(); render(); },
     _projectFile: (pf) => { if (pf !== undefined) { projectFile = pf; loadCfg(); derive(); render(); } return projectFile; }, _projectFileText: projectFileText,
     _state: () => ({ pane, model, pairs, retire, waveRows, plan, sel, selPairs, runs, cfg, rollRegions, pilotTiersOff, mem, reps, ex, asr, ext, cs, rv, wc, csModel, planAnchor, running, busy, enriching, dv, devCounts, tm, ld, ob, dash, dashModel, dashInput, project, projectFindings, projectStrip, areaDot, stepState, lineFrac, projectLine }),

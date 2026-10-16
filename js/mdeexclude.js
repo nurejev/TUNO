@@ -47,15 +47,17 @@ const MdeExclude = (() => {
   async function readBase(groups, onStatus) {
     const say = (m) => { if (onStatus) onStatus(m); };
     say("Reading the Windows devices in Intune…");
-    const managed = await Graph.readAll(`/deviceManagement/managedDevices?$filter=${enc("operatingSystem eq 'Windows'")}&$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime,osVersion`, { scopes: DS(), retry: true });
+    // 10722 (the single reader): the same list 👥 and 📡 read, so one read
+    // generation answers all three; Windows is picked here, not by Graph
+    const managed = ((await Graph.readAll(`/deviceManagement/managedDevices?$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime,operatingSystem,osVersion`, { cache: true, scopes: DS(), retry: true })) || []).filter((m) => /windows/i.test(m.operatingSystem || ""));
     let users = [], devices = [];
     if (groups && groups.user) {
       say(`Reading ${groups.user.displayName}…`);
-      users = await Graph.readAll(`/groups/${enc(groups.user.id)}/members/microsoft.graph.user?$select=id,displayName,userPrincipalName&$top=999`, { scopes: GS(), retry: true });
+      users = await Graph.readAll(`/groups/${enc(groups.user.id)}/members/microsoft.graph.user?$select=id,displayName,userPrincipalName&$top=999`, { cache: true, scopes: GS(), retry: true });
     }
     if (groups && groups.device) {
       say(`Reading ${groups.device.displayName}…`);
-      devices = await Graph.readAll(`/groups/${enc(groups.device.id)}/members/microsoft.graph.device?$select=id,deviceId,displayName&$top=999`, { scopes: GS(), retry: true });
+      devices = await Graph.readAll(`/groups/${enc(groups.device.id)}/members/microsoft.graph.device?$select=id,deviceId,displayName&$top=999`, { cache: true, scopes: GS(), retry: true });
     }
     say("");
     return { managed: managed || [], users: users || [], devices: devices || [], groups: groups || {}, readAt: Date.now() };

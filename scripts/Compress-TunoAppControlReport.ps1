@@ -1,4 +1,4 @@
-# Compress-TunoAppControlReport.ps1  v1.0.0  (TUNO build 10721)
+# Compress-TunoAppControlReport.ps1  v1.0.0  (TUNO build 10722)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -54,7 +54,7 @@ param(
 )
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10721
+$script:TunoBuild = 10722
 
 $ErrorActionPreference = 'Stop'
 

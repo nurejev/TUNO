@@ -535,7 +535,36 @@ const Graph = (() => {
   // A response with no `value` is a single object, not an empty collection —
   // /deviceManagement/settings answers that way, and dropping it would report
   // a configured tenant as unconfigured.
+  // ---------- the read cache (10722, T28's single reader) ----------
+  //
+  // A tool that reads the same list from several panes — T28 reads a wave's
+  // members for 👥, again for 📡 Landing, the managed devices for 👥 and
+  // again for ⊘ — can share one answer per read generation: it calls
+  // readCache.begin(key) when a generation starts (a refresh, a read, or
+  // after it wrote something) and passes cache: true on the reads that may
+  // share. Identical URLs within one generation are read ONCE; a failed
+  // read is not kept; every caller gets its own copy of the array. No
+  // caching without the flag and no caching outside a generation, so no
+  // other tool sees a stale list by accident.
+  const readCache = {
+    key: null, map: new Map(), at: 0, hits: 0, reads: 0,
+    begin(key) { if (key !== this.key) { this.key = key; this.map.clear(); this.at = Date.now(); this.hits = 0; this.reads = 0; } },
+    clear() { this.key = null; this.map.clear(); },
+    stats() { return { key: this.key, at: this.at, entries: this.map.size, hits: this.hits, reads: this.reads }; },
+  };
   async function readAll(path, opts = {}) {
+    if (opts.cache && readCache.key) {
+      const k = String(path);
+      if (readCache.map.has(k)) { readCache.hits++; return (await readCache.map.get(k)).slice(); }
+      readCache.reads++;
+      const p = readAllUncached(path, Object.assign({}, opts, { cache: false }));
+      readCache.map.set(k, p);
+      p.catch(() => { if (readCache.map.get(k) === p) readCache.map.delete(k); });
+      return (await p).slice();
+    }
+    return readAllUncached(path, opts);
+  }
+  async function readAllUncached(path, opts = {}) {
     let out = [], next = opts.beta && !String(path).startsWith("http") ? BETA + path : path, pages = 0;
     while (next) {
       const j = await readOne(next, Object.assign({}, opts, { beta: false }));
@@ -925,7 +954,7 @@ const Graph = (() => {
     siteByUrlRead, driveChildren, driveItem, driveDownloadUrl,
     searchGroups, memberCount, assignProfile,
     // read layer (build 10316)
-    readOne, readAll, pool, batch, resolveNames,
+    readOne, readAll, readCache, pool, batch, resolveNames,
     odata, isGuid, chunk, setThrottleHandler, safeGraphUrl,
     // consent (build 10322)
     ensureScopes, hasScopes, silentScopes, needsInteraction, isPopupBlocked,

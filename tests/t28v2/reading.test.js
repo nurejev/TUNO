@@ -85,7 +85,7 @@ async function run() {
   ok("…the elapsed time ticks while a read runs", !!st().project.ticker && /\d:\d\d so far/.test(S.textContent));
   release(); await idle(); await sleep(30);
   const F = strip();
-  ok("finished: the strip folds to one row of ticks with times and the total time, every rail dot green, the button back to Refresh", !!F && /done/.test(F.className) && F.querySelectorAll(".t28-ticks span.ok").length === 6 && /Policies & wave groups \d/.test(F.textContent) && /^\d+:\d\d$/.test(F.querySelector("small").textContent) && dots().join() === "overview:ok/,wavehome:ok/,new:ok/,exceptionhome:ok/,journal:ok/" && $("mvRun").textContent === "↻ Refresh project" && !st().project.ticker);
+  ok("finished: the strip folds to one row of ticks with times, the total time and the read ledger (10722), every rail dot green, the button back to Refresh", !!F && /done/.test(F.className) && F.querySelectorAll(".t28-ticks span.ok").length === 6 && /Policies & wave groups \d/.test(F.textContent) && /^\d+:\d\d( · \d+ lists read(, \d+ shared)?)?$/.test(F.querySelector("small").textContent) && dots().join() === "overview:ok/,wavehome:ok/,new:ok/,exceptionhome:ok/,journal:ok/" && $("mvRun").textContent === "↻ Refresh project" && !st().project.ticker);
   ok("…each source kept when it started and how long it took", ["policies", "members", "exclusions", "landing", "devices", "onboarding"].every((k) => { const s = st().project.sources[k]; return s && s.startedAt && s.at >= s.startedAt; }));
 
   // a partial source: the check-in status refused in every form

@@ -96,7 +96,7 @@ const MdeRevert = (() => {
     const GS = Graph.SCOPES.groups;
     const failed = [];
     say("Reading the static country user groups…");
-    const list = await Graph.readAll(`/groups?$filter=${enc(`startswith(displayName,'${odq(cfg.userGroupPrefix)}')`)}&$select=id,displayName,groupTypes,membershipRule&$top=999`, { scopes: GS, retry: true });
+    const list = await Graph.readAll(`/groups?$filter=${enc(`startswith(displayName,'${odq(cfg.userGroupPrefix)}')`)}&$select=id,displayName,groupTypes,membershipRule&$top=999`, { cache: true, scopes: GS, retry: true });
     const want = new Set((rows || []).map((r) => lc(userGroupName(r, cfg))).filter(Boolean));
     const userGroups = new Map();
     for (const g of list || []) if (want.has(lc(g.displayName))) userGroups.set(lc(g.displayName), g);
@@ -106,7 +106,7 @@ const MdeRevert = (() => {
     const unread = new Map();
     const gs = [...userGroups.values()];
     let i = 0;
-    const ur = await Graph.pool(gs, async (g) => { say(`Reading the static user groups' members — ${++i}/${gs.length}…`); return Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.user?$select=id,userPrincipalName&$top=999`, { scopes: GS, retry: true }); }, 4);
+    const ur = await Graph.pool(gs, async (g) => { say(`Reading the static user groups' members — ${++i}/${gs.length}…`); return Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.user?$select=id,userPrincipalName&$top=999`, { cache: true, scopes: GS, retry: true }); }, 4);
     ur.forEach((r, n) => {
       if (r.error) { failed.push(`${gs[n].displayName}: ${msg(r.error).slice(0, 160)}`); unread.set(lc(gs[n].id), msg(r.error).slice(0, 160)); return; }
       userMembers.set(lc(gs[n].id), new Set((r.value || []).map((u) => lc(u.id))));
@@ -115,7 +115,7 @@ const MdeRevert = (() => {
     say("Reading the hold-back groups…");
     const byName = async (name) => {
       if (!name) return null;
-      const hit = await Graph.readAll(`/groups?$filter=${enc(`displayName eq '${odq(name)}'`)}&$select=id,displayName,groupTypes&$top=5`, { scopes: GS, retry: true });
+      const hit = await Graph.readAll(`/groups?$filter=${enc(`displayName eq '${odq(name)}'`)}&$select=id,displayName,groupTypes&$top=5`, { cache: true, scopes: GS, retry: true });
       return (hit || []).find((g) => lc(g.displayName) === lc(name)) || null;
     };
     const revert = { user: null, device: null, legacy: { user: null, device: null } };
@@ -133,14 +133,14 @@ const MdeRevert = (() => {
       revert.user = await byNameOrOld(cfg.revertUser, "user");
       // 10712 (R4): TRANSITIVE — a group nested in the hold-back holds its
       // members back too (the pair was read with /members: nested groups held nobody)
-      if (revert.user) for (const u of (await Graph.readAll(`/groups/${enc(revert.user.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,displayName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true })) || []) {
+      if (revert.user) for (const u of (await Graph.readAll(`/groups/${enc(revert.user.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,displayName&$count=true&$top=999`, { cache: true, scopes: GS, headers: EV, retry: true })) || []) {
         revertUsers.set(lc(u.id), { id: lc(u.id), upn: u.userPrincipalName || u.id, name: u.displayName || u.userPrincipalName || u.id });
         if (u.userPrincipalName) upn.set(lc(u.id), u.userPrincipalName);
       }
     } catch (e) { failed.push(`${cfg.revertUser}: ${msg(e).slice(0, 160)}`); holdUnread.push(`${cfg.revertUser}: ${msg(e).slice(0, 120)}`); }
     try {
       revert.device = await byNameOrOld(cfg.revertDevice, "device");
-      if (revert.device) for (const d of (await Graph.readAll(`/groups/${enc(revert.device.id)}/transitiveMembers/microsoft.graph.device?$select=id,deviceId,displayName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true })) || []) revertDevices.set(lc(d.id), { id: lc(d.id), deviceId: lc(d.deviceId || ""), name: d.displayName || d.id });
+      if (revert.device) for (const d of (await Graph.readAll(`/groups/${enc(revert.device.id)}/transitiveMembers/microsoft.graph.device?$select=id,deviceId,displayName&$count=true&$top=999`, { cache: true, scopes: GS, headers: EV, retry: true })) || []) revertDevices.set(lc(d.id), { id: lc(d.id), deviceId: lc(d.deviceId || ""), name: d.displayName || d.id });
     } catch (e) { failed.push(`${cfg.revertDevice}: ${msg(e).slice(0, 160)}`); holdUnread.push(`${cfg.revertDevice}: ${msg(e).slice(0, 120)}`); }
     say("");
     // 10707: a hold-back pair that could not be read is not an empty one —

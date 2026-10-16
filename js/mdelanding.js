@@ -146,8 +146,8 @@ const MdeLanding = (() => {
     // excludedBy: per excluded group, who is in it — a policy holds out only
     // the members of ITS excluded groups
     const out = { users: new Map(), devices: new Map(), excludedBy: new Map(), errors: [] };
-    const readUsers = (id) => Graph.readAll(`/groups/${enc(id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName&$count=true&$top=999`, { scopes: GS(), headers: EV, retry: true });
-    const readDevices = (id) => Graph.readAll(`/groups/${enc(id)}/transitiveMembers/microsoft.graph.device?$select=id,deviceId,displayName&$count=true&$top=999`, { scopes: GS(), headers: EV, retry: true });
+    const readUsers = (id) => Graph.readAll(`/groups/${enc(id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName&$count=true&$top=999`, { cache: true, scopes: GS(), headers: EV, retry: true });
+    const readDevices = (id) => Graph.readAll(`/groups/${enc(id)}/transitiveMembers/microsoft.graph.device?$select=id,deviceId,displayName&$count=true&$top=999`, { cache: true, scopes: GS(), headers: EV, retry: true });
     let n = 0;
     const total = sc.userWaves.length + sc.deviceWaves.length + sc.excludeGroups.length * 2;
     const step = (what) => say(`Reading the wave members — ${++n} of ${total} (${what})…`);
@@ -176,7 +176,7 @@ const MdeLanding = (() => {
     const o = opts || {};
     if (Array.isArray(o.managed)) return o.managed;
     if (typeof o.onStatus === "function") o.onStatus("Reading the devices in Intune…");
-    const all = await Graph.readAll(`/deviceManagement/managedDevices?$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime,operatingSystem`, { scopes: Graph.SCOPES.devices, retry: true });
+    const all = await Graph.readAll(`/deviceManagement/managedDevices?$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime,operatingSystem,osVersion`, { cache: true, scopes: Graph.SCOPES.devices, retry: true });
     return (all || []).filter((m) => lc(m.operatingSystem) === "windows");
   }
 

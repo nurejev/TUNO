@@ -332,9 +332,9 @@ const MdeMembers = (() => {
     const say = (m) => { if (onStatus) onStatus(m); };
     const GS = Graph.SCOPES.groups, DS = Graph.SCOPES.devices, DO = Graph.SCOPES.deviceObjects;
     say("Reading the country groups…");
-    const countryGroups = await Graph.readAll(`/groups?$filter=${enc(`startswith(displayName,'${odq(cfg.countryPrefix)}')`)}&$select=id,displayName,groupTypes,membershipRule&$top=999`, { scopes: GS, retry: true });
+    const countryGroups = await Graph.readAll(`/groups?$filter=${enc(`startswith(displayName,'${odq(cfg.countryPrefix)}')`)}&$select=id,displayName,groupTypes,membershipRule&$top=999`, { cache: true, scopes: GS, retry: true });
     say("Reading the device groups…");
-    let dgList = await Graph.readAll(`/groups?$filter=${enc(`startswith(displayName,'${odq(cfg.deviceGroupPrefix)}')`)}&$select=id,displayName,groupTypes,membershipRule&$top=999`, { scopes: GS, retry: true });
+    let dgList = await Graph.readAll(`/groups?$filter=${enc(`startswith(displayName,'${odq(cfg.deviceGroupPrefix)}')`)}&$select=id,displayName,groupTypes,membershipRule&$top=999`, { cache: true, scopes: GS, retry: true });
     // the device waves share the prefix (INT-SG-D-WAVE-…, 10635) — they are
     // not country device groups, so their members are not read here
     const waveIds = new Set((waveGroups || []).filter((g) => g && g.id).map((g) => lc(g.id)));
@@ -346,7 +346,7 @@ const MdeMembers = (() => {
     // every platform, once (10642): Windows is the wave's subset; the rest
     // says what a user with no Windows device does have (🕳 Left out)
     say("Reading the Windows devices in Entra…");
-    const entra = await Graph.readAll(`/devices?$filter=${enc("operatingSystem eq 'Windows'")}&$count=true&$select=id,deviceId,displayName,accountEnabled,approximateLastSignInDateTime&$top=999`, { scopes: DO, headers: EV, retry: true });
+    const entra = await Graph.readAll(`/devices?$filter=${enc("operatingSystem eq 'Windows'")}&$count=true&$select=id,deviceId,displayName,accountEnabled,approximateLastSignInDateTime&$top=999`, { cache: true, scopes: DO, headers: EV, retry: true });
     // 10708: ⚙️ devices from Entra (the lab seam) — the Entra objects stand
     // in for Intune's rows: no primary user, no last sync, the Entra id as
     // the id; Intune is not asked, not for the devices nor for ② its logons
@@ -356,7 +356,7 @@ const MdeMembers = (() => {
       managedAll = managed = (entra || []).map((e) => ({ id: lc(e.id), deviceName: e.displayName || "", userId: "", userPrincipalName: "", azureADDeviceId: e.deviceId || "", lastSyncDateTime: null, operatingSystem: "Windows", fromEntra: true }));
     } else {
       say("Reading the devices in Intune…");
-      managedAll = await Graph.readAll(`/deviceManagement/managedDevices?$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime,operatingSystem`, { scopes: DS, retry: true });
+      managedAll = await Graph.readAll(`/deviceManagement/managedDevices?$select=id,deviceName,userId,userPrincipalName,azureADDeviceId,lastSyncDateTime,operatingSystem,osVersion`, { cache: true, scopes: DS, retry: true });
       managed = (managedAll || []).filter((m) => lc(m.operatingSystem) === "windows");
     }
     // 10655 (Mihai: "in the users without devices I see no primary user on
@@ -371,7 +371,7 @@ const MdeMembers = (() => {
     let oi = 0;
     const orr = await Graph.pool(orphans, async (m) => {
       if (++oi % 25 === 1 || oi === orphans.length) say(`Reading the Entra owners of devices with no primary user — ${oi}/${orphans.length}…`);
-      return Graph.readAll(`/devices/${enc(entraByDid.get(lc(m.azureADDeviceId)).id)}/registeredOwners/microsoft.graph.user?$select=id,userPrincipalName,usageLocation&$top=5`, { scopes: DO, retry: true });
+      return Graph.readAll(`/devices/${enc(entraByDid.get(lc(m.azureADDeviceId)).id)}/registeredOwners/microsoft.graph.user?$select=id,userPrincipalName,usageLocation&$top=5`, { cache: true, scopes: DO, retry: true });
     }, 6);
     orr.forEach((r, n) => {
       const e = entraByDid.get(lc(orphans[n].azureADDeviceId));
@@ -392,7 +392,7 @@ const MdeMembers = (() => {
     let i = 0;
     const ur = await Graph.pool(mapped, async (g) => {
       say(`Reading the users of the country groups — ${++i}/${mapped.length}…`);
-      return Graph.readAll(`/groups/${enc(g.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,onPremisesSecurityIdentifier,onPremisesSamAccountName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true });
+      return Graph.readAll(`/groups/${enc(g.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,onPremisesSecurityIdentifier,onPremisesSamAccountName&$count=true&$top=999`, { cache: true, scopes: GS, headers: EV, retry: true });
     }, 4);
     ur.forEach((r, n) => { if (r.error) { failed.push(`${mapped[n].displayName}: ${(r.error && r.error.message) || r.error}`); unreadSet(mapped[n], (r.error && r.error.message) || r.error); } else usersByGroup.set(lc(mapped[n].id), r.value || []); });
     // 10659: the primary users in no country group of the table — each read
@@ -408,7 +408,7 @@ const MdeMembers = (() => {
     const pr = await Graph.pool(outList, async ([, m]) => {
       if (++pi % 25 === 1 || pi === outList.length) say(`Looking up primary users outside the country groups — ${pi}/${outList.length}…`);
       const real = realUpnOf(m.userPrincipalName);
-      if (real) return { real, hits: await Graph.readAll(`/users?$filter=${enc(`userPrincipalName eq '${odq(real)}'`)}&$select=id,userPrincipalName,usageLocation,accountEnabled&$top=5`, { scopes: Graph.SCOPES.directory, retry: true }) };
+      if (real) return { real, hits: await Graph.readAll(`/users?$filter=${enc(`userPrincipalName eq '${odq(real)}'`)}&$select=id,userPrincipalName,usageLocation,accountEnabled&$top=5`, { cache: true, scopes: Graph.SCOPES.directory, retry: true }) };
       try { return { one: await Graph.get(`https://graph.microsoft.com/v1.0/users/${enc(m.userId)}?$select=id,userPrincipalName,usageLocation,accountEnabled`, { scopes: Graph.SCOPES.directory, retry: true }) }; }
       catch (e) { if (e && e.kind === "notfound") return { gone: true }; throw e; }
     }, 6);
@@ -427,28 +427,28 @@ const MdeMembers = (() => {
     i = 0;
     const dr = await Graph.pool(dgList, async (g) => {
       say(`Reading the device groups' members — ${++i}/${dgList.length}…`);
-      return Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id,deviceId,displayName&$top=999`, { scopes: GS, retry: true });
+      return Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id,deviceId,displayName&$top=999`, { cache: true, scopes: GS, retry: true });
     }, 4);
     dr.forEach((r, n) => { if (r.error) { failed.push(`${dgList[n].displayName}: ${(r.error && r.error.message) || r.error}`); unreadSet(dgList[n], (r.error && r.error.message) || r.error); } else deviceMembers.set(lc(dgList[n].id), new Set((r.value || []).map((d) => lc(d.id)))); });
     const waveChildren = new Map();
     const waves = (waveGroups || []).filter((g) => g && g.id);
-    const wr = await Graph.pool(waves, async (g) => Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.group?$select=id,displayName&$top=999`, { scopes: GS, retry: true }), 4);
+    const wr = await Graph.pool(waves, async (g) => Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.group?$select=id,displayName&$top=999`, { cache: true, scopes: GS, retry: true }), 4);
     wr.forEach((r, n) => { if (r.error) { failed.push(`${waves[n].displayName}: ${(r.error && r.error.message) || r.error}`); unreadSet(waves[n], (r.error && r.error.message) || r.error); } else waveChildren.set(lc(waves[n].id), new Set((r.value || []).map((x) => lc(x.id)))); });
     // the users put straight into a wave — a pilot's batches (10640)
     const waveUsers = new Map();
-    const wu = await Graph.pool(waves, async (g) => Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.user?$select=id,userPrincipalName&$top=999`, { scopes: GS, retry: true }), 4);
+    const wu = await Graph.pool(waves, async (g) => Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.user?$select=id,userPrincipalName&$top=999`, { cache: true, scopes: GS, retry: true }), 4);
     wu.forEach((r, n) => { if (r.error) { failed.push(`${waves[n].displayName} (direct users): ${(r.error && r.error.message) || r.error}`); unreadSet(waves[n], (r.error && r.error.message) || r.error); } else waveUsers.set(lc(waves[n].id), new Set((r.value || []).map((x) => lc(x.id)))); });
     let heldIds = new Set();
     const heldUnread = [];
     if (held && held.id) {
       say("Reading the device exclusion group…");
-      try { heldIds = new Set(((await Graph.readAll(`/groups/${enc(held.id)}/transitiveMembers/microsoft.graph.device?$select=id&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true })) || []).map((d) => lc(d.id))); }
+      try { heldIds = new Set(((await Graph.readAll(`/groups/${enc(held.id)}/transitiveMembers/microsoft.graph.device?$select=id&$count=true&$top=999`, { cache: true, scopes: GS, headers: EV, retry: true })) || []).map((d) => lc(d.id))); }
       catch (e) { failed.push(`${held.displayName || "the device exclusion group"}: ${(e && e.message) || e}`); unreadSet(held, (e && e.message) || e); heldUnread.push(`${held.displayName || "the device exclusion group"}: ${String((e && e.message) || e).slice(0, 120)}`); }
     }
     const excludedUsers = new Map();
     if (heldUser && heldUser.id) {
       say("Reading the user exclusion group…");
-      try { for (const u of (await Graph.readAll(`/groups/${enc(heldUser.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,displayName&$count=true&$top=999`, { scopes: GS, headers: EV, retry: true })) || []) excludedUsers.set(lc(u.id), { id: lc(u.id), upn: u.userPrincipalName || u.id, name: u.displayName || u.userPrincipalName || u.id }); }
+      try { for (const u of (await Graph.readAll(`/groups/${enc(heldUser.id)}/transitiveMembers/microsoft.graph.user?$select=id,userPrincipalName,displayName&$count=true&$top=999`, { cache: true, scopes: GS, headers: EV, retry: true })) || []) excludedUsers.set(lc(u.id), { id: lc(u.id), upn: u.userPrincipalName || u.id, name: u.displayName || u.userPrincipalName || u.id }); }
       catch (e) { failed.push(`${heldUser.displayName || "the user exclusion group"}: ${(e && e.message) || e}`); unreadSet(heldUser, (e && e.message) || e); heldUnread.push(`${heldUser.displayName || "the user exclusion group"}: ${String((e && e.message) || e).slice(0, 120)}`); }
     }
     // 🧪 the pilot groups' direct members (10647): users, devices, and any
@@ -457,13 +457,13 @@ const MdeMembers = (() => {
     for (const name of cleanNames(pilotNames)) {
       say(`Reading the pilot group ${name}…`);
       try {
-        const hits = (await Graph.readAll(`/groups?$filter=${enc(`displayName eq '${odq(name)}'`)}&$select=id,displayName&$top=5`, { scopes: GS, retry: true })) || [];
+        const hits = (await Graph.readAll(`/groups?$filter=${enc(`displayName eq '${odq(name)}'`)}&$select=id,displayName&$top=5`, { cache: true, scopes: GS, retry: true })) || [];
         const g = hits.find((x) => lc(x.displayName) === lc(name));
         if (!g) { pilotsMissing.push(name); continue; }
         const [users, devices, groups] = await Promise.all([
-          Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.user?$select=id,userPrincipalName,displayName&$top=999`, { scopes: GS, retry: true }),
-          Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id,deviceId,displayName&$top=999`, { scopes: GS, retry: true }),
-          Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.group?$select=id,displayName&$top=999`, { scopes: GS, retry: true }),
+          Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.user?$select=id,userPrincipalName,displayName&$top=999`, { cache: true, scopes: GS, retry: true }),
+          Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id,deviceId,displayName&$top=999`, { cache: true, scopes: GS, retry: true }),
+          Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.group?$select=id,displayName&$top=999`, { cache: true, scopes: GS, retry: true }),
         ]);
         pilots.push({ id: lc(g.id), name: g.displayName, users: (users || []).map((u) => ({ id: lc(u.id), upn: u.userPrincipalName || "", name: u.displayName || u.userPrincipalName || u.id })),
           devices: (devices || []).map((d) => ({ id: lc(d.id), deviceId: lc(d.deviceId || ""), name: d.displayName || d.id })), groups: (groups || []).map((x) => ({ id: lc(x.id), name: x.displayName || x.id })) });
@@ -477,7 +477,7 @@ const MdeMembers = (() => {
     if (cfg.useIntuneLogons && !fromEntra) {
       say("Reading Intune's last logged-on users…");
       try {
-        const list = await Graph.readAll(`https://graph.microsoft.com/beta/deviceManagement/managedDevices?$filter=${enc("operatingSystem eq 'Windows'")}&$select=id,usersLoggedOn`, { scopes: DS, retry: true });
+        const list = await Graph.readAll(`https://graph.microsoft.com/beta/deviceManagement/managedDevices?$filter=${enc("operatingSystem eq 'Windows'")}&$select=id,usersLoggedOn`, { cache: true, scopes: DS, retry: true });
         for (const x of list || []) if (x && Array.isArray(x.usersLoggedOn) && x.usersLoggedOn.length) intuneLogons.set(lc(x.id), x.usersLoggedOn.map((u) => ({ userId: lc(u.userId || ""), at: u.lastLogOnDateTime || null })));
         // the list may leave the collection out — then the devices the primary
         // user does not place are read one by one (Learn: usersLoggedOn is
@@ -509,7 +509,7 @@ const MdeMembers = (() => {
       for (const rel of ["registeredOwners", "registeredUsers"]) {
         say(`Reading the Entra devices' ${rel === "registeredOwners" ? "owners" : "registered users"}…`);
         try {
-          const list = await Graph.readAll(`/devices?$filter=${enc("operatingSystem eq 'Windows'")}&$select=id&$expand=${rel}($select=id)&$top=999`, { scopes: DO, retry: true });
+          const list = await Graph.readAll(`/devices?$filter=${enc("operatingSystem eq 'Windows'")}&$select=id&$expand=${rel}($select=id)&$top=999`, { cache: true, scopes: DO, retry: true });
           for (const d of list || []) for (const u of d[rel] || []) { const k = lc(d.id); if (!entraUsers.has(k)) entraUsers.set(k, new Set()); entraUsers.get(k).add(lc(u.id)); }
         } catch (e) { failed.push(`the Entra devices' ${rel === "registeredOwners" ? "owners" : "registered users"} could not be read — a user's Entra devices are not added from it: ${String((e && e.message) || e).slice(0, 160)}`); }
       }
@@ -517,22 +517,22 @@ const MdeMembers = (() => {
     let skipSet = new Set(), skipGroup = null;
     if (cfg.skipDevice) {
       try {
-        const hits = (await Graph.readAll(`/groups?$filter=${enc(`displayName eq '${odq(cfg.skipDevice)}'`)}&$select=id,displayName&$top=5`, { scopes: GS, retry: true })) || [];
+        const hits = (await Graph.readAll(`/groups?$filter=${enc(`displayName eq '${odq(cfg.skipDevice)}'`)}&$select=id,displayName&$top=5`, { cache: true, scopes: GS, retry: true })) || [];
         const g = hits.find((x) => lc(x.displayName) === lc(cfg.skipDevice));
         if (g) {
           skipGroup = { id: lc(g.id), name: g.displayName };
-          skipSet = new Set(((await Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id&$top=999`, { scopes: GS, retry: true })) || []).map((d) => lc(d.id)));
+          skipSet = new Set(((await Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id&$top=999`, { cache: true, scopes: GS, retry: true })) || []).map((d) => lc(d.id)));
         }
       } catch (e) { failed.push(`${cfg.skipDevice}: ${String((e && e.message) || e).slice(0, 160)}`); }
     }
     let pinned = new Set(), pinnedGroup = null;
     if (cfg.pinnedDevice) {
       try {
-        const hits = (await Graph.readAll(`/groups?$filter=${enc(`displayName eq '${odq(cfg.pinnedDevice)}'`)}&$select=id,displayName&$top=5`, { scopes: GS, retry: true })) || [];
+        const hits = (await Graph.readAll(`/groups?$filter=${enc(`displayName eq '${odq(cfg.pinnedDevice)}'`)}&$select=id,displayName&$top=5`, { cache: true, scopes: GS, retry: true })) || [];
         const g = hits.find((x) => lc(x.displayName) === lc(cfg.pinnedDevice));
         if (g) {
           pinnedGroup = { id: lc(g.id), name: g.displayName };
-          pinned = new Set(((await Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id&$top=999`, { scopes: GS, retry: true })) || []).map((d) => lc(d.id)));
+          pinned = new Set(((await Graph.readAll(`/groups/${enc(g.id)}/members/microsoft.graph.device?$select=id&$top=999`, { cache: true, scopes: GS, retry: true })) || []).map((d) => lc(d.id)));
         }
       } catch (e) { failed.push(`${cfg.pinnedDevice}: ${String((e && e.message) || e).slice(0, 160)}`); }
     }
