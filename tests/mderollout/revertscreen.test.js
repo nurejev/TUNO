@@ -153,6 +153,7 @@ async function run() {
   ok("search finds Eva", await until(() => D.querySelector("[data-mrrvpick]"), 10000, "rv hits"));
   D.querySelector("[data-mrrvpick]").click();
   ok("her card: the pair ticked — Eva and WS-FIN-0142", await until(() => st().rv.card && $("mvRvCard"), 10000, "rv card") && st().rv.ticks.has(`u:${st().rv.card.user.id}`) && [...st().rv.ticks].some((k) => k.startsWith("m:")));
+  ok("…the card says 'through the dynamic group — swap first' only when the dynamic group carries the wave (10730): here it does, so it says so", /swap it in 🔄 first/.test($("mvRvCard").textContent) === !!st().mem.model.rows.find((r) => r.key === "nl" && r.ugNestedSrc), String(!!st().mem.model.rows.find((r) => r.key === "nl" && r.ugNestedSrc)));
   ok("…her country user group is the static one, and what changes is shown per policy", /INT-SG-U-NLD/.test($("mvRvCard").textContent) && /What changes, per policy/.test($("mvRvCard").textContent));
   $("mvRvReason").value = "Finance LOB app blocked by ASR — ticket 4711"; $("mvRvReason").dispatchEvent(new w.Event("input", { bubbles: true }));
   $("mvRvDry").click();

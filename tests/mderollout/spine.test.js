@@ -73,6 +73,15 @@ function model() {
   const i16 = full(); i16.rows[0].dynamicNested = true;
   const r16 = S.stages(i16);
   ok("a country whose dynamic group still carries the wave is open: ⇄ swap in Sync country groups", st(r16).members === "todo" && /⇄ swap \(Sync country groups\)/.test(r16.stages[1].lines[0].text));
+  // 10730: from the devcf acceptance walk
+  const i17 = full(); i17.rows[1].uRemove = 1;
+  const r17 = S.stages(i17);
+  ok("a country whose only pending work is removals: the next step says to apply them with the tick", st(r17).members === "todo" && /Apply the removals in Germany \(👥, with "apply removals" ticked\)/.test(r17.next.text) && /1 to take out \(apply removals\)/.test(r17.stages[1].lines[1].text));
+  const i18 = full(); i18.rows[0].dynamicNested = true;
+  ok("a country whose only pending work is the swap: the next step is ⇄ in Sync country groups", /⇄ Swap the dynamic group for the static one in Netherlands \(🔄 Sync country groups\)/.test(S.stages(i18).next.text) && S.stages(i18).next.pane === "countrysync");
+  const i19 = full(); i19.landing = { read: true, devices: 0, ok: 0, problems: 0 };
+  const r19 = S.stages(i19);
+  ok("nothing to do but something to wait for: the next-step card says so instead of staying empty", !r19.current && !r19.done && r19.next && /Nothing to do for Euro right now — Verify: no device has reported yet/.test(r19.next.text) && r19.next.pane === null && r19.next.waiting === "verify");
   ok("the five stages carry the pane each opens (A: today's panes)", S.STAGES.map((s) => s.pane).join() === "waves,members,waves,landing,revert");
   // 3.2: the counts the panes compute, one line each
   const r14 = S.stages(Object.assign(full(), { rows: [{ country: "Netherlands", ugNested: true, dgNested: true, uInSync: true, inSync: true, unread: "", users: 9, devices: 13 }, { country: "Germany", ugNested: false, dgNested: true, uInSync: true, inSync: true, unread: "", users: 6, devices: 7 }], assign: { include: 25, excludeOld: 0, filter: 2 }, landing: { read: true, devices: 12, ok: 9, problems: 3 }, held: { users: 1, devices: 2, pinned: 1, skipped: 3 } }));

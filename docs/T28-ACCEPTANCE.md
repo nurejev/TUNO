@@ -85,6 +85,21 @@ Phase 2 (10721–10725), Phase 3 (10726–10727). Lab: devcf, prefix P2719.
 - [ ] Nothing was written to any tenant outside a plan — the Entra audit log
       shows only the runs in 📜.
 
+## The devcf walk, 17 Oct 2026 (build 10729)
+
+Walked from the spine alone on the Euro wave, every stage's claim checked
+with Lokka: Members (2 users added, 3 of 3 nested), Assign (⚡ ① 33 of 33
+written · verified, ⚡ ③ 66 of 66), Verify waits (the lab's devices are
+Entra objects and never report), Exceptions (Ole held back and undone from
+📜). Findings, fixed in 10730: the ⏸ card said "through the dynamic group —
+⇄ swap first" when the static group carried the wave; a UPN fragment with
+dots ("ole.wolf") found nobody; "③ Take the backup" did not say it was
+taken; the next-step card stayed empty when only Verify waits; a country
+whose only pending work is removals or the swap got "fill and nest" as the
+next step. Lab-only: a held-back user whose device comes from Entra leaves
+the device in the country group (the card knows Intune primary users); the
+spine flags the leftover as "to take out".
+
 ## Known follow-ups (not blocking the run)
 
 - Per-group member reads still differ in URL per pane (direct vs

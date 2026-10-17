@@ -144,9 +144,22 @@ const MdeExclude = (() => {
       Graph.get(`/devices?$search=${enc(clause("displayName"))}&$select=id,deviceId,displayName,operatingSystem,operatingSystemVersion,approximateLastSignInDateTime,accountEnabled&$top=15&$count=true`, { scopes: DO(), headers: EV, retry: true })
         .catch((e) => { failed.push(`devices: ${msg(e).slice(0, 160)}`); return null; }),
     ]);
+    // 10730 (the devcf acceptance walk): "ole.wolf" found nobody while "wolf"
+    // did — Graph's $search matches whole tokens, and a UPN fragment with
+    // dots or an @ is several tokens. When the first search finds no user
+    // and the term has such separators, search again with every part as
+    // its own clause (all of them must match), on the UPN and the name.
+    let ur2 = null;
+    const parts = term.split(/[.@\s_-]+/).map((x) => x.trim()).filter((x) => x.length >= 2);
+    if ((!ur || !(ur.value || []).length) && parts.length >= 2) {
+      const safeP = (x) => x.replace(/["\\]/g, "\\$&");
+      const q2 = parts.map((x) => `("userPrincipalName:${safeP(x)}" OR "displayName:${safeP(x)}" OR "mail:${safeP(x)}")`).join(" AND ");
+      ur2 = await Graph.get(`/users?$search=${enc(q2)}&$select=id,displayName,userPrincipalName,mail,accountEnabled&$top=15&$count=true`, { scopes: US(), headers: EV, retry: true })
+        .catch((e) => { failed.push(`users: ${msg(e).slice(0, 160)}`); return null; });
+    }
     const ix = index(base);
     const users = new Map();
-    for (const u of (ur && ur.value) || []) {
+    for (const u of ((ur && ur.value) || []).concat((ur2 && ur2.value) || [])) {
       const id = lc(u.id);
       users.set(id, { type: "user", key: `u:${id}`, id, displayName: u.displayName || u.userPrincipalName || u.id, upn: u.userPrincipalName || "", mail: u.mail || "",
         devices: (ix.byUser.get(id) || []).length, excluded: ix.exUsers.has(id) });

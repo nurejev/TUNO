@@ -91,6 +91,22 @@ async function run() {
   ok("one character is not a search", (await X.search("j", base())).results.length === 0);
   const s3 = await X.search("nina@", base(), { now: NOW });
   ok("a UPN part brings the primary user in from the Intune list", s3.results.some((r) => r.type === "user" && r.upn === "nina@contoso.com" && r.excluded));
+  // 10730 (the devcf acceptance walk): a UPN fragment with dots is several tokens for Graph's $search
+  calls.length = 0;
+  const prevGet = w.Graph.get;
+  w.Graph.get = async (p, o) => {
+    calls.push([decodeURIComponent(p), o && o.headers]);
+    if (p.startsWith("/users?")) { const q = decodeURIComponent(p); return q.includes(" AND ") ? { value: [{ id: U(7), displayName: "Ole Wolf", userPrincipalName: "p2719.ole.wolf@contoso.com", mail: "" }] } : { value: [] }; }
+    if (p.startsWith("/devices?")) return { value: [] };
+    throw new Error("unexpected " + p);
+  };
+  const s4 = await X.search("ole.wolf", base(), { now: NOW });
+  const second = calls.filter((c) => c[0].startsWith("/users?"))[1];
+  ok("'ole.wolf' finds nobody as a phrase, so a second search asks for every part on the UPN, the name and the mail — all of them — and Ole is found", s4.results.some((r) => r.type === "user" && r.upn === "p2719.ole.wolf@contoso.com") && second && /\("userPrincipalName:ole" OR "displayName:ole" OR "mail:ole"\) AND \("userPrincipalName:wolf" OR "displayName:wolf" OR "mail:wolf"\)/.test(second[0]), second && second[0]);
+  calls.length = 0;
+  await X.search("wolf", base(), { now: NOW });
+  ok("a single word asks once (no second search)", calls.filter((c) => c[0].startsWith("/users?")).length === 1);
+  w.Graph.get = prevGet;
 
   // ----------------------------------------------------------- lookup --
   w.Graph.readAll = async (p) => {

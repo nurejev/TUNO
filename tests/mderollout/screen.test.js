@@ -270,7 +270,9 @@ async function run() {
   ok("…the device wave into the unassigned - D - Edge policy, the others already hold it", st().plan.changes.length === 1 && /Microsoft Edge/.test(st().plan.changes[0].policy.name)
     && st().plan.changes[0].after.some((a) => a.target.groupId === "11111111-0000-4000-8000-000000000021"));
   ok("…and the waves that do not exist are left out, named", /Left out/.test($("mvPlan").textContent) && /INT-SG-D-WAVE-Americas does not exist/.test($("mvPlan").textContent));
-  $("mvBackup").click(); $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
+  $("mvBackup").click();
+  ok("③ the backup button says it was taken and locks (10730)", /✓ Backup downloaded/.test($("mvBackup").textContent) && $("mvBackup").disabled && /Backup taken/.test($("mvGate").textContent));
+  $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
   await v2Gates(); $("mvApply").click();
   // (the demo's /assign is simulated and does not keep the write, so the read-back says NOT verified — as it does for every T11 write in demo)
   ok("…applied on the ledger and logged with its backup", await until(() => st().runs.length === 3, 10000, "rollout include run") && /Include the waves/.test(st().runs[2].title)

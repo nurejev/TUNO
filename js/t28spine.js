@@ -84,7 +84,17 @@ const T28Spine = (() => {
         const batched = rows.filter((r) => r.batched && !r.migrated && !done.includes(r));
         const open = rows.filter((r) => !done.includes(r) && !batched.includes(r) && !unread.includes(r));
         if (unread.length) { s.state = "unknown"; s.detail = `${plural(unread.length, "country", "countries")} not read — ↻ Read again`; s.next = { text: `Read the members again: ${unread.map((r) => r.country).join(", ")} did not read`, pane: "members" }; }
-        else if (open.length) { s.state = "todo"; s.detail = `${done.length} of ${rows.length} countries nested${batched.length ? ` · ${plural(batched.length, "pilot")} in batches` : ""}`; s.next = { text: `Fill and nest ${open.map((r) => r.country).join(", ")} (👥)`, pane: "members" }; }
+        else if (open.length) {
+          s.state = "todo"; s.detail = `${done.length} of ${rows.length} countries nested${batched.length ? ` · ${plural(batched.length, "pilot")} in batches` : ""}`;
+          // 10730 (the devcf acceptance walk): say what the open countries need — removals are a tick 👥 does not have on by default
+          const onlyRemovals = open.filter((r) => uOk(r) && dOk(r) && !n(r.uAdd) && !n(r.add) && (n(r.uRemove) + n(r.remove)) > 0 && !r.dynamicNested);
+          const swapOnly = open.filter((r) => uOk(r) && dOk(r) && !n(r.uAdd) && !n(r.add) && !n(r.uRemove) && !n(r.remove) && r.dynamicNested);
+          const rest = open.filter((r) => !onlyRemovals.includes(r) && !swapOnly.includes(r));
+          const names = (list) => list.map((r) => r.country).join(", ");
+          s.next = rest.length ? { text: `Fill and nest ${names(rest)} (👥)`, pane: "members" }
+            : onlyRemovals.length ? { text: `Apply the removals in ${names(onlyRemovals)} (👥, with "apply removals" ticked)`, pane: "members" }
+            : { text: `⇄ Swap the dynamic group for the static one in ${names(swapOnly)} (🔄 Sync country groups)`, pane: "countrysync" };
+        }
         else if (batched.length) { s.state = "todo"; s.detail = `${done.length} of ${rows.length} nested · ${batched.map((r) => r.country).join(", ")} in batches`; s.next = { text: `Run the next batch of ${batched.map((r) => r.country).join(", ")} (👥)`, pane: "members" }; }
         else { s.state = "ok"; s.detail = `${rows.length} of ${rows.length} countries nested and in sync`; }
         // 3.2: one line per country — the counts 👥 computes
@@ -154,8 +164,11 @@ const T28Spine = (() => {
     }
     // the one thing to do next: the first stage that has something to do
     const current = out.find((s) => s.state === "todo") || out.find((s) => s.state === "unknown" && s.next) || null;
-    const next = current ? current.next : null;
+    let next = current ? current.next : null;
     const done = out.every((s) => s.state === "ok");
+    // 10730: nothing to do but something to wait for — say so, instead of an empty card
+    const waiting = !current && !done && out.every((s) => s.state === "ok" || s.state === "wait") ? out.find((s) => s.state === "wait") : null;
+    if (!next && waiting) next = { text: `Nothing to do for ${I.region} right now — ${waiting.label}: ${waiting.detail}. The spine lights up again when that changes.`, pane: null, waiting: waiting.id };
     return { stages: out, current: current ? current.id : null, next: next || (done ? { text: `${I.region} is complete — every stage is in place`, pane: null } : null), done };
   }
 

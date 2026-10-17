@@ -2160,7 +2160,7 @@ const MdeRolloutV2Tool = (() => {
     if ($("mvHoldAck")) $("mvHoldAck").addEventListener("change", upd);
     if ($("mvBackup")) $("mvBackup").addEventListener("click", () => {
       download(`t28-assignments-before-${stamp()}.json`, AssignEdit.backupOf(plan.changes, plan.head));
-      backupTaken = true; $("mvGate").textContent = "Backup taken. Confirm, then apply."; upd();
+      backupTaken = true; $("mvGate").textContent = "Backup taken. Confirm, then apply."; $("mvBackup").textContent = "③ ✓ Backup downloaded"; $("mvBackup").disabled = true; upd();
     });
     if ($("mvApply")) $("mvApply").addEventListener("click", apply);
     $("mvDiscard").addEventListener("click", clearPlan);
@@ -2376,7 +2376,7 @@ const MdeRolloutV2Tool = (() => {
     if ($("mvConfirmTick")) $("mvConfirmTick").addEventListener("change", upd);
     if ($("mvBackup")) $("mvBackup").addEventListener("click", () => {
       download(`t28-settings-before-${stamp()}.json`, asrBackup(p));
-      backupTaken = true; $("mvGate").textContent = "Backup taken. Confirm, then apply."; upd();
+      backupTaken = true; $("mvGate").textContent = "Backup taken. Confirm, then apply."; $("mvBackup").textContent = "③ ✓ Backup downloaded"; $("mvBackup").disabled = true; upd();
     });
     if ($("mvApply")) $("mvApply").addEventListener("click", asrApply);
     $("mvDiscard").addEventListener("click", clearPlan);
@@ -2883,7 +2883,7 @@ const MdeRolloutV2Tool = (() => {
     if ($("mvConfirmTick")) $("mvConfirmTick").addEventListener("change", upd);
     if ($("mvBackup")) $("mvBackup").addEventListener("click", () => {
       download(`t28-edge-extensions-before-${stamp()}.json`, extBackup(p));
-      backupTaken = true; $("mvGate").textContent = "Backup taken. Confirm, then apply."; upd();
+      backupTaken = true; $("mvGate").textContent = "Backup taken. Confirm, then apply."; $("mvBackup").textContent = "③ ✓ Backup downloaded"; $("mvBackup").disabled = true; upd();
     });
     if ($("mvApply")) $("mvApply").addEventListener("click", extApply);
     $("mvDiscard").addEventListener("click", clearPlan);
@@ -4291,7 +4291,8 @@ const MdeRolloutV2Tool = (() => {
     const cg = (list, map) => (list || []).filter((g) => map.has(lc(g.name))).map((g) => g.name);
     const u = c.user;
     const uRev = u && ctx.revertUsers.has(u.id);
-    const dynOf = (groups) => (mem.model ? mem.model.rows : []).filter((r) => r.ug && r.ugNested && groups && groups.has(lc(r.ug.id))).map((r) => r.ug.displayName);
+    // 10730 (the devcf acceptance walk): "through the dynamic group — swap first" only when the DYNAMIC group is what carries the wave
+    const dynOf = (groups) => (mem.model ? mem.model.rows : []).filter((r) => r.ug && r.ugNestedSrc && groups && groups.has(lc(r.ug.id))).map((r) => r.ug.displayName);
     const userHtml = u ? `<div class="mr-expc" style="margin-top:12px">
       <h4 style="margin:0 0 6px"><label style="display:flex;gap:8px;align-items:center">${tick(`u:${u.id}`, rv.ticks.has(`u:${u.id}`), uRev || u.unread, "revert the user")} 👤 ${esc(u.displayName)}</label></h4>
       <dl class="mr-exkv">
