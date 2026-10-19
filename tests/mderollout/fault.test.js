@@ -43,7 +43,7 @@ async function moduleAlone() {
   F.arm("write503", 3);
   let n = 0; for (let i = 0; i < 5; i++) { try { await G.post("/groups/x/members/$ref", {}); } catch (e) { if (e.status === 503) n++; } }
   ok("write503 ×3: exactly three writes answer 503, the fourth goes through; reads untouched meanwhile", n === 3 && F.status().armed === null);
-  F.arm("groupread", 1, { id: "ABCDEF", name: "INT-SG-U-ITA" });
+  F.arm("groupread", 1, { id: "ABCDEF", name: "INT-SG-U-MDE-ITA" });
   ok("groupread: another group's read goes through, the chosen group's member read fails, then clear", (await G.readAll("/groups/other/transitiveMembers/microsoft.graph.user")).length === 1 && await G.readAll("/groups/abcdef/transitiveMembers/microsoft.graph.user").then(() => false, (e) => e.status === 503 && e.fault === "groupread") && F.status().armed === null);
   F.arm("read429", 1); F.clear();
   ok("clear disarms", F.status().armed === null && (await G.readAll("/x")).length === 1);

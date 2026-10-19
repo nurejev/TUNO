@@ -89,9 +89,9 @@ async function run() {
   // --------------------------------------- applyOps stops after a stop --
   script = [null, throttle(null), throttle(null), throttle(null), throttle(null), throttle(null), throttle(null)];
   const ops = [
-    { type: "add", key: "a", group: { id: "g3", name: "INT-SG-D-AAA" }, ids: Array.from({ length: 30 }, (_, i) => `a${i}`), label: "30 devices" },
-    { type: "add", key: "b", group: { id: "g1", name: "INT-SG-D-BBB" }, ids: ["b1"], label: "1 device" },
-    { type: "nest", key: "b", parent: { id: "wd", name: "INT-SG-D-WAVE-Euro" }, child: { id: "g1", name: "INT-SG-D-BBB" }, kind: "device", size: 1 },
+    { type: "add", key: "a", group: { id: "g3", name: "INT-SG-D-MDE-AAA" }, ids: Array.from({ length: 30 }, (_, i) => `a${i}`), label: "30 devices" },
+    { type: "add", key: "b", group: { id: "g1", name: "INT-SG-D-MDE-BBB" }, ids: ["b1"], label: "1 device" },
+    { type: "nest", key: "b", parent: { id: "wd", name: "INT-SG-D-WAVE-Euro" }, child: { id: "g1", name: "INT-SG-D-MDE-BBB" }, kind: "device", size: 1 },
   ];
   const skips = [], fails = [];
   const L = { stopped: false, start() {}, skip: (i, why) => skips.push([i, why]), fail: (i, why, label) => fails.push([i, why, label]), done() {}, progress() {} };
@@ -113,13 +113,13 @@ async function run() {
   w.Graph.get = w.Graph.readOne;
   w.Graph.readAll = async (p) => { const m = /\/groups\/([^/?]+)\/owners/.exec(p); if (m) return []; if (/members\/microsoft\.graph\.group/.test(p)) return [{ id: "new-1" }]; return []; };
   const Lc = { stopped: false, start() {}, skip() {}, fail() {}, done() {}, progress() {} };
-  const rc = await MM.applyOps([{ type: "create", key: "x", name: "INT-SG-D-XXX", description: "" }], { ledger: Lc, me: null });
+  const rc = await MM.applyOps([{ type: "create", key: "x", name: "INT-SG-D-MDE-XXX", description: "" }], { ledger: Lc, me: null });
   ok("a create that is throttled twice waits (2 s, then 4 s) and sends the SAME POST again until it goes", rc.results[0].ok === true && calls.filter((c) => c[0] === "POST" && c[1] === "/groups").length === 3 && waits.join() === "2250,4250", JSON.stringify([rc.results[0], waits]));
   calls.length = 0; waits.length = 0; createFaults = [throttle(null), throttle(null), throttle(null), throttle(null), throttle(null), throttle(null), throttle(null)];
-  const rc2 = await MM.applyOps([{ type: "create", key: "y", name: "INT-SG-D-YYY", description: "" }, { type: "nest", key: "y", parent: { id: "wd", name: "WAVE" }, child: { ref: "INT-SG-D-YYY", name: "INT-SG-D-YYY" }, kind: "device", size: 0 }], { ledger: Lc, me: null });
+  const rc2 = await MM.applyOps([{ type: "create", key: "y", name: "INT-SG-D-MDE-YYY", description: "" }, { type: "nest", key: "y", parent: { id: "wd", name: "WAVE" }, child: { ref: "INT-SG-D-MDE-YYY", name: "INT-SG-D-MDE-YYY" }, kind: "device", size: 0 }], { ledger: Lc, me: null });
   ok("a create whose throttle never lifts (1 + 5 tries) stops the run; the nest after it is skipped as stopped, never sent", rc2.results[0].ok === false && /throttled — stopped at step 1 of 2/.test(rc2.results[0].note) && rc2.results[1].skipped && /stopped/.test(rc2.results[1].note) && rc2.stopped && calls.filter((c) => c[0] === "POST" && c[1] === "/groups").length === 6 && waits.length === 5, JSON.stringify([rc2.results.map((r) => [r.ok, r.skipped, r.note]), calls.length]));
   calls.length = 0; waits.length = 0; createFaults = [throttle(1), null];
-  const rc3 = await MM.applyOps([{ type: "nest", key: "z", parent: { id: "wd", name: "WAVE" }, child: { id: "new-1", name: "INT-SG-D-XXX" }, kind: "device", size: 0 }], { ledger: Lc, me: null });
+  const rc3 = await MM.applyOps([{ type: "nest", key: "z", parent: { id: "wd", name: "WAVE" }, child: { id: "new-1", name: "INT-SG-D-MDE-XXX" }, kind: "device", size: 0 }], { ledger: Lc, me: null });
   ok("a nest that is throttled once waits and goes", rc3.results[0].ok === true && waits.join() === "1250" && calls.filter((c) => /members\/\$ref$/.test(c[1])).length === 2, JSON.stringify([rc3.results[0], waits]));
 
   console.log(`T28 throttle: ${passed} passed, ${failed} failed`);

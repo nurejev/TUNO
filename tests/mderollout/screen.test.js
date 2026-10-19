@@ -302,12 +302,12 @@ async function run() {
   const mm = () => st().mem.model;
   const mrow = (k) => mm().rows.find((r) => r.key === k);
   ok("Euro first: the table's 15 countries plus the NL-Breda pilot, 4 of them in the demo tenant", st().mem.region === "Euro" && mm().regions[0].rows.length === 16 && mm().regions[0].rows.filter((r) => r.ug).length === 4);
-  ok("the NL-Breda pilot leads the Euro wave with its own device group; its overlap with NL is expected", mm().regions[0].rows[0].key === "nl-breda" && mrow("nl-breda").pilot && mrow("nl-breda").deviceGroupName === "INT-SG-D-NLD-BREDA"
+  ok("the NL-Breda pilot leads the Euro wave with its own device group; its overlap with NL is expected", mm().regions[0].rows[0].key === "nl-breda" && mrow("nl-breda").pilot && mrow("nl-breda").deviceGroupName === "INT-SG-D-MDE-NLD-BREDA"
     && mrow("nl-breda").devices.length === 1 && mrow("nl-breda").problems.multi === 0 && mrow("nl-breda").problems.pilot === 1 && /🧪 pilot/.test($("mvBody").textContent));
-  ok("NL: INT-SG-D-NLD exists, nested in both waves, out of sync by +1 / −1", mrow("nl").dg && mrow("nl").ugNested && mrow("nl").dgNested && mrow("nl").add.length === 1 && mrow("nl").remove.length === 1 && mrow("nl").removeNames[0] === "WS-ENG-0221");
-  ok("DE: two Windows devices by primary user, one stale; INT-SG-D-DEU to create — 10707: Nina's laptop is held with her (she is in ⊘), so one is wanted", !mrow("de").dg && mrow("de").want.size === 1 && mrow("de").devices.some((d) => d.heldByUser && /WS-ENG-0308/.test(d.name)) && mrow("de").problems.stale === 1 && mrow("de").deviceGroupName === "INT-SG-D-DEU");
+  ok("NL: INT-SG-D-MDE-NLD exists, nested in both waves, out of sync by +1 / −1", mrow("nl").dg && mrow("nl").ugNested && mrow("nl").dgNested && mrow("nl").add.length === 1 && mrow("nl").remove.length === 1 && mrow("nl").removeNames[0] === "WS-ENG-0221");
+  ok("DE: two Windows devices by primary user, one stale; INT-SG-D-MDE-DEU to create — 10707: Nina's laptop is held with her (she is in ⊘), so one is wanted", !mrow("de").dg && mrow("de").want.size === 1 && mrow("de").devices.some((d) => d.heldByUser && /WS-ENG-0308/.test(d.name)) && mrow("de").problems.stale === 1 && mrow("de").deviceGroupName === "INT-SG-D-MDE-DEU");
   ok("FR: a Mac-only user — no Windows device, nothing to create", mrow("fr").devices.length === 0 && mrow("fr").usersNoDevice === 1);
-  ok("the Polish city groups are named POL-WAW / POL-SKARB", mrow("pol-warszawa").deviceGroupName === "INT-SG-D-POL-WAW" && mrow("pol-skarb").deviceGroupName === "INT-SG-D-POL-SKARB");
+  ok("the Polish city groups are named POL-WAW / POL-SKARB", mrow("pol-warszawa").deviceGroupName === "INT-SG-D-MDE-POL-WAW" && mrow("pol-skarb").deviceGroupName === "INT-SG-D-MDE-POL-SKARB");
   ok("devices with no primary user, owner or country code are counted — and the header says how a country is found (10655)", mm().noPrimary === 2 && /2 of \d+ in no country/.test($("mvBody").textContent)
     && /Devices placed by:[\s\S]*① primary user[\s\S]*② Intune last logon[\s\S]*③ Defender logons[\s\S]*④ Entra owner[\s\S]*⑤ name \/ location/.test($("mvBody").textContent) && !mm().failed.some((f) => /owner/.test(f)));
   ok("PL is not in any wave", mm().unmapped.map((u) => u.group.displayName).join() === "PVM-UG-CORP-MEM-USERS-PL");
@@ -339,7 +339,7 @@ async function run() {
   // Windows device later, it should be added" (10645)
   ok("…with where Sam stands: in the Euro user wave through the France group, or not yet, and where a Windows device of his would go",
     (mrow("fr").ugNested ? /✓ in INT-SG-U-WAVE-Euro through PVM-UG-CORP-MEM-USERS-FR/ : /✗ not in INT-SG-U-WAVE-Euro yet — nest PVM-UG-CORP-MEM-USERS-FR/).test($("mvBody").textContent)
-    && /a Windows device they get joins INT-SG-D-FRA at the next 👥 read → Apply/.test($("mvBody").textContent), $("mvBody").textContent.slice(0, 0));
+    && /a Windows device they get joins INT-SG-D-MDE-FRA at the next 👥 read → Apply/.test($("mvBody").textContent), $("mvBody").textContent.slice(0, 0));
   // 🔎 (10648, Mihai: "if a user has no device in Entra and Intune, try to
   // search in Defender … on which device the user has logged in"; option A)
   ok("🔎 the users list offers the Defender lookup and the KQL, and has no logon column yet", !!D.querySelector("[data-mrlogons]") && !!D.querySelector("[data-mrlogonkql]") && !/Logged on to · Defender/.test($("mvBody").textContent));
@@ -378,11 +378,11 @@ async function run() {
   ok("a country opens to its devices", /WS-FIN-0187/.test($("mvBody").textContent) && /no longer in PVM-UG-CORP-MEM-USERS-NL/.test($("mvBody").textContent));
   const tickMem = (k) => { const b = D.querySelector(`[data-mrmemsel="${k}"]`); b.checked = true; b.dispatchEvent(new w.Event("change", { bubbles: true })); };
   tickMem("de");
-  // 10698: Nina (DE) is in the user exclusion group — held out of INT-SG-U-DEU, so one user, not two
+  // 10698: Nina (DE) is in the user exclusion group — held out of INT-SG-U-MDE-DEU, so one user, not two
   ok("ticking a country fills the bar — 10680: the static user group beside the device group; 10698: the excluded user held back", /create 2 · add 1 user · add 1 device · nest 2 groups into Euro/.test($("mvMemSum").textContent), $("mvMemSum").textContent);
   $("mvMemDry").click();
-  ok("the dry run: create → add for INT-SG-D-DEU and INT-SG-U-DEU, then nest both static groups", await until(() => st().plan && st().plan.members, 5000, "members plan") && st().plan.ops.map((o) => o.type).join() === "create,add,create,add,nest,nest"
-    && st().plan.ops[4].child.ref === "INT-SG-U-DEU" && st().plan.ops[2].name === "INT-SG-U-DEU");
+  ok("the dry run: create → add for INT-SG-D-MDE-DEU and INT-SG-U-MDE-DEU, then nest both static groups", await until(() => st().plan && st().plan.members, 5000, "members plan") && st().plan.ops.map((o) => o.type).join() === "create,add,create,add,nest,nest"
+    && st().plan.ops[4].child.ref === "INT-SG-U-MDE-DEU" && st().plan.ops[2].name === "INT-SG-U-MDE-DEU");
   ok("…and the plan says who is held back and why (10698: the ⊘ user exclusion group)", st().plan.warnings.some((x) => /Germany: 1 user is held back, not added — 1 in the ⊘ user exclusion group/.test(x)), JSON.stringify(st().plan.warnings));
   ok("no removals, so a tick confirms", !!$("mvConfirmTick") && $("mvMemApply").disabled);
   $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
@@ -391,7 +391,7 @@ async function run() {
   ok("applied: DE's device group exists, filled, and both groups are in the Euro waves", await until(() => st().runs.length === nRuns + 1, 10000, "members run")
     && mrow("de").dg && mrow("de").inSync && mrow("de").ugNested && mrow("de").dgNested, JSON.stringify(st().runs[st().runs.length - 1].lines));
   const mrun = st().runs.filter((r) => r.kind === "members").pop();
-  ok("the run is logged with every step verified", mrun.ok === 6 && mrun.bad === 0 && /INT-SG-D-DEU/.test(mrun.lines.join()));
+  ok("the run is logged with every step verified", mrun.ok === 6 && mrun.bad === 0 && /INT-SG-D-MDE-DEU/.test(mrun.lines.join()));
   // undo from 📜
   w.MdeRolloutV2Tool._pane("changes");
   D.querySelector(`[data-mrundo="${st().runs.indexOf(mrun)}"]`).click();
@@ -411,7 +411,7 @@ async function run() {
   D.querySelector('[data-mrmemregion="Americas"]').click();
   ok("Americas: the US row, and no device wave for it yet", st().mem.region === "Americas" && mrow("us").ug && mrow("us").wave.device === null && /no wave group/.test($("mvBody").textContent));
   D.querySelector("[data-mrmemunmapped]").click();
-  ok("the 'not in any wave' list offers 🧪 Add as pilot, with the device group it would get", /not in the country table/.test($("mvBody").textContent) && !!D.querySelector('[data-mrmempilot="PL"]') && /INT-SG-D-POL/.test($("mvBody").textContent));
+  ok("the 'not in any wave' list offers 🧪 Add as pilot, with the device group it would get", /not in the country table/.test($("mvBody").textContent) && !!D.querySelector('[data-mrmempilot="PL"]') && /INT-SG-D-MDE-POL/.test($("mvBody").textContent));
   D.querySelector('[data-mrmempilot="PL"]').click();
   ok("adding PL as a pilot puts it first in the chosen wave, starred, selected, and kept for the tenant", st().mem.region === "Euro" && mm().regions[0].rows[0].key === "pl" && mrow("pl").pilot && st().mem.sel.has("pl")
     && st().cfg.members.pilots.includes("PL") && !mm().unmapped.length);
@@ -445,7 +445,7 @@ async function run() {
   $("mvRep_config").click();
   ok("the configuration report: rules, groups with owners, members, settings, retirement, this session's changes", await until(() => R().config && R().config.at !== cfgAt, 10000, "config report")
     && ["1 · Rules", "2 · Wave and exclusion groups", "3 · Wave members", "4 · New policies", "5 · Old policies", "7 · Changes this session"].every((h) => R().config.html.includes(h))
-    && /INT-SG-U-WAVE-Americas<\/b>.{0,200}Alex Admin/.test(R().config.html) && /INT-SG-D-NLD/.test(R().config.html) && /Win - OIB - SC - Device Security - D - Audit and Event Logging/.test(R().config.html), R().config && R().config.html.length);
+    && /INT-SG-U-WAVE-Americas<\/b>.{0,200}Alex Admin/.test(R().config.html) && /INT-SG-D-MDE-NLD/.test(R().config.html) && /Win - OIB - SC - Device Security - D - Audit and Event Logging/.test(R().config.html), R().config && R().config.html.length);
   ok("…with every setting in its CSV", R().config.csv.startsWith("Policy,Generation,Type,Setting,Value") && R().config.csv.split("\r\n").length > 10);
   ok("configuration preview retains all seven report sections and no document styles", D.querySelectorAll('[data-report-preview="config"] > .mr-report-section').length === 7 && !D.querySelector('[data-report-preview] style'));
   ok("configuration has an inline preview with full names and separate timestamps", !!D.querySelector('[data-report-preview="config"]') && /Owners attempted/.test($("mvBody").textContent) && R().config.readAt === st().model.readAt);
@@ -554,11 +554,11 @@ async function run() {
     && st().ex.card.user.upn === "eva@contoso.com" && st().ex.card.devices.map((d) => d.name).join() === "WS-FIN-0142");
   const evaDev = st().ex.card.devices[0];
   ok("…ticked by default: Eva and the laptop", st().ex.ticks.has(`u:${st().ex.card.user.id}`) && st().ex.ticks.has(evaDev.key));
-  ok("…the card names her country group, her wave and the laptop's device group", /PVM-UG-CORP-MEM-USERS-NL/.test($("mvExCard").textContent) && /INT-SG-D-NLD/.test($("mvExCard").textContent) && /🌊 Euro/.test($("mvExCard").textContent));
-  ok("what reaches them, before and after — the laptop goes back on the old set", /What reaches them/.test($("mvExCard").textContent) && /out of INT-SG-D-NLD — leaves the wave, back on the old set/.test($("mvExCard").textContent));
+  ok("…the card names her country group, her wave and the laptop's device group", /PVM-UG-CORP-MEM-USERS-NL/.test($("mvExCard").textContent) && /INT-SG-D-MDE-NLD/.test($("mvExCard").textContent) && /🌊 Euro/.test($("mvExCard").textContent));
+  ok("what reaches them, before and after — the laptop goes back on the old set", /What reaches them/.test($("mvExCard").textContent) && /out of INT-SG-D-MDE-NLD — leaves the wave, back on the old set/.test($("mvExCard").textContent));
   $("mvExDry").click();
-  ok("the dry run: the user into the user group, the laptop into the device group, then out of INT-SG-D-NLD",
-    !!st().plan && st().plan.exclusions && st().plan.ops.length === 3 && st().plan.ops[0].group.name === "PVM-UG-MDE-Exclusion" && st().plan.ops[1].group.name === "INT-SG-D-MDE-Exclusion" && st().plan.ops[2].type === "remove" && st().plan.ops[2].group.name === "INT-SG-D-NLD");
+  ok("the dry run: the user into the user group, the laptop into the device group, then out of INT-SG-D-MDE-NLD",
+    !!st().plan && st().plan.exclusions && st().plan.ops.length === 3 && st().plan.ops[0].group.name === "PVM-UG-MDE-Exclusion" && st().plan.ops[1].group.name === "INT-SG-D-MDE-Exclusion" && st().plan.ops[2].type === "remove" && st().plan.ops[2].group.name === "INT-SG-D-MDE-NLD");
   ok("…and it opens under the card, above Excluded now", $("mvExCard").nextElementSibling === $("mvPlan") && /Who/.test($("mvPlan").textContent) && /Eva Employee/.test($("mvPlan").textContent));
   ok("an exclusion is an addition: a tick, not a typed REMOVE", !!$("mvConfirmTick") && !$("mvConfirmText"));
   $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
@@ -566,7 +566,7 @@ async function run() {
   await v2Gates(); $("mvMemApply").click();
   ok("applied and read back: three steps verified, on 📜", await until(() => st().runs.length === xr + 1, 10000, "exclusion run") && st().runs[xr].ok === 3 && st().runs[xr].exclusions);
   const demoG = (n) => w.TUNO_DEMO_GRAPH.T.GROUPS.find((g) => g.id === `11111111-0000-4000-8000-${String(n).padStart(12, "0")}`);
-  ok("in the tenant: Eva in the user group, the laptop in the device group and out of INT-SG-D-NLD", demoG(37)._users.includes("22222222-0000-4000-8000-000000000002")
+  ok("in the tenant: Eva in the user group, the laptop in the device group and out of INT-SG-D-MDE-NLD", demoG(37)._users.includes("22222222-0000-4000-8000-000000000002")
     && w.TUNO_DEMO_GRAPH.T.GROUPS.find((g) => g.displayName === "INT-SG-D-MDE-Exclusion")._devices.includes("33333333-0000-4000-8000-000000000101") && !demoG(35)._devices.includes("33333333-0000-4000-8000-000000000101"));
   ok("the lists move with the run, and the card reads again", await until(() => st().ex.card && !st().ex.cardLoading && st().ex.card.user.excluded, 10000, "card again")
     && st().ex.base.users.length === 2 && st().ex.base.devices.length === 1 && /Eva Employee/.test($("mvExNow").textContent));
@@ -619,7 +619,7 @@ async function run() {
   ok("…no match, a Mac, and Eva's laptop again under her line", li("nobody@contoso.com").kind === "none" && li("MB-DES-0012").kind === "notwin" && li("WS-FIN-0142").kind === "listed");
   const lt = $("mvExList").textContent;
   ok("the table: Line → match, Now, Into the exclusion groups", /Line → match/.test(lt) && /Into the exclusion groups/.test(lt) && /6 lines · 2 users · 1 device · 1 no match · 1 not Windows · 1 twice/.test(lt));
-  ok("…Eva's country, her laptop in INT-SG-D-NLD, and what the run does to it", /user · Eva Employee · Netherlands/.test(lt) && /in INT-SG-D-NLD/.test(lt) && /\+ INT-SG-D-MDE-Exclusion/.test(lt) && /− out of INT-SG-D-NLD/.test(lt));
+  ok("…Eva's country, her laptop in INT-SG-D-MDE-NLD, and what the run does to it", /user · Eva Employee · Netherlands/.test(lt) && /in INT-SG-D-MDE-NLD/.test(lt) && /\+ INT-SG-D-MDE-Exclusion/.test(lt) && /− out of INT-SG-D-MDE-NLD/.test(lt));
   ok("…Nina is in already, her laptop is not", /excluded/.test(D.querySelector(`[data-mrexltick="u:${li("nina@contoso.com").card.user.id}"]`).closest("tr").textContent) && D.querySelector(`[data-mrexltick="u:${li("nina@contoso.com").card.user.id}"]`).disabled
     && D.querySelector(`[data-mrexltick="${li("nina@contoso.com").card.devices[0].key}"]`).checked);
   ok("…the Mac and the line nobody answers to say why", /not a Windows device/.test(lt) && /no user has this UPN or e-mail/.test(lt) && /already in this list — with eva@contoso\.com/.test(lt));
@@ -633,10 +633,10 @@ async function run() {
   $("mvExListAll").checked = true; $("mvExListAll").dispatchEvent(new w.Event("change", { bubbles: true }));
   ok("…and ticks everything that can be", /1 user · 3 devices/.test($("mvExListBar").textContent) && $("mvExListAll").checked);
   $("mvExListDry").click();
-  ok("the dry run: ONE plan — the user, the devices, then out of INT-SG-D-NLD", !!st().plan && st().plan.bulk && st().plan.exclusions && st().plan.ops.length === 3
+  ok("the dry run: ONE plan — the user, the devices, then out of INT-SG-D-MDE-NLD", !!st().plan && st().plan.bulk && st().plan.exclusions && st().plan.ops.length === 3
     && st().plan.ops[0].group.name === "PVM-UG-MDE-Exclusion" && st().plan.ops[0].ids.length === 1
     && st().plan.ops[1].group.name === "INT-SG-D-MDE-Exclusion" && st().plan.ops[1].ids.length === 3
-    && st().plan.ops[2].type === "remove" && st().plan.ops[2].group.name === "INT-SG-D-NLD" && st().plan.ops[2].ids.length === 2);
+    && st().plan.ops[2].type === "remove" && st().plan.ops[2].group.name === "INT-SG-D-MDE-NLD" && st().plan.ops[2].ids.length === 2);
   ok("…under the list, above Excluded now, confirmed by a tick", $("mvExList").nextElementSibling === $("mvPlan") && /a list of 6 lines/.test($("mvPlan").textContent) && /3 devices/.test($("mvPlan").textContent) && !!$("mvConfirmTick"));
   $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
   const lr = st().runs.length;
@@ -644,7 +644,7 @@ async function run() {
   ok("applied and read back: three steps verified, on 📜", await until(() => st().runs.length === lr + 1, 10000, "list run") && st().runs[lr].ok === 3 && st().runs[lr].exclusions);
   const exD = () => w.TUNO_DEMO_GRAPH.T.GROUPS.find((g) => g.displayName === "INT-SG-D-MDE-Exclusion");
   const D_ = (n) => `33333333-0000-4000-8000-${String(n).padStart(12, "0")}`;
-  ok("in the tenant: Eva in the user group; three laptops in the device group; Eva's and Alex's out of INT-SG-D-NLD", demoG(37)._users.includes("22222222-0000-4000-8000-000000000002")
+  ok("in the tenant: Eva in the user group; three laptops in the device group; Eva's and Alex's out of INT-SG-D-MDE-NLD", demoG(37)._users.includes("22222222-0000-4000-8000-000000000002")
     && [101, 107, 109].every((n) => exD()._devices.includes(D_(n))) && !demoG(35)._devices.includes(D_(101)) && !demoG(35)._devices.includes(D_(107)));
   ok("the list moved with the run: in already, nothing ticked; Excluded now has them", li("eva@contoso.com").card.user.excluded && li("WS-ENG-0221").card.devices[0].excluded && st().ex.lticks.size === 0
     && $("mvExListDry").disabled && st().ex.base.devices.length === 3 && /Eva Employee/.test($("mvExNow").textContent));
@@ -655,7 +655,7 @@ async function run() {
   await v2Gates(); $("mvMemApply").click();
   ok("…the tenant is back, and so is the list", await until(() => st().runs.length === lr + 2, 10000, "list undo run") && !demoG(37)._users.includes("22222222-0000-4000-8000-000000000002")
     && demoG(35)._devices.includes(D_(101)) && demoG(35)._devices.includes(D_(107)) && !exD()._devices.length
-    && !li("eva@contoso.com").card.user.excluded && li("eva@contoso.com").card.devices[0].direct.some((g) => g.name === "INT-SG-D-NLD"));
+    && !li("eva@contoso.com").card.user.excluded && li("eva@contoso.com").card.devices[0].direct.some((g) => g.name === "INT-SG-D-MDE-NLD"));
   w.MdeRolloutV2Tool._pane("exclusions");
   // a file dropped on the box: a CSV narrowed to its UPN column
   const drop = new w.Event("drop", { bubbles: true, cancelable: true });
@@ -719,17 +719,17 @@ async function run() {
   D.querySelector('[data-mrmemopen="nl-breda"]').click();
   ok("the pilot row opens on its batch panel", !!$("mvBatch-nl-breda") && /Pilot in 4 batches/.test($("mvBatch-nl-breda").textContent) && !!D.querySelector('[data-mrbatch="nl-breda"]'));
   D.querySelector('[data-mrbatch="nl-breda"]').click();
-  ok("batch 1 → dry run (10681): INT-SG-U-NLD-BREDA created with Alex in it and nested; INT-SG-D-NLD-BREDA created, filled with his laptop and nested", !!st().plan && st().plan.ops.map((o) => o.type).join() === "create,add,nest,create,add,nest"
-    && st().plan.ops[0].name === "INT-SG-U-NLD-BREDA" && st().plan.ops[1].ids.join() === "22222222-0000-4000-8000-000000000001" && st().plan.ops[2].parent.name === "INT-SG-U-WAVE-Euro" && st().plan.ops[3].name === "INT-SG-D-NLD-BREDA"
+  ok("batch 1 → dry run (10681): INT-SG-U-MDE-NLD-BREDA created with Alex in it and nested; INT-SG-D-MDE-NLD-BREDA created, filled with his laptop and nested", !!st().plan && st().plan.ops.map((o) => o.type).join() === "create,add,nest,create,add,nest"
+    && st().plan.ops[0].name === "INT-SG-U-MDE-NLD-BREDA" && st().plan.ops[1].ids.join() === "22222222-0000-4000-8000-000000000001" && st().plan.ops[2].parent.name === "INT-SG-U-WAVE-Euro" && st().plan.ops[3].name === "INT-SG-D-MDE-NLD-BREDA"
     && st().plan.ops[4].ids.join() === "33333333-0000-4000-8000-000000000107", st().plan && st().plan.ops.map((o) => o.type).join());
   ok("…and the plan opens under the batch panel", $("mvBatch-nl-breda").nextElementSibling === $("mvPlan") && /batch 1 of 4/.test($("mvPlan").textContent));
   $("mvConfirmTick").checked = true; $("mvConfirmTick").dispatchEvent(new w.Event("change"));
   const brun = st().runs.length;
   await v2Gates(); $("mvMemApply").click();
   ok("applied: every step done and verified", await until(() => st().runs.length === brun + 1, 15000, "batch run") && st().runs[brun].ok === 6, st().runs[brun] && st().runs[brun].lines.join(" | "));
-  const brG = () => TT.GROUPS.find((g) => g.displayName === "INT-SG-D-NLD-BREDA");
-  ok("in the tenant: Alex in INT-SG-U-NLD-BREDA, which sits in the user wave (not a direct wave member); the new device group holds his laptop and sits in the device wave",
-    (TT.GROUPS.find((g) => g.displayName === "INT-SG-U-NLD-BREDA")._users || []).includes("22222222-0000-4000-8000-000000000001") && (TT.GROUPS.find((g) => g.displayName === "INT-SG-U-NLD-BREDA").memberOf || []).includes("11111111-0000-4000-8000-000000000020")
+  const brG = () => TT.GROUPS.find((g) => g.displayName === "INT-SG-D-MDE-NLD-BREDA");
+  ok("in the tenant: Alex in INT-SG-U-MDE-NLD-BREDA, which sits in the user wave (not a direct wave member); the new device group holds his laptop and sits in the device wave",
+    (TT.GROUPS.find((g) => g.displayName === "INT-SG-U-MDE-NLD-BREDA")._users || []).includes("22222222-0000-4000-8000-000000000001") && (TT.GROUPS.find((g) => g.displayName === "INT-SG-U-MDE-NLD-BREDA").memberOf || []).includes("11111111-0000-4000-8000-000000000020")
     && !(TT.GROUPS.find((g) => g.displayName === "INT-SG-U-WAVE-Euro")._users || []).includes("22222222-0000-4000-8000-000000000001")
     && brG() && brG()._devices.includes("33333333-0000-4000-8000-000000000107") && brG().memberOf.includes("11111111-0000-4000-8000-000000000021"));
   ok("the panel moves on: 1 of 4 in, batch 2 next", br().batch.inCount === 1 && br().batch.batches[0].state === "in" && br().batch.next.n === 2);
@@ -755,17 +755,17 @@ async function run() {
     && /Migrate to the wave with Netherlands/.test($("mvBatch-nl-breda").textContent) && /going live migrates NL Breda/.test($("mvBody").textContent));
   D.querySelector('[data-mrmigrate="nl-breda"]').click();
   const migOps = () => st().plan.ops.filter((o) => o.migrate);
-  ok("the plan: INT-SG-U-NLD-BREDA out of the user wave (Alex in through NL), INT-SG-D-NLD-BREDA out of the device wave — typed, under the panel",
+  ok("the plan: INT-SG-U-MDE-NLD-BREDA out of the user wave (Alex in through NL), INT-SG-D-MDE-NLD-BREDA out of the device wave — typed, under the panel",
     !!st().plan && /Netherlands goes live · 🧪 NL Breda migrated to the wave/.test(st().plan.title) && migOps().length === 2
-    && migOps()[0].type === "unnest" && migOps()[0].child.name === "INT-SG-U-NLD-BREDA" && migOps()[0].parent.name === "INT-SG-U-WAVE-Euro"
-    && migOps()[1].type === "unnest" && migOps()[1].child.name === "INT-SG-D-NLD-BREDA" && !!$("mvConfirmText") && $("mvBatch-nl-breda").nextElementSibling === $("mvPlan")
+    && migOps()[0].type === "unnest" && migOps()[0].child.name === "INT-SG-U-MDE-NLD-BREDA" && migOps()[0].parent.name === "INT-SG-U-WAVE-Euro"
+    && migOps()[1].type === "unnest" && migOps()[1].child.name === "INT-SG-D-MDE-NLD-BREDA" && !!$("mvConfirmText") && $("mvBatch-nl-breda").nextElementSibling === $("mvPlan")
     && /NL Breda is migrated into Netherlands/.test($("mvPlan").textContent), st().plan && JSON.stringify(st().plan.ops.map((o) => [o.type, o.label || (o.child && o.child.name)])));
   $("mvConfirmText").value = "REMOVE"; $("mvConfirmText").dispatchEvent(new w.Event("input"));
   const migRun = st().runs.length;
   await v2Gates(); $("mvMemApply").click();
   ok("applied: every step verified, the migration on 📜", await until(() => st().runs.length === migRun + 1, 15000, "migrate run") && st().runs[migRun].bad === 0 && st().runs[migRun].migrate.length === 1, st().runs[migRun] && st().runs[migRun].lines.join(" | "));
-  const brU = () => TT.GROUPS.find((g) => g.displayName === "INT-SG-U-NLD-BREDA");
-  ok("in the tenant: INT-SG-U-NLD-BREDA and INT-SG-D-NLD-BREDA are out of the waves, left in place",
+  const brU = () => TT.GROUPS.find((g) => g.displayName === "INT-SG-U-MDE-NLD-BREDA");
+  ok("in the tenant: INT-SG-U-MDE-NLD-BREDA and INT-SG-D-MDE-NLD-BREDA are out of the waves, left in place",
     !(brU().memberOf || []).includes("11111111-0000-4000-8000-000000000020") && brG() && !brG().memberOf.includes("11111111-0000-4000-8000-000000000021"));
   ok("the pilot is migrated: out of the batches, listed as migrated, not selectable", st().cfg.members.migrated.includes("NL-Breda") && !st().cfg.members.batched.includes("NL-Breda") && br().migrated && br().batch === null
     && /🧪 migrated into Netherlands/.test($("mvBody").textContent) && !D.querySelector('[data-mrmemsel="nl-breda"]') && /Migrated into Netherlands/.test(($("mvBatch-nl-breda") || { textContent: "" }).textContent));
@@ -897,11 +897,11 @@ async function run() {
   const devOf = () => person() && person().devices.find((d) => d.id === deDev.objId);
   ok("one row per person: the German pilot user with their laptop, both in a pilot group, country known",
     person() && person().state === "ready" && person().userPilots.map((g) => g.id).join() === pilotUId && devOf() && devOf().pilots.map((g) => g.id).join() === pilotId
-    && person().deviceGroupName === "INT-SG-D-DEU" && !devOf().inGroup, JSON.stringify(mm().pilots.people.map((p) => [p.upn, p.state])));
+    && person().deviceGroupName === "INT-SG-D-MDE-DEU" && !devOf().inGroup, JSON.stringify(mm().pilots.people.map((p) => [p.upn, p.state])));
   ok("a pilot device with no primary user has no person — listed as loose", !noPrim || mm().pilots.loose.some((x) => x.id === noPrim.azureADDeviceId));
   D.querySelector("[data-mrpilview]").click();
   ok("🧪 Pilots opens per person: the device under its user, and what the plan would do",
-    st().mem.pil && /Person · devices/.test($("mvBody").textContent) && /− out of the pilot/.test($("mvBody").textContent) && /\+ into INT-SG-D-DEU/.test($("mvBody").textContent));
+    st().mem.pil && /Person · devices/.test($("mvBody").textContent) && /− out of the pilot/.test($("mvBody").textContent) && /\+ into INT-SG-D-MDE-DEU/.test($("mvBody").textContent));
   ok("⚠ the policy gaps are a warning for when the wave goes live, not a block", /Before their waves go live/.test($("mvBody").textContent)
     && /PVM-DG-CORP-ENDSEC-WIN-AV-PRD excludes INT-SG-D-Win-Pilot but not INT-SG-D-WAVE-Euro/.test($("mvBody").textContent) && !!D.querySelector(`[data-mrpilsel="p|${deUserId}"]`));
   const tickP = (k) => { const b = D.querySelector(`[data-mrpilsel="${k}"]`); b.checked = true; b.dispatchEvent(new w.Event("change", { bubbles: true })); };
@@ -909,8 +909,8 @@ async function run() {
   ok("the bar says it: out of the pilot, one device into its country group", /1 person/.test($("mvPilBar").textContent) && /out of the pilot · 1 device into their country group/.test($("mvPilBar").textContent), $("mvPilBar").textContent);
   $("mvPilDry").click();
   const pOps = () => st().plan.ops;
-  ok("the dry run: the laptop into INT-SG-D-DEU, then out of the device pilot (only once that add is clean), then the user out of the user pilot",
-    st().plan && st().plan.pilotsReady && pOps().map((o) => o.type).join() === "add,remove,remove" && pOps()[0].group.name === "INT-SG-D-DEU" && pOps()[0].ids.join() === deDev.objId
+  ok("the dry run: the laptop into INT-SG-D-MDE-DEU, then out of the device pilot (only once that add is clean), then the user out of the user pilot",
+    st().plan && st().plan.pilotsReady && pOps().map((o) => o.type).join() === "add,remove,remove" && pOps()[0].group.name === "INT-SG-D-MDE-DEU" && pOps()[0].ids.join() === deDev.objId
     && pOps()[1].group.id === pilotId && pOps()[1].needsOk.join() === "0" && pOps()[2].group.id === pilotUId && pOps()[2].memberKind === "user" && !!$("mvConfirmText"),
     st().plan && JSON.stringify(pOps().map((o) => [o.type, o.group && o.group.name])));
   ok("…and it says what that means until the wave: the old policies reach them again", /old ones reach them again/.test($("mvPlan").textContent));
@@ -922,8 +922,8 @@ async function run() {
   $("mvConfirmText").value = "REMOVE"; $("mvConfirmText").dispatchEvent(new w.Event("input"));
   const pRuns = st().runs.length;
   await v2Gates(); $("mvMemApply").click();
-  const deuG = () => TT.GROUPS.find((g) => g.displayName === "INT-SG-D-DEU");
-  ok("applied: the laptop is in INT-SG-D-DEU, out of the device pilot; the user out of the user pilot; the person is gone from the list", await until(() => st().runs.length === pRuns + 1, 10000, "ready run")
+  const deuG = () => TT.GROUPS.find((g) => g.displayName === "INT-SG-D-MDE-DEU");
+  ok("applied: the laptop is in INT-SG-D-MDE-DEU, out of the device pilot; the user out of the user pilot; the person is gone from the list", await until(() => st().runs.length === pRuns + 1, 10000, "ready run")
     && st().runs[pRuns].ok === 3 && (deuG()._devices || []).includes(deDev.objId) && !gPilD._devices.includes(deDev.objId)
     && !(TT.GROUPS.find((g) => g.id === pilotUId)._users || []).includes(deUserId) && !person(), st().runs[pRuns] && st().runs[pRuns].lines.join(" | "));
   ok("…and the countries view moved with it: DE's device group holds the laptop", mrow("de").have.has(deDev.objId));
@@ -932,7 +932,7 @@ async function run() {
   ok("undo plans the reverse: back into both pilots, out of the country group", await until(() => st().plan && /Undo/.test(st().plan.title), 5000, "ready undo") && st().plan.ops.map((o) => o.type).sort().join() === "add,add,remove");
   $("mvConfirmText").value = "REMOVE"; $("mvConfirmText").dispatchEvent(new w.Event("input"));
   await v2Gates(); $("mvMemApply").click();
-  ok("undone: in the pilots again, out of INT-SG-D-DEU, listed again", await until(() => gPilD._devices.includes(deDev.objId) && (TT.GROUPS.find((g) => g.id === pilotUId)._users || []).includes(deUserId) && !(deuG()._devices || []).includes(deDev.objId) && !!person(), 10000, "ready undo applied"));
+  ok("undone: in the pilots again, out of INT-SG-D-MDE-DEU, listed again", await until(() => gPilD._devices.includes(deDev.objId) && (TT.GROUPS.find((g) => g.id === pilotUId)._users || []).includes(deUserId) && !(deuG()._devices || []).includes(deDev.objId) && !!person(), 10000, "ready undo applied"));
 
   // ------------------------------------ 🎛 adjust settings (10657) --
   const ASRD = "device_vendor_msft_policy_config_defender_attacksurfacereductionrules";

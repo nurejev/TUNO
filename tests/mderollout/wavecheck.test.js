@@ -82,35 +82,35 @@ async function run() {
   };
   const card = (user, devices) => ({ user, devices, names: new Map(), failed: [], readAt: 1 });
   const dev = (o) => Object.assign({ key: "m:x", objId: "d1", name: "LT-1", managed: true, stale: false, lastSync: null }, o);
-  // Jan: in Euro through the static NL group AND a direct member; his laptop through INT-SG-D-NLD
-  let M = WC.model(card({ id: "u1", displayName: "Jan", upn: "jan@x", groups: new Set([G(20), G(41), G(90) + "x"]), direct: [{ id: G(41), name: "INT-SG-U-NLD" }, { id: G(20), name: "INT-SG-U-WAVE-Euro" }, { id: "gx", name: "Other" }] },
-    [dev({ groups: new Set([G(21), G(35)]), direct: [{ id: G(35), name: "INT-SG-D-NLD" }] })]), ctx);
+  // Jan: in Euro through the static NL group AND a direct member; his laptop through INT-SG-D-MDE-NLD
+  let M = WC.model(card({ id: "u1", displayName: "Jan", upn: "jan@x", groups: new Set([G(20), G(41), G(90) + "x"]), direct: [{ id: G(41), name: "INT-SG-U-MDE-NLD" }, { id: G(20), name: "INT-SG-U-WAVE-Euro" }, { id: "gx", name: "Other" }] },
+    [dev({ groups: new Set([G(21), G(35)]), direct: [{ id: G(35), name: "INT-SG-D-MDE-NLD" }] })]), ctx);
   ok("in: the user through the static group and directly, the device through its country group", M.verdict.kind === "in" && /In the Euro waves/.test(M.verdict.text)
-    && M.rows[0].waves[0].through.map((t) => `${t.kind}:${t.name}`).join() === "direct:INT-SG-U-WAVE-Euro,static:INT-SG-U-NLD" && M.rows[1].waves[0].through[0].kind === "static", JSON.stringify(M.rows.map((r) => r.waves)));
+    && M.rows[0].waves[0].through.map((t) => `${t.kind}:${t.name}`).join() === "direct:INT-SG-U-WAVE-Euro,static:INT-SG-U-MDE-NLD" && M.rows[1].waves[0].through[0].kind === "static", JSON.stringify(M.rows.map((r) => r.waves)));
   ok("…a group that is not a child of the wave is not a route", !M.rows[0].waves[0].through.some((t) => t.name === "Other"));
   ok("…the verdict says the new policies reach them (the wave is assigned)", /the user and 1 device · the new MDE policies reach them/.test(M.verdict.sub) && M.rows[0].reach.new === 1 && M.rows[0].reach.keptOutOld === 1, M.verdict.sub);
   // Eva: through the dynamic source (not swapped); Omar: through a pilot and a test group
   M = WC.model(card({ id: "u2", displayName: "Eva", upn: "eva@x", groups: new Set([G(20), G(42)]), direct: [{ id: G(42), name: "PVM-UG-CORP-MEM-USERS-NL" }] }, []), ctx);
   ok("dynamic: the source nested in the wave is named as such", M.rows[0].waves[0].through[0].kind === "dynamic" && M.verdict.kind === "in" && /the user · /.test(M.verdict.sub));
-  M = WC.model(card({ id: "u3", displayName: "Omar", upn: "o@x", groups: new Set([G(20), G(44), G(43)]), direct: [{ id: G(44), name: "INT-SG-U-NLD-BREDA" }, { id: G(43), name: "INT-SG-U-WAVE-Euro-Test" }] }, []), ctx);
+  M = WC.model(card({ id: "u3", displayName: "Omar", upn: "o@x", groups: new Set([G(20), G(44), G(43)]), direct: [{ id: G(44), name: "INT-SG-U-MDE-NLD-BREDA" }, { id: G(43), name: "INT-SG-U-WAVE-Euro-Test" }] }, []), ctx);
   ok("pilot and test groups are named by kind", M.rows[0].waves[0].through.map((t) => t.kind).sort().join() === "pilot,test");
   // Pat: in the wave, but through none of his direct groups
   M = WC.model(card({ id: "u4", displayName: "Pat", upn: "p@x", groups: new Set([G(22)]), direct: [{ id: "gz", name: "Something" }] }, []), ctx);
   ok("nested deeper: in the wave through no direct group", M.rows[0].waves[0].through[0].kind === "deeper");
   // the wave's children unknown (👥 not read): a direct group is a candidate, marked
-  M = WC.model(card({ id: "u1", displayName: "Jan", upn: "jan@x", groups: new Set([G(20), G(41)]), direct: [{ id: G(41), name: "INT-SG-U-NLD" }] }, []), Object.assign({}, ctx, { children: null }));
+  M = WC.model(card({ id: "u1", displayName: "Jan", upn: "jan@x", groups: new Set([G(20), G(41)]), direct: [{ id: G(41), name: "INT-SG-U-MDE-NLD" }] }, []), Object.assign({}, ctx, { children: null }));
   ok("without the 👥 read a direct group is only a candidate route (maybe)", M.rows[0].waves[0].through[0].maybe === true && M.rows[0].waves[0].through[0].kind === "static");
   // mixed: the device in, the user not
-  M = WC.model(card({ id: "u5", displayName: "Kim", upn: "k@x", groups: new Set(["gq"]), direct: [] }, [dev({ name: "LT-5", groups: new Set([G(21), G(35)]), direct: [{ id: G(35), name: "INT-SG-D-NLD" }] })]), ctx);
+  M = WC.model(card({ id: "u5", displayName: "Kim", upn: "k@x", groups: new Set(["gq"]), direct: [] }, [dev({ name: "LT-5", groups: new Set([G(21), G(35)]), direct: [{ id: G(35), name: "INT-SG-D-MDE-NLD" }] })]), ctx);
   ok("mixed: the device in the wave, the user not — the mix named", M.verdict.kind === "mixed" && /LT-5 in the Euro wave, Kim not/.test(M.verdict.text) && /new - D - policies on the device, the old - U - policies on the user/.test(M.verdict.sub), M.verdict.text);
   // out, with Revert and its reason; a stale device is shown, not judged
-  M = WC.model(card({ id: "u9", displayName: "Rev", upn: "r@x", groups: new Set([G(80)]), direct: [] }, [dev({ name: "OLD-1", stale: true, groups: new Set([G(21), G(35)]), direct: [{ id: G(35), name: "INT-SG-D-NLD" }] })]), ctx);
+  M = WC.model(card({ id: "u9", displayName: "Rev", upn: "r@x", groups: new Set([G(80)]), direct: [] }, [dev({ name: "OLD-1", stale: true, groups: new Set([G(21), G(35)]), direct: [{ id: G(35), name: "INT-SG-D-MDE-NLD" }] })]), ctx);
   ok("out: held in Revert with the reason; the stale device in a wave does not change the verdict", M.verdict.kind === "out" && /⏸ held back/.test(M.verdict.sub) && M.rows[0].held.reverted && M.rows[0].held.reason.reason === "laptop issues" && M.rows[1].stale && M.rows[1].waves.length === 1, M.verdict.text);
   // held yet in: excluded and still in the wave
-  M = WC.model(card({ id: "u6", displayName: "Hans", upn: "h@x", groups: new Set([G(20), G(41), G(90)]), direct: [{ id: G(41), name: "INT-SG-U-NLD" }] }, []), ctx);
+  M = WC.model(card({ id: "u6", displayName: "Hans", upn: "h@x", groups: new Set([G(20), G(41), G(90)]), direct: [{ id: G(41), name: "INT-SG-U-MDE-NLD" }] }, []), ctx);
   ok("held yet in a wave: ⊘ excluded and still in it — mixed, said", M.verdict.kind === "mixed" && /Hans is held, yet still in a wave/.test(M.verdict.text) && /⊘ excluded means/.test(M.verdict.sub) && M.rows[0].held.excluded && M.rows[0].reach.keptOutNew === 1);
   // in a wave that no new policy includes yet
-  M = WC.model(card({ id: "u7", displayName: "Ann", upn: "a@x", groups: new Set([G(22), G(50)]), direct: [{ id: G(50), name: "INT-SG-U-USA" }] }, []), ctx);
+  M = WC.model(card({ id: "u7", displayName: "Ann", upn: "a@x", groups: new Set([G(22), G(50)]), direct: [{ id: G(50), name: "INT-SG-U-MDE-USA" }] }, []), ctx);
   ok("in a wave no new policy includes: said, with ⚡ ①", M.verdict.kind === "in" && /no new policy includes the wave yet \(⚡ Rollout actions ①\)/.test(M.verdict.sub));
   // unread groups
   M = WC.model(card({ id: "u8", displayName: "Noa", upn: "n@x", groups: null, direct: null }, []), ctx);
@@ -136,8 +136,8 @@ async function run() {
   ok("Enter checks: an exact UPN picks itself, the card comes with the verdict", await until(() => st().wc.model && !st().wc.busy, 20000, "eva check") && !!$("mvWcCard") && !st().wc.results
     && /In the Euro waves/.test($("mvWcCard").textContent) && st().wc.model.verdict.kind === "in", st().wc.error);
   const rows = st().wc.model.rows;
-  ok("Eva: in INT-SG-U-WAVE-Euro through the dynamic NL source; her laptop in INT-SG-D-WAVE-Euro through INT-SG-D-NLD (static)", rows.length === 2 && rows[0].waves[0].name === "INT-SG-U-WAVE-Euro" && rows[0].waves[0].through[0].name === "PVM-UG-CORP-MEM-USERS-NL" && rows[0].waves[0].through[0].kind === "dynamic"
-    && rows[1].name === "WS-FIN-0142" && rows[1].waves[0].through[0].name === "INT-SG-D-NLD" && rows[1].waves[0].through[0].kind === "static", JSON.stringify(rows.map((r) => r.waves)));
+  ok("Eva: in INT-SG-U-WAVE-Euro through the dynamic NL source; her laptop in INT-SG-D-WAVE-Euro through INT-SG-D-MDE-NLD (static)", rows.length === 2 && rows[0].waves[0].name === "INT-SG-U-WAVE-Euro" && rows[0].waves[0].through[0].name === "PVM-UG-CORP-MEM-USERS-NL" && rows[0].waves[0].through[0].kind === "dynamic"
+    && rows[1].name === "WS-FIN-0142" && rows[1].waves[0].through[0].name === "INT-SG-D-MDE-NLD" && rows[1].waves[0].through[0].kind === "static", JSON.stringify(rows.map((r) => r.waves)));
   ok("…the card shows the chips, the reach and the buttons", /dynamic/.test($("mvWcCard").textContent) && /static/.test($("mvWcCard").textContent) && /13 old/.test($("mvWcCard").textContent)
     && !!D.querySelector('[data-mrwcgo="exclusions"]') && !!D.querySelector('[data-mrwcgo="revert"]') && !!D.querySelector("[data-mrwcopen]") && /open Netherlands ↓/.test($("mvWcCard").textContent), $("mvWcCard").textContent.slice(0, 300));
   ok("…the countries table is still under it", !!D.querySelector(".mr-memtable") && !!$("mvMemSum"));

@@ -504,7 +504,7 @@ async function run() {
   const dW = wr.find((x) => x.name === "INT-SG-D-WAVE-Euro"), uW = wr.find((x) => x.name === "INT-SG-U-WAVE-Euro");
   ok("a wave only under its old name: not 'exists', offered for rename", !dW.exists && dW.legacy && dW.legacy.name === "PVM-DG-MDE-WAVE-Euro" && dW.legacy.group.id === G(7));
   ok("a wave under its new name, with an old-named group too: exists, the other said", uW.exists && !uW.legacy && uW.legacyToo.join() === "PVM-UG-MDE-WAVE-Euro");
-  ok("a group name with a U / D segment reads as user / device", M.kindFromName("INT-SG-U-WAVE-Euro") === "user" && M.kindFromName("INT-SG-D-WAVE-Euro") === "device" && M.kindFromName("INT-SG-D-NLD") === "device");
+  ok("a group name with a U / D segment reads as user / device", M.kindFromName("INT-SG-U-WAVE-Euro") === "user" && M.kindFromName("INT-SG-D-WAVE-Euro") === "device" && M.kindFromName("INT-SG-D-MDE-NLD") === "device");
   // renameGroup with Graph stubbed
   const gcalls = [];
   let taken = [], refuseNick = false, stored = { id: G(7), displayName: "PVM-DG-MDE-WAVE-Euro", securityEnabled: true };

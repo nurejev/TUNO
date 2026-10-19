@@ -19,7 +19,7 @@ function boot(withIdb) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, "js/t28runs.js"), "utf8") + ";globalThis.R = T28Runs;", ctx);
   return { R: ctx.R, ls: ctx.window.localStorage };
 }
-const run = (at, title, extra) => Object.assign({ at, title, kind: "members", runKind: "groupsync", ok: 2, bad: 0, stopped: false, lines: ["a: done · verified"], backup: { policies: [], membership: [{ id: "g1", kind: "user", members: ["u1"] }] }, done: [{ type: "add", group: { id: "g1", name: "INT-SG-U-NLD" }, ids: ["u2"], memberKind: "user", objs: [{ id: "u2" }] }] }, extra || {});
+const run = (at, title, extra) => Object.assign({ at, title, kind: "members", runKind: "groupsync", ok: 2, bad: 0, stopped: false, lines: ["a: done · verified"], backup: { policies: [], membership: [{ id: "g1", kind: "user", members: ["u1"] }] }, done: [{ type: "add", group: { id: "g1", name: "INT-SG-U-MDE-NLD" }, ids: ["u2"], memberKind: "user", objs: [{ id: "u2" }] }] }, extra || {});
 
 async function main() {
   // ----------------------------------------------------------- IndexedDB --

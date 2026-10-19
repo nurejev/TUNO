@@ -32,7 +32,7 @@ async function run() {
   w.Graph.readAll = async (p) => {
     urls.push(p);
     const q = decodeURIComponent(p);
-    if (/startswith\(displayName,'INT-SG-U-'\)/.test(q)) return [];
+    if (/startswith\(displayName,'INT-SG-U-MDE-'\)/.test(q)) return [];
     if (/eq 'INT-SG-U-MDE-HoldBack'/.test(q)) return [{ id: "HB-U", displayName: "INT-SG-U-MDE-HoldBack" }];
     if (/eq 'INT-SG-D-MDE-HoldBack'/.test(q)) return [{ id: "HB-D", displayName: "INT-SG-D-MDE-HoldBack" }];
     if (/\/groups\/HB-U\/transitiveMembers\/microsoft\.graph\.user/.test(p)) return [{ id: "u-bob", userPrincipalName: "bob@x", displayName: "Bob" }, { id: "u-cara", userPrincipalName: "cara@x", displayName: "Cara (via nested group)" }];
@@ -54,7 +54,7 @@ async function run() {
   // the guard on the fresh answer drops the newly held one
   const ctx = { users: new Set(["u-bob"]), devices: new Set(), exempt: { ids: new Set(["hb-u", "hb-d"]), names: new Set() }, hold: { ids: new Set(["hb-u", "hb-d"]), names: new Set() }, unread: "", nameOf: () => "" };
   now.users.forEach((id) => ctx.users.add(id));
-  const g = MR.guardHeld([{ type: "add", key: "nl", group: { id: "su-nl", name: "INT-SG-U-NLD" }, ids: ["u-cara", "u-dan"], memberKind: "user", label: "2 users", objs: [{ id: "u-cara" }, { id: "u-dan" }] }], ctx);
+  const g = MR.guardHeld([{ type: "add", key: "nl", group: { id: "su-nl", name: "INT-SG-U-MDE-NLD" }, ids: ["u-cara", "u-dan"], memberKind: "user", label: "2 users", objs: [{ id: "u-cara" }, { id: "u-dan" }] }], ctx);
   ok("the guard on the fresh read: Cara (held since the plan) is dropped, Dan still goes", g.ops.length === 1 && g.ops[0].ids.join() === "u-dan" && g.stripped.users === 1 && g.skipped.length === 1);
 
   // a failed read is an error, never an empty hold-back

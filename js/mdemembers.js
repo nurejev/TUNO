@@ -5,7 +5,7 @@
 //
 //   INT-SG-U-WAVE-<region>  ⟵ nested ⟵  the country USER groups
 //                                         (PVM-UG-CORP-MEM-USERS-<xx>, dynamic)
-//   INT-SG-D-WAVE-<region>  ⟵ nested ⟵  INT-SG-D-<ISO3>, one ASSIGNED device
+//   INT-SG-D-WAVE-<region>  ⟵ nested ⟵  INT-SG-D-MDE-<ISO3>, one ASSIGNED device
 //                                         group per country, holding the Windows
 //                                         devices whose INTUNE PRIMARY USER is in
 //                                         that country's user group
@@ -53,7 +53,10 @@ const MdeMembers = (() => {
   // groups and UAE, which the overrides name.
   const DEFAULTS = Object.freeze({
     countryPrefix: "PVM-UG-CORP-MEM-USERS-",
-    deviceGroupPrefix: "INT-SG-D-",
+    // 10732 (Mihai, 19 Oct: "too many groups in the solution" — every group the
+    // rollout owns sits under MDE): the country groups are INT-SG-D-MDE-<ISO3>
+    // and INT-SG-U-MDE-<ISO3>, beside INT-SG-{U,D}-MDE-HoldBack / -Pinned / -Skip
+    deviceGroupPrefix: "INT-SG-D-MDE-",
     countryMap: [
       // NL-Breda leads the Euro wave as the first PILOT (Mihai, 10635)
       { region: "Euro", suffixes: ["NL-Breda", "GB", "BE", "NL", "LU", "CZ", "SK", "POL-Warszawa", "POL-SKARB", "DK", "FR", "CH", "ES", "PT", "GR", "DE"] },
@@ -86,11 +89,11 @@ const MdeMembers = (() => {
     staleDays: 30,
     largeNest: 500,
     // ↩ Revert and 🔄 country groups (10679, Mihai 5 Oct: "user groups mirror
-    // the device groups" — INT-SG-U-<ISO3> beside INT-SG-D-<ISO3>, both
+    // the device groups" — INT-SG-U-MDE-<ISO3> beside INT-SG-D-MDE-<ISO3>, both
     // static; the Revert pair holds whoever is back on the old policies and
     // a sync never takes them back in without a confirm). The ISO3 of a
     // country is the device group's (countryRows), never a second table.
-    userGroupPrefix: "INT-SG-U-",
+    userGroupPrefix: "INT-SG-U-MDE-",
     userGroupDescription: "Users of {userGroup} (transitive), as direct members. Static — kept in sync by TUNO (T28 MDE rollout · 🔄 country groups).",
     // ⏸ Hold-back (10702, Mihai 8 Oct: "change the name to hold-back" — one
     // hold-back instead of ⊘ Exclude + ↩ Revert; at PVM an exclusion means
@@ -559,7 +562,7 @@ const MdeMembers = (() => {
     const kids = wave && input.waveChildren ? (input.waveChildren.get(lc(wave.id)) || new Set()) : new Set();
     // 10681 (Mihai, off batch 1's plan: "the breda pilot. where is user
     // groups creation?"): a batch goes into the pilot's STATIC user group
-    // (INT-SG-U-NLD-BREDA), nested in the wave from batch 1 — never straight
+    // (INT-SG-U-MDE-NLD-BREDA), nested in the wave from batch 1 — never straight
     // into the wave. Users an earlier build put in directly (direct) still
     // count as in, and move into the static group with the next batch.
     const own = new Set([lc(row.ug.id)].concat(row.sug ? [lc(row.sug.id)] : []));

@@ -46,7 +46,7 @@ async function run() {
   const uDE = "aaaaaaaa-0000-4000-8000-00000000000d", uNL = "bbbbbbbb-0000-4000-8000-00000000000e", uNL2 = "cccccccc-0000-4000-8000-00000000000f";
   const input = {
     countryGroups: [{ id: "gnl", displayName: "PVM-UG-CORP-MEM-USERS-NL" }, { id: "gde", displayName: "PVM-UG-CORP-MEM-USERS-DE" }],
-    deviceGroups: [{ id: "dnl", displayName: "INT-SG-D-NLD" }],
+    deviceGroups: [{ id: "dnl", displayName: "INT-SG-D-MDE-NLD" }],
     usersByGroup: new Map([["gnl", [{ id: uNL, userPrincipalName: "nina@x" }, { id: uNL2, userPrincipalName: "noor@x", onPremisesSecurityIdentifier: "S-1-5-21-9-9-9-1105" }]], ["gde", [{ id: uDE, userPrincipalName: "dirk@x" }]]]),
     managed: [
       { id: "m1", deviceName: "KIOSK-01", userId: "svc", userPrincipalName: "svc-kiosk@x", azureADDeviceId: "a1", lastSyncDateTime: iso(now) },   // primary user in no country → ② Intune last logon (Nina)
@@ -93,18 +93,18 @@ async function run() {
 
   // ------------------------------------------------------------- pins --
   const pp = MM.planPin(m, input, [{ userId: uNL, aad: "a5", name: "XYZ-05" }], cfg);
-  ok("pin: into the pinned group first, then into INT-SG-D-NLD once that read back", pp.pins && pp.ops.map((o) => `${o.type}:${o.group.name}:${o.ids.join("+")}`).join() === "add:INT-SG-D-MDE-Pinned:e5,add:INT-SG-D-NLD:e5" && pp.ops[1].needsOk.join() === "0" && !pp.hasRemoval);
+  ok("pin: into the pinned group first, then into INT-SG-D-MDE-NLD once that read back", pp.pins && pp.ops.map((o) => `${o.type}:${o.group.name}:${o.ids.join("+")}`).join() === "add:INT-SG-D-MDE-Pinned:e5,add:INT-SG-D-MDE-NLD:e5" && pp.ops[1].needsOk.join() === "0" && !pp.hasRemoval);
   const pp2 = MM.planPin(Object.assign({}, m, { pinnedGroup: null }), input, [{ userId: uNL, aad: "a5", name: "XYZ-05" }], cfg);
   ok("no pinned group yet: created first", pp2.ops[0].type === "create" && pp2.ops[0].name === "INT-SG-D-MDE-Pinned" && pp2.ops[1].group.ref === "INT-SG-D-MDE-Pinned");
   const pp3 = MM.planPin(m, input, [{ userId: uDE, aad: "a5", name: "XYZ-05" }, { userId: uNL, aad: "zz", name: "GHOST" }], cfg);
-  ok("a country with no device group, and a device with no Entra object: skipped, said", !pp3.ops.length && pp3.skipped.some((x) => /INT-SG-D-DEU does not exist/.test(x)) && pp3.skipped.some((x) => /GHOST: no Entra object/.test(x)));
+  ok("a country with no device group, and a device with no Entra object: skipped, said", !pp3.ops.length && pp3.skipped.some((x) => /INT-SG-D-MDE-DEU does not exist/.test(x)) && pp3.skipped.some((x) => /GHOST: no Entra object/.test(x)));
   const held = Object.assign({}, input, { held: new Set(["e5"]) });
   ok("a held device (⊘ / ↩) is not pinned", !MM.planPin(m, held, [{ userId: uNL, aad: "a5", name: "XYZ-05" }], cfg).ops.length);
   const up = MM.planUnpin(m, ["e9"]);
   ok("unpin: out of the pinned group by $batch, typed, with what happens next", up.ops.length === 1 && up.ops[0].type === "remove" && up.ops[0].group.id === "gpin" && up.ops[0].batch && up.hasRemoval && /apply removals/.test(up.warnings.join()));
   MM.patchInput(input, [{ type: "remove", group: { id: "gpin" }, ids: ["e9"], memberKind: "device" }]);
   const m2 = MM.compute(cfg, input, waves, now);
-  ok("unpinned: PINNED-9 becomes a removal of INT-SG-D-NLD (taken out with “apply removals”)", !input.pinned.has("e9") && m2.rows.find((r) => r.suffix === "NL").remove.includes("e9"));
+  ok("unpinned: PINNED-9 becomes a removal of INT-SG-D-MDE-NLD (taken out with “apply removals”)", !input.pinned.has("e9") && m2.rows.find((r) => r.suffix === "NL").remove.includes("e9"));
 
   // ---------------------------------------------- a user's devices (10683) --
   // Mihai: "user with multiple devices which have sign-in in last 30 days

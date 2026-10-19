@@ -107,7 +107,7 @@ async function run() {
   node("countrysync").click();
   D.querySelector('[data-mrcsswap="Euro"]').click();
   const sr = await apply();
-  ok("set-up: INT-SG-U-NLD holds Eva and Milan and sits in the Euro user wave", sr.runKind === "waveswap" && G("INT-SG-U-NLD")._users.length === 2);
+  ok("set-up: INT-SG-U-MDE-NLD holds Eva and Milan and sits in the Euro user wave", sr.runKind === "waveswap" && G("INT-SG-U-MDE-NLD")._users.length === 2);
 
   // ---------------------------------------------------- ↩ the list --
   node("revert").click();
@@ -128,8 +128,8 @@ async function run() {
   $("mvRvListGo").click();
   ok("looked up: Eva added, Milan replaced (not doubled), nobody@ not added and said why", await until(() => !st().rv.listBusy && st().rv.list.length === 2, 15000, "list")
     && st().rv.misses.length === 1 && /no user has this UPN/.test($("mvRvList").textContent) && /1 line not added/.test($("mvRvList").textContent));
-  ok("each entry is the pair: user and laptop ticked, in INT-SG-U-NLD / INT-SG-D-NLD", st().rv.list.every((e) => e.ticks.has(`u:${e.card.user.id}`) && [...e.ticks].some((k) => k.startsWith("m:")))
-    && /INT-SG-U-NLD/.test($("mvRvList").textContent) && /INT-SG-D-NLD/.test($("mvRvList").textContent));
+  ok("each entry is the pair: user and laptop ticked, in INT-SG-U-MDE-NLD / INT-SG-D-MDE-NLD", st().rv.list.every((e) => e.ticks.has(`u:${e.card.user.id}`) && [...e.ticks].some((k) => k.startsWith("m:")))
+    && /INT-SG-U-MDE-NLD/.test($("mvRvList").textContent) && /INT-SG-D-MDE-NLD/.test($("mvRvList").textContent));
   ok("the per-policy view is counted for the whole list", /What changes, per policy — counted/.test($("mvRvList").textContent));
   ok("the list is kept in this browser as lines", JSON.parse(store.get([...store.keys()].find((k) => /^tuno\.t28\.revert\.list\./.test(k)))).lines.length === 2);
   // untick and tick a member
@@ -142,7 +142,7 @@ async function run() {
   $("mvRvListDry").click();
   const p = st().plan;
   const sig = p && p.ops.map((o) => `${o.type}:${o.name || o.group.name}:${(o.ids || []).length}`).join(" ");
-  ok("one plan for the list: both Revert groups created, one add each, one removal per country group", p && p.bulk && sig === "create:INT-SG-U-MDE-HoldBack:0 create:INT-SG-D-MDE-HoldBack:0 add:INT-SG-U-MDE-HoldBack:2 add:INT-SG-D-MDE-HoldBack:2 remove:INT-SG-U-NLD:2 remove:INT-SG-D-NLD:2", sig);
+  ok("one plan for the list: both Revert groups created, one add each, one removal per country group", p && p.bulk && sig === "create:INT-SG-U-MDE-HoldBack:0 create:INT-SG-D-MDE-HoldBack:0 add:INT-SG-U-MDE-HoldBack:2 add:INT-SG-D-MDE-HoldBack:2 remove:INT-SG-U-MDE-NLD:2 remove:INT-SG-D-MDE-NLD:2", sig);
   ok("the confirm line names the counts and the wave", !!$("mvBulkConfirm") && /hold back 2 users and 2 devices in wave Euro; they lose the new MDE policies/.test($("mvPlan").textContent) && /ticket 4800/.test($("mvPlan").textContent));
   await gates({ noConfirm: true });
   ok("④ Apply stays locked without the confirm line, REMOVE typed and the backup taken", await until(() => $("mvMemApply"), 3000, "apply btn") && (await new Promise((r) => setTimeout(r, 200)), $("mvMemApply").disabled));
@@ -153,8 +153,8 @@ async function run() {
   await until(() => st().runs.length === n0 + 1, 15000, "run");
   const rr = st().runs[n0];
   ok("applied: six steps verified, run kind revert, the reason kept", rr.ok === 6 && rr.runKind === "revert" && rr.reason === "Finance LOB app blocked by ASR — ticket 4800");
-  ok("the tenant: Eva and Milan in INT-SG-U-MDE-HoldBack, out of INT-SG-U-NLD; their laptops in the device Revert group, out of INT-SG-D-NLD",
-    G("INT-SG-U-MDE-HoldBack")._users.length === 2 && !G("INT-SG-U-NLD")._users.length && G("INT-SG-D-MDE-HoldBack")._devices.length === 2 && !G("INT-SG-D-MDE-HoldBack")._devices.some((d) => (G("INT-SG-D-NLD")._devices || []).includes(d)));
+  ok("the tenant: Eva and Milan in INT-SG-U-MDE-HoldBack, out of INT-SG-U-MDE-NLD; their laptops in the device Revert group, out of INT-SG-D-MDE-NLD",
+    G("INT-SG-U-MDE-HoldBack")._users.length === 2 && !G("INT-SG-U-MDE-NLD")._users.length && G("INT-SG-D-MDE-HoldBack")._devices.length === 2 && !G("INT-SG-D-MDE-HoldBack")._devices.some((d) => (G("INT-SG-D-MDE-NLD")._devices || []).includes(d)));
   ok("the list empties itself: both entries reverted, said; Reverted now lists them with the reason", await until(() => !st().rv.list.length, 5000, "list empty")
     && /2 entries reverted and taken off the list/.test($("mvRvList").textContent) && /ticket 4800/.test($("mvRvNow").textContent));
   const reasons = JSON.parse(store.get([...store.keys()].find((k) => /^tuno\.t28\.revert\.reasons\./.test(k))) || "{}");

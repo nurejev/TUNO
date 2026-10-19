@@ -38,7 +38,7 @@ async function run() {
   // readExtra: the tenant still has the ↩ Revert pair → used as is, legacy said
   const realReadAll = w.Graph.readAll;
   w.Graph.readAll = async (p) => {
-    if (/startswith\(displayName,'INT-SG-U-'\)/.test(p)) return [];
+    if (/startswith\(displayName,'INT-SG-U-MDE-'\)/.test(p)) return [];
     const q = decodeURIComponent(p);
     if (/eq 'INT-SG-U-MDE-HoldBack'/.test(q) || /eq 'INT-SG-D-MDE-HoldBack'/.test(q)) return [];
     if (/eq 'INT-SG-U-MDE-Revert'/.test(q)) return [{ id: "RV-U", displayName: "INT-SG-U-MDE-Revert" }];
@@ -57,22 +57,22 @@ async function run() {
 
   // ------------------------------------------------- every route (⏸) --
   const rows = [
-    { key: "nl", region: "Euro", country: "Netherlands", suffix: "NL", iso3: "NLD", userGroupName: "PVM-UG-CORP-MEM-USERS-NL", deviceGroupName: "INT-SG-D-NLD", ug: { id: "src-nl", displayName: "PVM-UG-CORP-MEM-USERS-NL" }, ugNested: false, wave: { user: { id: "wu", displayName: "INT-SG-U-WAVE-Euro" }, userName: "INT-SG-U-WAVE-Euro" } },
-    { key: "nlb", region: "Euro", country: "NL-Breda", suffix: "NL-Breda", iso3: "NLD-BREDA", pilot: true, userGroupName: "PVM-UG-CORP-MEM-USERS-NL-Breda", deviceGroupName: "INT-SG-D-NLD-BREDA", ug: { id: "src-nlb", displayName: "PVM-UG-CORP-MEM-USERS-NL-Breda" }, ugNested: false, wave: { user: { id: "wu", displayName: "INT-SG-U-WAVE-Euro" }, userName: "INT-SG-U-WAVE-Euro" } },
+    { key: "nl", region: "Euro", country: "Netherlands", suffix: "NL", iso3: "NLD", userGroupName: "PVM-UG-CORP-MEM-USERS-NL", deviceGroupName: "INT-SG-D-MDE-NLD", ug: { id: "src-nl", displayName: "PVM-UG-CORP-MEM-USERS-NL" }, ugNested: false, wave: { user: { id: "wu", displayName: "INT-SG-U-WAVE-Euro" }, userName: "INT-SG-U-WAVE-Euro" } },
+    { key: "nlb", region: "Euro", country: "NL-Breda", suffix: "NL-Breda", iso3: "NLD-BREDA", pilot: true, userGroupName: "PVM-UG-CORP-MEM-USERS-NL-Breda", deviceGroupName: "INT-SG-D-MDE-NLD-BREDA", ug: { id: "src-nlb", displayName: "PVM-UG-CORP-MEM-USERS-NL-Breda" }, ugNested: false, wave: { user: { id: "wu", displayName: "INT-SG-U-WAVE-Euro" }, userName: "INT-SG-U-WAVE-Euro" } },
   ];
   const routes = new Map([["int-sg-u-wave-euro", { kind: "user", label: "wave Euro (direct member)", region: "Euro" }], ["int-sg-d-wave-euro", { kind: "device", label: "wave Euro (direct member)", region: "Euro" }],
     ["int-sg-u-wave-euro-test", { kind: "user", label: "🧪 test group Euro", region: "Euro" }], ["int-sg-d-wave-euro-test", { kind: "device", label: "🧪 test group Euro", region: "Euro" }], ["int-sg-d-mde-pinned", { kind: "device", label: "📌 pinned group", region: "" }]]);
   const ctx = { ticks: new Set(["u:u1", "m:m1"]), rows, cfg, revert: { user: { id: "HB-U", displayName: "INT-SG-U-MDE-HoldBack" }, device: { id: "HB-D", displayName: "INT-SG-D-MDE-HoldBack" } }, revertUsers: new Map(), revertDevices: new Map(), reason: "Outlook add-in", routes };
   const card = { pick: { type: "user" }, names: new Map(), failed: [],
-    user: { id: "u1", displayName: "Hans", upn: "hans@x", groups: new Set(["wu", "su-nlb", "t-u"]), direct: [{ id: "su-nlb", name: "INT-SG-U-NLD-BREDA" }, { id: "t-u", name: "INT-SG-U-WAVE-Euro-Test" }, { id: "wu", name: "INT-SG-U-WAVE-Euro" }, { id: "other", name: "PVM-UG-Finance" }] },
-    devices: [{ key: "m:m1", objId: "e1", deviceId: "a1", name: "NLD1", stale: false, direct: [{ id: "dg-nlb", name: "INT-SG-D-NLD-BREDA" }, { id: "pin", name: "INT-SG-D-MDE-Pinned" }, { id: "t-d", name: "INT-SG-D-WAVE-Euro-Test" }], groups: new Set(["dg-nlb", "pin", "t-d"]) }] };
+    user: { id: "u1", displayName: "Hans", upn: "hans@x", groups: new Set(["wu", "su-nlb", "t-u"]), direct: [{ id: "su-nlb", name: "INT-SG-U-MDE-NLD-BREDA" }, { id: "t-u", name: "INT-SG-U-WAVE-Euro-Test" }, { id: "wu", name: "INT-SG-U-WAVE-Euro" }, { id: "other", name: "PVM-UG-Finance" }] },
+    devices: [{ key: "m:m1", objId: "e1", deviceId: "a1", name: "NLD1", stale: false, direct: [{ id: "dg-nlb", name: "INT-SG-D-MDE-NLD-BREDA" }, { id: "pin", name: "INT-SG-D-MDE-Pinned" }, { id: "t-d", name: "INT-SG-D-WAVE-Euro-Test" }], groups: new Set(["dg-nlb", "pin", "t-d"]) }] };
   const u = card.user, d = card.devices[0];
-  ok("routesOf: the country group, the 🧪 test group and the wave itself for a user — not a group outside the rollout", MR.routesOf(u.direct, "user", MR.countryNames(rows, cfg), ctx).map((g) => g.name).join() === "INT-SG-U-NLD-BREDA,INT-SG-U-WAVE-Euro-Test,INT-SG-U-WAVE-Euro");
-  ok("…the country group, the 📌 pin and the 🧪 test group for a device", MR.routesOf(d.direct, "device", MR.countryNames(rows, cfg), ctx).map((g) => g.name).join() === "INT-SG-D-NLD-BREDA,INT-SG-D-MDE-Pinned,INT-SG-D-WAVE-Euro-Test");
+  ok("routesOf: the country group, the 🧪 test group and the wave itself for a user — not a group outside the rollout", MR.routesOf(u.direct, "user", MR.countryNames(rows, cfg), ctx).map((g) => g.name).join() === "INT-SG-U-MDE-NLD-BREDA,INT-SG-U-WAVE-Euro-Test,INT-SG-U-WAVE-Euro");
+  ok("…the country group, the 📌 pin and the 🧪 test group for a device", MR.routesOf(d.direct, "device", MR.countryNames(rows, cfg), ctx).map((g) => g.name).join() === "INT-SG-D-MDE-NLD-BREDA,INT-SG-D-MDE-Pinned,INT-SG-D-WAVE-Euro-Test");
   const p = MR.planRevert(card, ctx);
   const rem = p.ops.filter((o) => o.type === "remove");
   ok("⏸ one person: into the pair, then out of EVERY route, each after the add of its kind", p.runKind === "revert" && p.ops.filter((o) => o.type === "add").length === 2
-    && rem.map((o) => o.group.name).join() === "INT-SG-U-NLD-BREDA,INT-SG-U-WAVE-Euro-Test,INT-SG-U-WAVE-Euro,INT-SG-D-NLD-BREDA,INT-SG-D-MDE-Pinned,INT-SG-D-WAVE-Euro-Test"
+    && rem.map((o) => o.group.name).join() === "INT-SG-U-MDE-NLD-BREDA,INT-SG-U-WAVE-Euro-Test,INT-SG-U-WAVE-Euro,INT-SG-D-MDE-NLD-BREDA,INT-SG-D-MDE-Pinned,INT-SG-D-WAVE-Euro-Test"
     && rem.every((o) => o.needsOk && o.needsOk.length === 1 && p.ops[o.needsOk[0]].type === "add" && p.ops[o.needsOk[0]].memberKind === o.memberKind), p.ops.map((o) => `${o.type}:${o.group && o.group.name}`).join());
   ok("…the step says which route goes", rem.some((o) => /out of the 🧪 test group Euro/.test(o.label)) && rem.some((o) => /out of the 📌 pinned group/.test(o.label)) && rem.some((o) => /out of the wave Euro \(direct member\)/.test(o.label)) && rem.some((o) => /out of the country group/.test(o.label)));
   const none = MR.planRevert({ pick: { type: "user" }, names: new Map(), failed: [], user: { id: "u5", displayName: "Nobody", upn: "n@x", groups: new Set(), direct: [{ id: "x", name: "PVM-UG-Finance" }] }, devices: [] }, Object.assign({}, ctx, { ticks: new Set(["u:u5"]) }));
@@ -89,11 +89,11 @@ async function run() {
   const deepW = MR.planRevert(nobody({ groups: new Set(["wave-x"]) }), Object.assign({}, ctx, { ticks: new Set(["u:u5"]), userWaveIds: new Set(["WAVE-X"]) }));
   ok("…a wave known only from the wave lookup (userWaveIds) counts too, case-blind", !deepW.ops.length && /in a user wave through a group nested deeper/.test(deepW.skipped[0]));
   const lone = { pick: { type: "device" }, names: new Map(), failed: [], user: null,
-    devices: [{ key: "m:p1", objId: "p1", deviceId: "pa1", name: "POL1H85400H9T", stale: false, searched: true, direct: [], groups: new Set() }, { key: "m:p2", objId: "p2", deviceId: "pa2", name: "POL8CC3270K6V", stale: false, direct: [{ id: "dg-nlb", name: "INT-SG-D-NLD-BREDA" }], groups: new Set(["dg-nlb"]) }] };
+    devices: [{ key: "m:p1", objId: "p1", deviceId: "pa1", name: "POL1H85400H9T", stale: false, searched: true, direct: [], groups: new Set() }, { key: "m:p2", objId: "p2", deviceId: "pa2", name: "POL8CC3270K6V", stale: false, direct: [{ id: "dg-nlb", name: "INT-SG-D-MDE-NLD-BREDA" }], groups: new Set(["dg-nlb"]) }] };
   const dctx = Object.assign({}, ctx, { deviceWaveIds: new Set(["wd"]) });
   const dv = MR.planRevert(lone, Object.assign({}, dctx, { ticks: new Set(["m:p1", "m:p2"]) }));
   ok("…a device side whose waves were not read: refused, not guessed", (() => { const q = MR.planRevert(lone, Object.assign({}, ctx, { ticks: new Set(["m:p1"]) })); return !q.ops.length && /device wave .*the waves were not read/.test(q.skipped[0]); })());
-  ok("a device in no wave goes in ahead, one in a country group goes out of it — one add for both", dv.ops.map((o) => `${o.type}:${o.group.name}:${o.ids.join("+")}`).join() === "add:INT-SG-D-MDE-HoldBack:p1+p2,remove:INT-SG-D-NLD-BREDA:p2"
+  ok("a device in no wave goes in ahead, one in a country group goes out of it — one add for both", dv.ops.map((o) => `${o.type}:${o.group.name}:${o.ids.join("+")}`).join() === "add:INT-SG-D-MDE-HoldBack:p1+p2,remove:INT-SG-D-MDE-NLD-BREDA:p2"
     && dv.ops[0].aheadIds.join() === "p1" && /1 of them in no wave yet/.test(dv.ops[0].label) && dv.status.get("m:p1").state === "ahead" && dv.status.get("m:p2").state === "route");
   const dvDeep = MR.planRevert(lone, Object.assign({}, ctx, { ticks: new Set(["m:p1"]), deviceWaveIds: new Set(["wd"]), rows }));
   ok("…a device in a device wave through something deeper: refused", (() => { const l2 = Object.assign({}, lone, { devices: [Object.assign({}, lone.devices[0], { groups: new Set(["wd"]) })] }); const q = MR.planRevert(l2, Object.assign({}, ctx, { ticks: new Set(["m:p1"]), deviceWaveIds: new Set(["wd"]) })); return !q.ops.length && /through a group nested deeper/.test(q.skipped[0]); })() && dvDeep.ops.length === 1);
@@ -115,17 +115,17 @@ async function run() {
     groups: { user: { id: "EX-U", displayName: "INT-SG-U-MDE-Exclusion" }, device: { id: "EX-D", displayName: "INT-SG-D-MDE-Exclusion" } }, managed: [] };
   const wave = { id: "wu", name: "INT-SG-U-WAVE-Euro", region: "Euro", audience: "user" }, waveD = { id: "wd", name: "INT-SG-D-WAVE-Euro", region: "Euro", audience: "device" };
   const scan = { rows: [
-    { key: "user:u1", kind: "user", id: "u1", name: "Hans", upn: "hans@x", via: null, routes: [{ wave, group: { id: "su-nlb", name: "INT-SG-U-NLD-BREDA" }, direct: true, dynamic: false, deep: false }] },
+    { key: "user:u1", kind: "user", id: "u1", name: "Hans", upn: "hans@x", via: null, routes: [{ wave, group: { id: "su-nlb", name: "INT-SG-U-MDE-NLD-BREDA" }, direct: true, dynamic: false, deep: false }] },
     { key: "user:u2", kind: "user", id: "u2", name: "Bob", upn: "bob@x", via: null, routes: [{ wave, group: { id: "src-nl", name: "PVM-UG-CORP-MEM-USERS-NL" }, direct: true, dynamic: true, deep: false }, { wave, group: null, direct: true, dynamic: false, deep: false }] },
-    { key: "user:u9", kind: "user", id: "u9", name: "Nested Nick", upn: "nick@x", via: "PVM-UG-Legacy-Exclusions", routes: [{ wave, group: { id: "su-nld", name: "INT-SG-U-NLD" }, direct: true, dynamic: false, deep: false }] },
-    { key: "device:e1", kind: "device", id: "e1", name: "NLD1", deviceId: "a1", via: null, routes: [{ wave: waveD, group: { id: "dg-nlb", name: "INT-SG-D-NLD-BREDA" }, direct: true, dynamic: false, deep: false }, { wave: waveD, group: { id: "t-d", name: "INT-SG-D-WAVE-Euro-Test" }, direct: false, dynamic: false, deep: true }] },
+    { key: "user:u9", kind: "user", id: "u9", name: "Nested Nick", upn: "nick@x", via: "PVM-UG-Legacy-Exclusions", routes: [{ wave, group: { id: "su-nld", name: "INT-SG-U-MDE-NLD" }, direct: true, dynamic: false, deep: false }] },
+    { key: "device:e1", kind: "device", id: "e1", name: "NLD1", deviceId: "a1", via: null, routes: [{ wave: waveD, group: { id: "dg-nlb", name: "INT-SG-D-MDE-NLD-BREDA" }, direct: true, dynamic: false, deep: false }, { wave: waveD, group: { id: "t-d", name: "INT-SG-D-WAVE-Euro-Test" }, direct: false, dynamic: false, deep: true }] },
   ] };
   const now = { rows: [{ key: "u:u1", state: "half", user: { displayName: "Hans" }, missing: [{ name: "NLD1-B" }] }], users: 2, devices: 2, half: 1 };
   const mctx = { cfg, rows, routes, reason: "one hold-back", revert: { user: { id: "RV-U", displayName: "INT-SG-U-MDE-Revert" }, device: null, legacy: { user: "INT-SG-U-MDE-Revert", device: null } }, revertUsers: new Map([["u2", { id: "u2" }]]), revertDevices: new Map() };
   const mp = MR.planMigrate({ base, scan, now }, mctx);
   const T = (o) => `${o.type}:${o.group ? o.group.name || o.group.ref : o.name}${o.type === "rename" ? `→${o.to}` : ""}${o.ids ? ":" + o.ids.join("+") : ""}${o.needsOk ? "@" + o.needsOk.join("+") : ""}`;
   ok("① rename the legacy pair first, create the missing side, add whoever is not held back yet, then out of every static route and out of ⊘ — each after the add of its kind",
-    mp.ops.map(T).join(" ") === "rename:INT-SG-U-MDE-Revert→INT-SG-U-MDE-HoldBack create:INT-SG-D-MDE-HoldBack add:INT-SG-U-MDE-HoldBack:u1@ add:INT-SG-D-MDE-HoldBack:e1+e3@ remove:INT-SG-U-NLD-BREDA:u1@2 remove:INT-SG-U-WAVE-Euro:u2@2 remove:INT-SG-D-NLD-BREDA:e1@3 remove:INT-SG-U-MDE-Exclusion:u1+u2@2 remove:INT-SG-D-MDE-Exclusion:e1+e3@3".replace(/@ /g, " "), mp.ops.map(T).join(" "));
+    mp.ops.map(T).join(" ") === "rename:INT-SG-U-MDE-Revert→INT-SG-U-MDE-HoldBack create:INT-SG-D-MDE-HoldBack add:INT-SG-U-MDE-HoldBack:u1@ add:INT-SG-D-MDE-HoldBack:e1+e3@ remove:INT-SG-U-MDE-NLD-BREDA:u1@2 remove:INT-SG-U-WAVE-Euro:u2@2 remove:INT-SG-D-MDE-NLD-BREDA:e1@3 remove:INT-SG-U-MDE-Exclusion:u1+u2@2 remove:INT-SG-D-MDE-Exclusion:e1+e3@3".replace(/@ /g, " "), mp.ops.map(T).join(" "));
   ok("…run kind exmigrate, the reason on the adds, removals typed, the ⊘ removals marked fromExclusion", mp.runKind === "exmigrate" && mp.migrateExclusion && mp.hasRemoval && mp.ops.filter((o) => o.type === "add").every((o) => o.reason === "one hold-back") && mp.ops.filter((o) => o.fromExclusion).length === 2);
   ok("…a dynamic route and a deeper nesting are said, not written; a member ⊘ holds through a nested group is said", mp.skipped.some((s) => /Bob: in INT-SG-U-WAVE-Euro through PVM-UG-CORP-MEM-USERS-NL — a dynamic group/.test(s)) && mp.skipped.some((s) => /NLD1: .*nested deeper/.test(s)) && mp.skipped.some((s) => /Nested Nick: in ⊘ through PVM-UG-Legacy-Exclusions/.test(s)));
   ok("…already held back: only taken out of ⊘; the half pair is warned about", mp.warnings.some((x) => /bob@x is already held back — only taken out of ⊘/.test(x)) && mp.warnings.some((x) => /Hans: NLD1-B is not in ⊘ and not held back by this run/.test(x)));

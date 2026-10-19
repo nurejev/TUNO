@@ -33,15 +33,15 @@ function run() {
   const EX = { ids: new Set(["hb-u", "hb-d", "ex-u", "skip-d"]), names: new Set(["int-sg-u-mde-holdback", "int-sg-d-mde-holdback", "int-sg-d-mde-skip"]) };
   const names = { "user|u1": "hans@pvm", "device|e1": "NLD1 (its user is held back)" };
   const ctx = (o) => Object.assign({ users: new Set(["u1"]), devices: new Set(["e1", "e7"]), exempt: EX, hold: HOLD, unread: "", nameOf: (k, id) => names[`${k}|${id}`] || "" }, o || {});
-  const ug = { id: "su-nld", name: "INT-SG-U-NLD" }, dg = { id: "dg-nld", name: "INT-SG-D-NLD" };
+  const ug = { id: "su-nld", name: "INT-SG-U-MDE-NLD" }, dg = { id: "dg-nld", name: "INT-SG-D-MDE-NLD" };
 
   const orig = [{ type: "add", key: "nl", group: ug, ids: ["u1", "u3"], memberKind: "user", label: "2 users of X", objs: [{ id: "u1" }, { id: "u3" }] }];
   let g = MR.guardHeld(orig, ctx());
   ok("a held-back user is taken out of an add into a country group; the rest still goes", g.ops.length === 1 && g.ops[0].ids.join() === "u3" && g.ops[0].objs.map((x) => x.id).join() === "u3");
-  ok("…said in Left out, by name, and counted", g.skipped.length === 1 && /INT-SG-U-NLD: hans@pvm — held back/.test(g.skipped[0]) && g.stripped.users === 1 && /1 held back left out/.test(g.ops[0].label));
+  ok("…said in Left out, by name, and counted", g.skipped.length === 1 && /INT-SG-U-MDE-NLD: hans@pvm — held back/.test(g.skipped[0]) && g.stripped.users === 1 && /1 held back left out/.test(g.ops[0].label));
   ok("the plan handed in is not changed", orig[0].ids.join() === "u1,u3" && orig[0].label === "2 users of X");
 
-  g = MR.guardHeld([{ type: "add", key: "nl", group: dg, ids: ["e1"], label: "1 device" }, { type: "remove", key: "pilot", group: { id: "dg-pilot", name: "INT-SG-D-NLD-BREDA" }, ids: ["e1"], memberKind: "device", needsOk: [0] }, { type: "add", key: "x", group: dg, ids: ["e3"], needsOk: [1] }], ctx());
+  g = MR.guardHeld([{ type: "add", key: "nl", group: dg, ids: ["e1"], label: "1 device" }, { type: "remove", key: "pilot", group: { id: "dg-pilot", name: "INT-SG-D-MDE-NLD-BREDA" }, ids: ["e1"], memberKind: "device", needsOk: [0] }, { type: "add", key: "x", group: dg, ids: ["e3"], needsOk: [1] }], ctx());
   ok("an add of held-back members only is dropped (a device op without memberKind is a device op)", g.ops.length === 2 && g.ops[0].type === "remove" && g.ops[1].ids.join() === "e3");
   ok("…a step that waited on it waits on nothing; later indexes are remapped", g.ops[0].needsOk === undefined && g.ops[1].needsOk.join() === "0");
   ok("…a held-back user's device is named so", /NLD1 \(its user is held back\)/.test(g.skipped[0]) && g.stripped.devices === 1);
@@ -75,7 +75,7 @@ function run() {
   const iso = (t) => new Date(t).toISOString();
   const input = {
     countryGroups: [{ id: "src-nl", displayName: "PVM-UG-CORP-MEM-USERS-NL", groupTypes: ["DynamicMembership"] }],
-    deviceGroups: [{ id: "dg-nld", displayName: "INT-SG-D-NLD" }],
+    deviceGroups: [{ id: "dg-nld", displayName: "INT-SG-D-MDE-NLD" }],
     usersByGroup: new Map([["src-nl", [{ id: "u1", userPrincipalName: "hans@x" }, { id: "u2", userPrincipalName: "bob@x" }, { id: "u3", userPrincipalName: "cat@x" }]]]),
     managed: [
       { id: "m1", deviceName: "NLD1", userId: "u1", azureADDeviceId: "a1", lastSyncDateTime: iso(now) },
@@ -103,16 +103,16 @@ function run() {
 
   // ------------------------------- 10713 (R5): no nest over held members --
   // NL's device group still holds e1 (its user is held back) and is not
-  // nested yet; the static user group INT-SG-U-NLD holds hans (held back)
+  // nested yet; the static user group INT-SG-U-MDE-NLD holds hans (held back)
   {
     const inp = Object.assign({}, input, { waveChildren: new Map([["wd-euro", new Set()], ["wu-euro", new Set()]]),
-      userGroups: new Map([["int-sg-u-nld", { id: "su-nld", displayName: "INT-SG-U-NLD" }]]), userMembers: new Map([["su-nld", new Set(["u1", "u3"])]]) });
+      userGroups: new Map([["int-sg-u-mde-nld", { id: "su-nld", displayName: "INT-SG-U-MDE-NLD" }]]), userMembers: new Map([["su-nld", new Set(["u1", "u3"])]]) });
     const m5 = MM.compute(cfg, inp, waves, now);
     const r5 = m5.rows.find((r) => r.suffix === "NL");
-    ok("compute says who is held back yet still in: hans in INT-SG-U-NLD, NLD1 in INT-SG-D-NLD", r5.uHeldIn.join() === "u1" && r5.heldIn.join() === "e1");
+    ok("compute says who is held back yet still in: hans in INT-SG-U-MDE-NLD, NLD1 in INT-SG-D-MDE-NLD", r5.uHeldIn.join() === "u1" && r5.heldIn.join() === "e1");
     const nestOnly = { fill: false, nestUsers: true, nestDevices: true, removals: false };
     const p5 = MM.planOps(m5, new Set(["nl"]), nestOnly, cfg);
-    ok("a nest of a group that still holds held-back members is refused, both sides named with the count", !p5.ops.some((o) => o.type === "nest") && p5.skipped.some((x) => /⏸ Netherlands.*INT-SG-U-NLD still holds 1 held back — take them out first/.test(x)) && p5.skipped.some((x) => /⏸ Netherlands.*INT-SG-D-NLD still holds 1 held back/.test(x)), p5.skipped.join("|"));
+    ok("a nest of a group that still holds held-back members is refused, both sides named with the count", !p5.ops.some((o) => o.type === "nest") && p5.skipped.some((x) => /⏸ Netherlands.*INT-SG-U-MDE-NLD still holds 1 held back — take them out first/.test(x)) && p5.skipped.some((x) => /⏸ Netherlands.*INT-SG-D-MDE-NLD still holds 1 held back/.test(x)), p5.skipped.join("|"));
     const p6 = MM.planOps(m5, new Set(["nl"]), Object.assign({}, nestOnly, { removals: true }), cfg);
     const idx = (t, k) => p6.ops.findIndex((o) => o.type === t && (k ? o.memberKind === k || o.kind === k : true));
     ok("with 'apply removals' ticked the held ones go out first and the nest follows, waiting for that step (needsOk)", p6.ops.filter((o) => o.type === "nest").length === 2

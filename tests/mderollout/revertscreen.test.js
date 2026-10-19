@@ -99,39 +99,39 @@ async function run() {
   ok("🔄 opens and offers its read", st().pane === "countrysync" && !!$("mvCsRead"));
   $("mvCsRead").click();
   ok("the read lands: the country groups and the extra (static groups, Revert)", await until(() => st().cs.extra && st().mem.model && !st().mem.loading, 15000, "cs read"));
-  ok("the mapping per ISO3 is shown, and says the groups are created in 👥 (10680)", /INT-SG-U-NLD/.test($("mvCsMap").textContent) && /INT-SG-D-NLD/.test($("mvCsMap").textContent) && !$("mvCsMapOk") && /created in one place/.test($("mvCsMap").textContent));
+  ok("the mapping per ISO3 is shown, and says the groups are created in 👥 (10680)", /INT-SG-U-MDE-NLD/.test($("mvCsMap").textContent) && /INT-SG-D-MDE-NLD/.test($("mvCsMap").textContent) && !$("mvCsMapOk") && /created in one place/.test($("mvCsMap").textContent));
   ok("the head per country: NL's source is still dynamic in the Euro wave, never synced; its static group to create in 👥", /dynamic/.test($("mvCsWaves").textContent) && /never/.test($("mvCsWaves").textContent) && /create in 👥/.test($("mvCsWaves").textContent));
   const swapBtn = () => D.querySelector('[data-mrcsswap="Euro"]');
   ok("⇄ Swap Euro is offered", swapBtn() && !swapBtn().disabled);
   swapBtn().click();
-  ok("10680: 🔄 creates nothing — without INT-SG-U-NLD the swap plans nothing for NL and points at 👥", st().plan && !st().plan.ops.length && /INT-SG-U-NLD does not exist — create & fill it in 👥 Wave members/.test($("mvPlan").textContent));
+  ok("10680: 🔄 creates nothing — without INT-SG-U-MDE-NLD the swap plans nothing for NL and points at 👥", st().plan && !st().plan.ops.length && /INT-SG-U-MDE-NLD does not exist — create & fill it in 👥 Wave members/.test($("mvPlan").textContent));
 
   // ------------------------------------------- 👥 creates both groups --
   node("members").click();
-  ok("👥 shows the static user group beside the device group: INT-SG-U-NLD to create, NL in the wave through its dynamic group", st().pane === "members" && /User group · sync/.test($("mvBody").textContent) && /INT-SG-U-NLD/.test($("mvBody").textContent) && /user wave · dynamic/.test($("mvBody").textContent));
+  ok("👥 shows the static user group beside the device group: INT-SG-U-MDE-NLD to create, NL in the wave through its dynamic group", st().pane === "members" && /User group · sync/.test($("mvBody").textContent) && /INT-SG-U-MDE-NLD/.test($("mvBody").textContent) && /user wave · dynamic/.test($("mvBody").textContent));
   check(D.querySelector('[data-mrmemsel="nl"]'), true);
   $("mvMemDry").click();
   const mp = st().plan;
-  ok("👥 NL: INT-SG-U-NLD created and filled beside the device group's top-up; no second user nest, the swap named", mp && mp.ops.some((o) => o.type === "create" && o.name === "INT-SG-U-NLD") && mp.ops.some((o) => o.type === "add" && o.memberKind === "user" && o.ids.length === 2)
+  ok("👥 NL: INT-SG-U-MDE-NLD created and filled beside the device group's top-up; no second user nest, the swap named", mp && mp.ops.some((o) => o.type === "create" && o.name === "INT-SG-U-MDE-NLD") && mp.ops.some((o) => o.type === "add" && o.memberKind === "user" && o.ids.length === 2)
     && !mp.ops.some((o) => o.type === "nest" && o.kind === "user") && mp.skipped.some((x) => /⇄ swap/.test(x)), mp && JSON.stringify(mp.ops.map((o) => o.type)));
   const mr = await apply();
   const G = (n) => w.TUNO_DEMO_GRAPH.T.GROUPS.find((g) => g.displayName === n);
-  ok("applied: INT-SG-U-NLD holds Eva and Milan", mr.ok === mp.ops.length && G("INT-SG-U-NLD") && G("INT-SG-U-NLD")._users.length === 2);
+  ok("applied: INT-SG-U-MDE-NLD holds Eva and Milan", mr.ok === mp.ops.length && G("INT-SG-U-MDE-NLD") && G("INT-SG-U-MDE-NLD")._users.length === 2);
 
   // ------------------------------------------------------------ ⇄ swap --
   node("countrysync").click();
   swapBtn().click();
   const sp = st().plan;
-  ok("the swap plan: nest INT-SG-U-NLD, check, unnest the PVM group", sp && sp.runKind === "waveswap" && sp.ops.map((o) => o.type).join() === "nest,swapcheck,unnest" && sp.ops[2].child.name === "PVM-UG-CORP-MEM-USERS-NL", sp && sp.ops.map((o) => o.type).join());
+  ok("the swap plan: nest INT-SG-U-MDE-NLD, check, unnest the PVM group", sp && sp.runKind === "waveswap" && sp.ops.map((o) => o.type).join() === "nest,swapcheck,unnest" && sp.ops[2].child.name === "PVM-UG-CORP-MEM-USERS-NL", sp && sp.ops.map((o) => o.type).join());
   ok("…its impact and way back are said, and the unnest is typed", /Likely impact: none/.test($("mvPlan").textContent) && /Way back/.test($("mvPlan").textContent) && !!$("mvConfirmText") && /check the sets/.test($("mvPlan").textContent));
   const sr = await apply();
   ok("applied: three steps written and verified, the check among them", sr.ok === 3 && sr.runKind === "waveswap", JSON.stringify(sr.lines));
-  ok("the tenant: INT-SG-U-NLD sits in the Euro user wave; the PVM group does not", (G("INT-SG-U-NLD").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id) && !(G("PVM-UG-CORP-MEM-USERS-NL").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id));
+  ok("the tenant: INT-SG-U-MDE-NLD sits in the Euro user wave; the PVM group does not", (G("INT-SG-U-MDE-NLD").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id) && !(G("PVM-UG-CORP-MEM-USERS-NL").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id));
   ok("the head moved with it: NL static, nothing left to swap in Euro", st().pane === "countrysync" && /static/.test($("mvCsWaves").textContent) && swapBtn().disabled);
 
   // ------------------------------------------------------------ 🔄 sync --
   const items = w.MdeRevert.syncItems(st().csModel(), "all");
-  ok("the sync preview: Alex's laptop in INT-SG-D-NLD is a leaver, unticked; countries without groups point at 👥", items.some((x) => x.dir === "leave" && x.kind === "device") && [...st().cs.ticks].every((k) => k.startsWith("add|")) && /create &amp; fill them|create & fill them/.test($("mvCsSync").innerHTML));
+  ok("the sync preview: Alex's laptop in INT-SG-D-MDE-NLD is a leaver, unticked; countries without groups point at 👥", items.some((x) => x.dir === "leave" && x.kind === "device") && [...st().cs.ticks].every((k) => k.startsWith("add|")) && /create &amp; fill them|create & fill them/.test($("mvCsSync").innerHTML));
   const nlScope = $("mvCsScope");
   nlScope.value = "nl"; nlScope.dispatchEvent(new w.Event("change", { bubbles: true }));
   ok("a per-ISO3 scope: NL only", st().cs.scope === "nl" && w.MdeRevert.syncItems(st().csModel(), "nl").every((x) => x.row.key === "nl"));
@@ -154,16 +154,16 @@ async function run() {
   D.querySelector("[data-mrrvpick]").click();
   ok("her card: the pair ticked — Eva and WS-FIN-0142", await until(() => st().rv.card && $("mvRvCard"), 10000, "rv card") && st().rv.ticks.has(`u:${st().rv.card.user.id}`) && [...st().rv.ticks].some((k) => k.startsWith("m:")));
   ok("…the card says 'through the dynamic group — swap first' only when the dynamic group carries the wave (10730): here it does, so it says so", /swap it in 🔄 first/.test($("mvRvCard").textContent) === !!st().mem.model.rows.find((r) => r.key === "nl" && r.ugNestedSrc), String(!!st().mem.model.rows.find((r) => r.key === "nl" && r.ugNestedSrc)));
-  ok("…her country user group is the static one, and what changes is shown per policy", /INT-SG-U-NLD/.test($("mvRvCard").textContent) && /What changes, per policy/.test($("mvRvCard").textContent));
+  ok("…her country user group is the static one, and what changes is shown per policy", /INT-SG-U-MDE-NLD/.test($("mvRvCard").textContent) && /What changes, per policy/.test($("mvRvCard").textContent));
   $("mvRvReason").value = "Finance LOB app blocked by ASR — ticket 4711"; $("mvRvReason").dispatchEvent(new w.Event("input", { bubbles: true }));
   $("mvRvDry").click();
   const rp = st().plan;
-  ok("the revert plan: create both Revert groups, add, then out of INT-SG-U-NLD and INT-SG-D-NLD", rp && rp.runKind === "revert" && rp.ops.map((o) => `${o.type}:${o.name || o.group.name}`).join() === "create:INT-SG-U-MDE-HoldBack,add:INT-SG-U-MDE-HoldBack,remove:INT-SG-U-NLD,create:INT-SG-D-MDE-HoldBack,add:INT-SG-D-MDE-HoldBack,remove:INT-SG-D-NLD", rp && rp.ops.map((o) => `${o.type}:${o.name || o.group.name}`).join());
+  ok("the revert plan: create both Revert groups, add, then out of INT-SG-U-MDE-NLD and INT-SG-D-MDE-NLD", rp && rp.runKind === "revert" && rp.ops.map((o) => `${o.type}:${o.name || o.group.name}`).join() === "create:INT-SG-U-MDE-HoldBack,add:INT-SG-U-MDE-HoldBack,remove:INT-SG-U-MDE-NLD,create:INT-SG-D-MDE-HoldBack,add:INT-SG-D-MDE-HoldBack,remove:INT-SG-D-MDE-NLD", rp && rp.ops.map((o) => `${o.type}:${o.name || o.group.name}`).join());
   ok("…the reason is in the plan, the removal typed", /ticket 4711/.test($("mvPlan").textContent) && !!$("mvConfirmText"));
   const rr = await apply();
   ok("applied: six steps verified", rr.ok === 6 && rr.runKind === "revert" && rr.reason === "Finance LOB app blocked by ASR — ticket 4711");
-  ok("the tenant: Eva in INT-SG-U-MDE-HoldBack, out of INT-SG-U-NLD; her laptop likewise", G("INT-SG-U-MDE-HoldBack")._users.includes(w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id)
-    && !G("INT-SG-U-NLD")._users.includes(w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id) && G("INT-SG-D-MDE-HoldBack")._devices.length === 1 && !G("INT-SG-D-NLD")._devices.includes(G("INT-SG-D-MDE-HoldBack")._devices[0]));
+  ok("the tenant: Eva in INT-SG-U-MDE-HoldBack, out of INT-SG-U-MDE-NLD; her laptop likewise", G("INT-SG-U-MDE-HoldBack")._users.includes(w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id)
+    && !G("INT-SG-U-MDE-NLD")._users.includes(w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id) && G("INT-SG-D-MDE-HoldBack")._devices.length === 1 && !G("INT-SG-D-MDE-NLD")._devices.includes(G("INT-SG-D-MDE-HoldBack")._devices[0]));
   ok("Reverted now lists them with the reason; the rail counts 1 · 1", await until(() => /Held back now/.test($("mvRvNow").textContent) && /ticket 4711/.test($("mvRvNow").textContent), 5000, "rv now") && st().cs.extra.revertUsers.size === 1 && st().cs.extra.revertDevices.size === 1);
 
   // ----------------------------------------------- the sync holds them back --
@@ -186,33 +186,33 @@ async function run() {
   check(D.querySelector(`[data-mrrvsel="${evaKey}"]`), true);
   $("mvRvUndoDry").click();
   const up = st().plan;
-  ok("↩ Back into the wave: into INT-SG-U-NLD, then out of Revert", up && up.ops.map((o) => `${o.type}:${o.group.name}`).join() === "add:INT-SG-U-NLD,remove:INT-SG-U-MDE-HoldBack" && up.ops[1].needsOk.join() === "0");
+  ok("↩ Back into the wave: into INT-SG-U-MDE-NLD, then out of Revert", up && up.ops.map((o) => `${o.type}:${o.group.name}`).join() === "add:INT-SG-U-MDE-NLD,remove:INT-SG-U-MDE-HoldBack" && up.ops[1].needsOk.join() === "0");
   const ur = await apply();
   const eva = w.TUNO_DEMO_GRAPH.T.USERS.find((u) => u.displayName === "Eva Employee").id;
   const reasons = JSON.parse(store.get([...store.keys()].find((k) => /^tuno\.t28\.revert\.reasons\./.test(k))) || "{}");
-  ok("applied: Eva back in INT-SG-U-NLD, out of Revert, her reason gone; the laptop still reverted", ur.ok === 2 && !G("INT-SG-U-MDE-HoldBack")._users.length && G("INT-SG-U-NLD")._users.includes(eva) && !reasons[eva] && Object.keys(reasons).length === 1);
+  ok("applied: Eva back in INT-SG-U-MDE-NLD, out of Revert, her reason gone; the laptop still reverted", ur.ok === 2 && !G("INT-SG-U-MDE-HoldBack")._users.length && G("INT-SG-U-MDE-NLD")._users.includes(eva) && !reasons[eva] && Object.keys(reasons).length === 1);
   ok("📜 lists the five runs with their kinds", [null, "waveswap", "groupsync", "revert", "revert"].every((k, i) => (st().runs[i].runKind || null) === k));
 
   // --------------------------- 10712 (R3): the hold-back re-read at Apply --
-  // Milan leaves INT-SG-U-NLD behind T28's back; 👥 plans to add him back;
+  // Milan leaves INT-SG-U-MDE-NLD behind T28's back; 👥 plans to add him back;
   // between the dry run and Apply he is put in the hold-back by hand — the
   // re-read right before the write drops him, named, and the hold-back is
   // left as it is.
   const milan = w.TUNO_DEMO_GRAPH.T.USERS.find((u) => /Milan/.test(u.displayName)).id;
-  G("INT-SG-U-NLD")._users = G("INT-SG-U-NLD")._users.filter((id) => id !== milan && id !== eva);   // Eva and Milan both left the static group behind T28's back
+  G("INT-SG-U-MDE-NLD")._users = G("INT-SG-U-MDE-NLD")._users.filter((id) => id !== milan && id !== eva);   // Eva and Milan both left the static group behind T28's back
   node("members").click();
   $("mvMemRead").click();
   await until(() => st().mem.model && !st().mem.loading && st().mem.model.rows.find((r) => r.key === "nl").uAdd.includes(milan), 20000, "members re-read");
   check(D.querySelector('[data-mrmemsel="nl"]'), true);
   $("mvMemDry").click();
   const hp = st().plan;
-  ok("👥 plans to add Eva and Milan back to INT-SG-U-NLD", hp && hp.ops.some((o) => o.type === "add" && o.memberKind === "user" && o.ids.includes(milan) && o.ids.includes(eva)), hp && JSON.stringify(hp.ops.map((o) => [o.type, o.ids])));
+  ok("👥 plans to add Eva and Milan back to INT-SG-U-MDE-NLD", hp && hp.ops.some((o) => o.type === "add" && o.memberKind === "user" && o.ids.includes(milan) && o.ids.includes(eva)), hp && JSON.stringify(hp.ops.map((o) => [o.type, o.ids])));
   G("INT-SG-U-MDE-HoldBack")._users.push(milan);   // by hand, after the read, before Apply
   const hr = await apply();
   ok("Apply re-reads the hold-back: Milan is dropped from the add and named; Eva still goes in", /⏸ 1 member held back since the read — left out/.test(hr.lines.join("\n")) && /milan@/i.test(hr.lines.join("\n")) && hr.ok === 1 && hr.done.some((d) => d.type === "add" && d.ids.includes(eva) && !d.ids.includes(milan)), JSON.stringify(hr.lines));
-  ok("the tenant: Milan is still held back and NOT in INT-SG-U-NLD; Eva is", G("INT-SG-U-MDE-HoldBack")._users.includes(milan) && !G("INT-SG-U-NLD")._users.includes(milan) && G("INT-SG-U-NLD")._users.includes(eva));
+  ok("the tenant: Milan is still held back and NOT in INT-SG-U-MDE-NLD; Eva is", G("INT-SG-U-MDE-HoldBack")._users.includes(milan) && !G("INT-SG-U-MDE-NLD")._users.includes(milan) && G("INT-SG-U-MDE-NLD")._users.includes(eva));
   // and with NOBODY left to add, Apply refuses instead of writing nothing silently
-  G("INT-SG-U-NLD")._users = G("INT-SG-U-NLD")._users.filter((id) => id !== eva);
+  G("INT-SG-U-MDE-NLD")._users = G("INT-SG-U-MDE-NLD")._users.filter((id) => id !== eva);
   $("mvMemRead").click();
   await until(() => st().mem.model && !st().mem.loading && st().mem.model.rows.find((r) => r.key === "nl").uAdd.includes(eva), 20000, "members re-read 2");
   check(D.querySelector('[data-mrmemsel="nl"]'), true);
@@ -220,7 +220,7 @@ async function run() {
   G("INT-SG-U-MDE-HoldBack")._users.push(eva);
   const nR = st().runs.length;
   await gates(); $("mvMemApply").click();
-  ok("everyone the plan would add is held back now → refused, nothing written, said on the plan", await until(() => /Everyone this plan would add is held back now — nothing to write/.test($("mvPlan").textContent), 10000, "refusal") && st().runs.length === nR && !G("INT-SG-U-NLD")._users.includes(eva));
+  ok("everyone the plan would add is held back now → refused, nothing written, said on the plan", await until(() => /Everyone this plan would add is held back now — nothing to write/.test($("mvPlan").textContent), 10000, "refusal") && st().runs.length === nR && !G("INT-SG-U-MDE-NLD")._users.includes(eva));
   G("INT-SG-U-MDE-HoldBack")._users = G("INT-SG-U-MDE-HoldBack")._users.filter((id) => id !== eva);
   ok("the backup carried the hold-back pair (transitive), so it says who was held when the run went", Array.isArray(hr.backup.membership) && hr.backup.membership.some((x) => x.role === "hold-back" && x.kind === "user" && x.members.includes(milan)), JSON.stringify(hr.backup.membership));
 

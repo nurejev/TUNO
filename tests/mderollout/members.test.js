@@ -29,8 +29,8 @@ async function run() {
   const allSuffixes = cfg.countryMap.flatMap((r) => r.suffixes);
   ok("the sheet's table: five regions, 39 country groups, the NL-Breda pilot, and SK, KZ, LAGOS", cfg.countryMap.map((r) => r.region).join("|") === "Euro|Americas|Asia-Pacific|Italy|BAMSCA" && allSuffixes.length === 43);
   ok("SK in Euro, KZ and LAGOS in BAMSCA, each with a device group", cfg.countryMap[0].suffixes.includes("SK") && cfg.countryMap[4].suffixes.includes("KZ") && cfg.countryMap[4].suffixes.includes("LAGOS")
-    && MM.countryRows(cfg).find((r) => r.suffix === "SK").deviceGroupName === "INT-SG-D-SVK" && MM.countryRows(cfg).find((r) => r.suffix === "KZ").deviceGroupName === "INT-SG-D-KAZ" && MM.countryRows(cfg).find((r) => r.suffix === "LAGOS").deviceGroupName === "INT-SG-D-NGA-LAGOS");
-  ok("NL-Breda is the Euro wave's pilot by default, with its own device group", cfg.pilots.join() === "NL-Breda" && cfg.countryMap[0].suffixes[0] === "NL-Breda" && MM.countryRows(cfg)[0].deviceGroupName === "INT-SG-D-NLD-BREDA" && MM.countryRows(cfg)[0].pilot === true);
+    && MM.countryRows(cfg).find((r) => r.suffix === "SK").deviceGroupName === "INT-SG-D-MDE-SVK" && MM.countryRows(cfg).find((r) => r.suffix === "KZ").deviceGroupName === "INT-SG-D-MDE-KAZ" && MM.countryRows(cfg).find((r) => r.suffix === "LAGOS").deviceGroupName === "INT-SG-D-MDE-NGA-LAGOS");
+  ok("NL-Breda is the Euro wave's pilot by default, with its own device group", cfg.pilots.join() === "NL-Breda" && cfg.countryMap[0].suffixes[0] === "NL-Breda" && MM.countryRows(cfg)[0].deviceGroupName === "INT-SG-D-MDE-NLD-BREDA" && MM.countryRows(cfg)[0].pilot === true);
   ok("a star in the table marks a pilot, and round-trips", MM.parsePilots("Euro: *NL-Breda, GB\nItaly: *IT-SELECTION, IT").join() === "NL-Breda,IT-SELECTION" && MM.parseMap("Euro: *NL-Breda, GB")[0].suffixes.join() === "NL-Breda,GB" && /Euro: \*NL-Breda, GB/.test(MM.formatMap(cfg.countryMap, cfg.pilots)));
   ok("a suggested device-group suffix: ISO3 of the leading code, the rest upper-cased", MM.suggestDeviceSuffix("NL-Breda") === "NLD-BREDA" && MM.suggestDeviceSuffix("IT-SELECTION") === "ITA-SELECTION" && MM.suggestDeviceSuffix("LAGOS") === "LAGOS");
   const added = MM.addPilot(MM.normConfig({ pilots: [] , countryMap: [{ region: "Italy", suffixes: ["IT"] }], deviceSuffixes: {} }), "IT-SELECTION", "Italy");
@@ -38,7 +38,7 @@ async function run() {
   const moved = MM.addPilot(cfg, "GB", "Italy");
   ok("addPilot on a mapped suffix moves it, never duplicates it", moved.countryMap.flatMap((r) => r.suffixes).filter((x) => x === "GB").length === 1 && moved.countryMap.find((r) => r.region === "Italy").suffixes[0] === "GB");
   ok("Brazil is in BAMSCA and Canada in Americas, as the sheet has them", cfg.countryMap.find((r) => r.region === "BAMSCA").suffixes.includes("BR") && cfg.countryMap.find((r) => r.region === "Americas").suffixes.includes("CA"));
-  ok("defaults: INT-SG-D- and the country prefix", cfg.deviceGroupPrefix === "INT-SG-D-" && cfg.countryPrefix === "PVM-UG-CORP-MEM-USERS-");
+  ok("defaults: INT-SG-D-MDE- and the country prefix", cfg.deviceGroupPrefix === "INT-SG-D-MDE-" && cfg.countryPrefix === "PVM-UG-CORP-MEM-USERS-");
   const map = MM.parseMap("Euro: GB, BE NL\nAmericas: US\n\nno colon here\nEuro: DE");
   ok("parseMap: one region per line, commas or spaces, repeated regions merged, junk ignored", map.length === 2 && map[0].suffixes.join() === "GB,BE,NL,DE" && map[1].suffixes.join() === "US");
   ok("formatMap round-trips", MM.formatMap(MM.parseMap(MM.formatMap(cfg.countryMap))) === MM.formatMap(cfg.countryMap));
@@ -51,7 +51,7 @@ async function run() {
   ok("an unknown suffix has no code, and says where to set one", MM.iso3Of("DEM-ITAPIT", cfg.deviceSuffixes).code === null && /⚙️/.test(MM.iso3Of("DEM-ITAPIT", cfg.deviceSuffixes).source));
   const rows = MM.countryRows(cfg);
   const row = (s) => rows.find((r) => r.suffix === s);
-  ok("country rows carry both group names", row("NL").userGroupName === "PVM-UG-CORP-MEM-USERS-NL" && row("NL").deviceGroupName === "INT-SG-D-NLD" && row("POL-SKARB").deviceGroupName === "INT-SG-D-POL-SKARB");
+  ok("country rows carry both group names", row("NL").userGroupName === "PVM-UG-CORP-MEM-USERS-NL" && row("NL").deviceGroupName === "INT-SG-D-MDE-NLD" && row("POL-SKARB").deviceGroupName === "INT-SG-D-MDE-POL-SKARB");
   ok("a country name for the row", row("GB").country === "United Kingdom" && row("UAE").country === "United Arab Emirates");
   const dup = MM.countryRows(MM.normConfig({ countryMap: [{ region: "A", suffixes: ["NL"] }, { region: "B", suffixes: ["NL", "DE"] }] }));
   ok("a suffix under two regions is kept in the first, and said", dup.filter((r) => r.suffix === "NL").length === 1 && dup[0].region === "A" && /also listed under B/.test(dup[0].notes.join()));
@@ -70,7 +70,7 @@ async function run() {
       { id: G(3), displayName: "PVM-UG-CORP-MEM-USERS-NL-Breda", groupTypes: ["DynamicMembership"] },
       { id: G(4), displayName: "PVM-UG-CORP-MEM-USERS-PL", groupTypes: ["DynamicMembership"] },
     ],
-    deviceGroups: [{ id: G(10), displayName: "INT-SG-D-NLD" }],
+    deviceGroups: [{ id: G(10), displayName: "INT-SG-D-MDE-NLD" }],
     usersByGroup: new Map([[G(1), [{ id: "u1" }, { id: "u2" }, { id: "u5" }]], [G(2), [{ id: "u3" }, { id: "u5" }]], [G(3), [{ id: "u1" }]]]),
     managed: [
       { id: "m1", deviceName: "NL-1", userId: "u1", azureADDeviceId: "A1", lastSyncDateTime: iso(now - day) },
@@ -189,18 +189,18 @@ async function run() {
   ok("DE, static user groups unread: create → add → nest device; the user nest waits for the read (10680: never the dynamic group)", kinds("de") === "create,add,nest" && p1.skipped.some((x) => /Germany.*static user groups were not read/.test(x)), kinds("de"));
   // 10680 (Mihai: "users groups should be created here next to the device
   // groups. then the option to nest the groups to the wave groups"): with
-  // the static user groups read, 👥 creates and fills INT-SG-U-<ISO3> beside
+  // the static user groups read, 👥 creates and fills INT-SG-U-MDE-<ISO3> beside
   // the device group and nests the static group, never the source
   {
     const inS = Object.assign({}, input, { userGroups: new Map(), userMembers: new Map(), revertUsers: new Map([["u3", {}]]) });
     const mS = MM.compute(cfg, inS, waves, now);
     const de = mS.rows.find((r) => r.key === "de");
-    ok("10680: DE's static user group to create, its users to fill, the reverted one held", de.userGroupStatic === "INT-SG-U-DEU" && !de.sug && de.uAdd.join() === "u5" && de.uHeld === 1 && !de.inSync);
+    ok("10680: DE's static user group to create, its users to fill, the reverted one held", de.userGroupStatic === "INT-SG-U-MDE-DEU" && !de.sug && de.uAdd.join() === "u5" && de.uHeld === 1 && !de.inSync);
     const pS = MM.planOps(mS, new Set(["de"]), all, cfg);
     const k = pS.ops.map((o) => `${o.type}:${o.name || (o.group && (o.group.name || o.group.ref)) || (o.child && (o.child.name || o.child.ref))}`).join();
-    ok("10680: create + fill INT-SG-D-DEU and INT-SG-U-DEU, then nest both static groups", k === "create:INT-SG-D-DEU,add:INT-SG-D-DEU,create:INT-SG-U-DEU,add:INT-SG-U-DEU,nest:INT-SG-U-DEU,nest:INT-SG-D-DEU", k);
-    ok("10680: the user nest is the static group, never the PVM source; the Revert hold is warned", pS.ops.filter((o) => o.type === "nest")[0].child.ref === "INT-SG-U-DEU" && !pS.ops.some((o) => o.child && o.child.id === G(2)) && pS.warnings.some((x) => /held back/.test(x)));
-    const inN = Object.assign({}, inS, { userGroups: new Map([["int-sg-u-nld", { id: "su-nl", displayName: "INT-SG-U-NLD" }]]), userMembers: new Map([["su-nl", new Set(["u1", "u9"])]]), revertUsers: new Map() });
+    ok("10680: create + fill INT-SG-D-MDE-DEU and INT-SG-U-MDE-DEU, then nest both static groups", k === "create:INT-SG-D-MDE-DEU,add:INT-SG-D-MDE-DEU,create:INT-SG-U-MDE-DEU,add:INT-SG-U-MDE-DEU,nest:INT-SG-U-MDE-DEU,nest:INT-SG-D-MDE-DEU", k);
+    ok("10680: the user nest is the static group, never the PVM source; the Revert hold is warned", pS.ops.filter((o) => o.type === "nest")[0].child.ref === "INT-SG-U-MDE-DEU" && !pS.ops.some((o) => o.child && o.child.id === G(2)) && pS.warnings.some((x) => /held back/.test(x)));
+    const inN = Object.assign({}, inS, { userGroups: new Map([["int-sg-u-mde-nld", { id: "su-nl", displayName: "INT-SG-U-MDE-NLD" }]]), userMembers: new Map([["su-nl", new Set(["u1", "u9"])]]), revertUsers: new Map() });
     const nl = MM.compute(cfg, inN, waves, now).rows.find((r) => r.key === "nl");
     ok("10680: NL nested through its dynamic group is said as such; the static group syncs (+u2 +u5 −u9)", nl.ugNestedSrc && !nl.ugNestedStatic && nl.ugNested && nl.uAdd.join() === "u2,u5" && nl.uRemove.join() === "u9");
     const pN = MM.planOps(MM.compute(cfg, inN, waves, now), new Set(["nl"]), Object.assign({}, all, { removals: true }), cfg);
@@ -208,7 +208,7 @@ async function run() {
       && !pN.ops.some((o) => o.type === "nest" && o.kind === "user") && pN.skipped.some((x) => /⇄ swap/.test(x)));
   }
   const deNest = p1.ops.filter((o) => o.key === "de" && o.type === "nest");
-  ok("the device nest points at the group the run creates", deNest[0].child.ref === "INT-SG-D-DEU" && deNest[0].parent.id === "wd");
+  ok("the device nest points at the group the run creates", deNest[0].child.ref === "INT-SG-D-MDE-DEU" && deNest[0].parent.id === "wd");
   ok("the created group's description names its country group", /PVM-UG-CORP-MEM-USERS-DE/.test(p1.ops.find((o) => o.type === "create").description));
   ok("a country group not in the tenant is left out, with the reason", p1.skipped.some((s) => /United Kingdom.*not in this tenant/.test(s)));
   ok("no removal without the tick; the tick adds it", !p1.hasRemoval && MM.planOps(model, new Set(["nl"]), Object.assign({}, all, { removals: true }), cfg).ops.some((o) => o.type === "remove" && o.ids.join() === "e7"));
@@ -223,8 +223,8 @@ async function run() {
   ok("a country with no Windows devices gets no empty device group", !pe.ops.some((o) => o.type === "create") && /not created/.test(pe.skipped.join()));
 
   // --------------------------------------------------------------- undo --
-  const inv = MM.inverseOf([{ type: "create", key: "de", name: "INT-SG-D-DEU", id: "new" }, { type: "add", key: "de", group: { id: "new", name: "INT-SG-D-DEU" }, ids: ["e3"] },
-    { type: "remove", key: "nl", group: { id: G(10), name: "INT-SG-D-NLD" }, ids: ["e7"] }, { type: "nest", key: "de", parent: { id: "wd" }, child: { id: "new" }, kind: "device" }]);
+  const inv = MM.inverseOf([{ type: "create", key: "de", name: "INT-SG-D-MDE-DEU", id: "new" }, { type: "add", key: "de", group: { id: "new", name: "INT-SG-D-MDE-DEU" }, ids: ["e3"] },
+    { type: "remove", key: "nl", group: { id: G(10), name: "INT-SG-D-MDE-NLD" }, ids: ["e7"] }, { type: "nest", key: "de", parent: { id: "wd" }, child: { id: "new" }, kind: "device" }]);
   ok("undo reverses what the run did, last first; created groups stay and are said", inv.ops.map((o) => o.type).join() === "unnest,add,remove" && inv.ops[1].ids.join() === "e7" && /left in place/.test(inv.warnings.join()) && inv.hasRemoval);
 
   // ------------------------------------------------------------- writes --
@@ -273,7 +273,7 @@ async function run() {
   const planDE0 = MM.planOps(model, new Set(["de"]), all, cfg);
   const planDE = { ops: planDE0.ops.slice(0, 2).concat([{ type: "nest", key: "de", parent: { id: "wu", name: "INT-SG-U-WAVE-Euro" }, child: { id: G(2), name: "PVM-UG-CORP-MEM-USERS-DE" }, kind: "user" }], planDE0.ops.slice(2)) };
   const res = await MM.applyOps(planDE.ops, { ledger, me: { id: "me" } });
-  ok("the group is created with the signed-in admin as owner", createdWith && createdWith.name === "INT-SG-D-DEU" && createdWith.me.id === "me");
+  ok("the group is created with the signed-in admin as owner", createdWith && createdWith.name === "INT-SG-D-MDE-DEU" && createdWith.me.id === "me");
   ok("every step done and verified", res.results.length === 4 && res.results.every((x) => x.ok && x.verified), JSON.stringify(res.results.map((x) => x.note)));
   ok("the fill went to the created group, the nest linked it into the device wave", members.get("newg").has("e3") && members.get("wd").has("newg") && members.get("wu").has(G(2)));
   ok("the run's record is what it did — the undo's input", res.done.map((d) => d.type).join() === "create,add,nest,nest" && res.done[1].group.id === "newg");
@@ -283,18 +283,18 @@ async function run() {
   ok("a refused create fails its fill and its device nest; the user nest still runs", !res2.results[0].ok && !res2.results[1].ok && /not created/.test(res2.results[1].note) && res2.results[2].ok && !res2.results[3].ok);
   // 10649: a step that needs an earlier one clean is skipped when it was not
   members.set("pil", new Set(["d7"]));
-  const res3 = await MM.applyOps([{ type: "create", key: "x", name: "INT-SG-D-XXX", description: "" }, { type: "add", key: "x", group: { ref: "INT-SG-D-XXX", name: "INT-SG-D-XXX" }, ids: ["d7"] },
+  const res3 = await MM.applyOps([{ type: "create", key: "x", name: "INT-SG-D-MDE-XXX", description: "" }, { type: "add", key: "x", group: { ref: "INT-SG-D-MDE-XXX", name: "INT-SG-D-MDE-XXX" }, ids: ["d7"] },
     { type: "remove", key: "p", group: { id: "pil", name: "INT-SG-D-Win-Pilot" }, ids: ["d7"], needsOk: [1] }], { ledger });
   ok("needsOk: the add never happened, so the device stays in the pilot", !res3.results[2].ok && res3.results[2].skipped && /depends/.test(res3.results[2].note) && members.get("pil").has("d7"));
   w.MdeRollout.createWave = async (name) => { members.set("newx", new Set()); return { created: true, group: { id: "newx", displayName: name }, verified: true, ownerVerified: true }; };
-  const res4 = await MM.applyOps([{ type: "create", key: "x", name: "INT-SG-D-XXX", description: "" }, { type: "add", key: "x", group: { ref: "INT-SG-D-XXX", name: "INT-SG-D-XXX" }, ids: ["d7"] },
+  const res4 = await MM.applyOps([{ type: "create", key: "x", name: "INT-SG-D-MDE-XXX", description: "" }, { type: "add", key: "x", group: { ref: "INT-SG-D-MDE-XXX", name: "INT-SG-D-MDE-XXX" }, ids: ["d7"] },
     { type: "remove", key: "p", group: { id: "pil", name: "INT-SG-D-Win-Pilot" }, ids: ["d7"], needsOk: [1] }], { ledger, me: { id: "me" } });
   ok("needsOk: …and once it read back clean, the device leaves the pilot", res4.results.every((x) => x.ok) && members.get("newx").has("d7") && !members.get("pil").has("d7"));
 
   // patchInput moves the model without a re-read
   const inp2 = JSON.parse(JSON.stringify({ deviceGroups: [] }));
   inp2.deviceMembers = new Map(); inp2.waveChildren = new Map();
-  MM.patchInput(inp2, [{ type: "add", group: { id: "NEWG" }, ids: ["E3"] }, { type: "nest", parent: { id: "WD" }, child: { id: "NEWG" } }], [{ id: "NEWG", displayName: "INT-SG-D-DEU" }]);
+  MM.patchInput(inp2, [{ type: "add", group: { id: "NEWG" }, ids: ["E3"] }, { type: "nest", parent: { id: "WD" }, child: { id: "NEWG" } }], [{ id: "NEWG", displayName: "INT-SG-D-MDE-DEU" }]);
   ok("patchInput: the created group, its members and its nest", inp2.deviceGroups.length === 1 && inp2.deviceMembers.get("newg").has("e3") && inp2.waveChildren.get("wd").has("newg"));
 
   // ------------------------------------------- 🧪 pilot batches (10640) --
@@ -325,17 +325,17 @@ async function run() {
   // 10681 (Mihai, off batch 1's plan: "the breda pilot. where is user groups
   // creation?"): a batch goes into the pilot's STATIC user group, created on
   // batch 1 and nested in the user wave — never straight into the wave
-  ok("batch 1: INT-SG-U-NLD-BREDA created, three users in it, nested in the user wave; the device group created, filled, nested", pb.ops.map((o) => o.type).join() === "create,add,nest,create,add,nest"
-    && pb.ops[0].name === "INT-SG-U-NLD-BREDA" && pb.ops[1].memberKind === "user" && pb.ops[1].group.ref === "INT-SG-U-NLD-BREDA" && pb.ops[1].ids.join() === "b0,b1,b2"
-    && pb.ops[2].child.ref === "INT-SG-U-NLD-BREDA" && pb.ops[2].parent.name === "INT-SG-U-WAVE-Euro" && pb.ops[2].needsOk.join() === "0,1"
+  ok("batch 1: INT-SG-U-MDE-NLD-BREDA created, three users in it, nested in the user wave; the device group created, filled, nested", pb.ops.map((o) => o.type).join() === "create,add,nest,create,add,nest"
+    && pb.ops[0].name === "INT-SG-U-MDE-NLD-BREDA" && pb.ops[1].memberKind === "user" && pb.ops[1].group.ref === "INT-SG-U-MDE-NLD-BREDA" && pb.ops[1].ids.join() === "b0,b1,b2"
+    && pb.ops[2].child.ref === "INT-SG-U-MDE-NLD-BREDA" && pb.ops[2].parent.name === "INT-SG-U-WAVE-Euro" && pb.ops[2].needsOk.join() === "0,1"
     && pb.ops[4].ids.join() === "eb0,eb1,eb2" && pb.ops[5].parent.name === "INT-SG-D-WAVE-Euro" && pb.batch === 1 && !pb.hasRemoval, pb.ops.map((o) => o.type).join());
   ok("…nothing goes straight into the wave", !pb.ops.some((o) => o.type === "add" && o.group.name === "INT-SG-U-WAVE-Euro"));
   ok("…a batch device with no Entra object is left out with the reason", pb.skipped.some((x) => /BR-NOENTRA/.test(x)));
   const regular = MM.planOps(bm, new Set([BRr.key]), all, bcfg);
   ok("the regular sync neither nests nor fills a batched pilot's user group", regular.skipped.some((x) => /added in batches/.test(x)) && !regular.ops.some((o) => o.memberKind === "user" || o.kind === "user"));
   // the run lands: the static group made, filled and nested; the device group likewise
-  bInput.userGroups.set("int-sg-u-nld-breda", { id: "sbr", displayName: "INT-SG-U-NLD-BREDA" }); bInput.userMembers.set("sbr", new Set(["b0", "b1", "b2"])); bInput.waveChildren.get("wu").add("sbr");
-  bInput.deviceGroups.push({ id: "gdb", displayName: "INT-SG-D-NLD-BREDA" }); bInput.deviceMembers.set("gdb", new Set(["eb0", "eb1", "eb2"])); bInput.waveChildren.set("wd", new Set(["gdb"]));
+  bInput.userGroups.set("int-sg-u-mde-nld-breda", { id: "sbr", displayName: "INT-SG-U-MDE-NLD-BREDA" }); bInput.userMembers.set("sbr", new Set(["b0", "b1", "b2"])); bInput.waveChildren.get("wu").add("sbr");
+  bInput.deviceGroups.push({ id: "gdb", displayName: "INT-SG-D-MDE-NLD-BREDA" }); bInput.deviceMembers.set("gdb", new Set(["eb0", "eb1", "eb2"])); bInput.waveChildren.set("wd", new Set(["gdb"]));
   bm = MM.compute(bcfg, bInput, waves, now); BRr = bm.rows.find((r) => r.suffix === "NL-Breda");
   ok("after batch 1: 3 of 10 in through the static group, batch 2 next, both groups in sync", BRr.batch.inCount === 3 && BRr.batch.staticNested && BRr.batch.batches[0].state === "in" && BRr.batch.next.n === 2 && BRr.inSync && BRr.dgNested && !BRr.batch.finished);
   // a user leaves the group before batch 2: the next batch is cut from who is left
@@ -358,10 +358,10 @@ async function run() {
   ["b3", "b4", "b5", "b6", "b7", "b8"].forEach((id) => legIn.waveUsers.get("wu").add(id));
   legM = MM.compute(bcfg, legIn, waves, now); legR = legM.rows.find((r) => r.suffix === "NL-Breda");
   const pf = MM.planFinish(legM, legR.key, bcfg);
-  ok("legacy finish: create and fill INT-SG-U-NLD-BREDA, nest it, then the nine direct users out once all read back — typed", pf.ops.map((o) => o.type).join() === "create,add,nest,remove" && pf.ops[0].name === "INT-SG-U-NLD-BREDA" && pf.ops[1].ids.length === 10
-    && pf.ops[2].child.ref === "INT-SG-U-NLD-BREDA" && pf.ops[2].needsOk.join() === "0,1" && pf.ops[3].memberKind === "user" && pf.ops[3].ids.length === 9 && pf.ops[3].needsOk.join() === "0,1,2" && pf.hasRemoval);
+  ok("legacy finish: create and fill INT-SG-U-MDE-NLD-BREDA, nest it, then the nine direct users out once all read back — typed", pf.ops.map((o) => o.type).join() === "create,add,nest,remove" && pf.ops[0].name === "INT-SG-U-MDE-NLD-BREDA" && pf.ops[1].ids.length === 10
+    && pf.ops[2].child.ref === "INT-SG-U-MDE-NLD-BREDA" && pf.ops[2].needsOk.join() === "0,1" && pf.ops[3].memberKind === "user" && pf.ops[3].ids.length === 9 && pf.ops[3].needsOk.join() === "0,1,2" && pf.hasRemoval);
   // a static group filled whole by an earlier "create & fill", not in the wave: cut back before the nest
-  const fInput = Object.assign({}, legIn, { userGroups: new Map([["int-sg-u-nld-breda", { id: "sbr", displayName: "INT-SG-U-NLD-BREDA" }]]), userMembers: new Map([["sbr", new Set(bUsers.map((u) => u.id).concat("u1"))]]), waveUsers: new Map([["wu", new Set()]]) });
+  const fInput = Object.assign({}, legIn, { userGroups: new Map([["int-sg-u-mde-nld-breda", { id: "sbr", displayName: "INT-SG-U-MDE-NLD-BREDA" }]]), userMembers: new Map([["sbr", new Set(bUsers.map((u) => u.id).concat("u1"))]]), waveUsers: new Map([["wu", new Set()]]) });
   const fm = MM.compute(bcfg, fInput, waves, now), FR = fm.rows.find((r) => r.suffix === "NL-Breda");
   const pfill = MM.planBatch(fm, FR.key, bcfg);
   ok("a static group filled whole and not nested: batch 1 takes the rest out first, so the nest brings in batch 1 only", FR.batch.inCount === 0 && pfill.ops[0].type === "remove" && pfill.ops[0].group.id === "sbr" && pfill.ops[0].ids.length === 8
@@ -377,7 +377,7 @@ async function run() {
   const mUsers = Array.from({ length: 8 }, (_, i) => ({ id: `m${i}`, userPrincipalName: `m${i}@contoso.com` }));
   const mInput = {
     countryGroups: [{ id: "gnl", displayName: "PVM-UG-CORP-MEM-USERS-NL" }, { id: "gbr", displayName: "PVM-UG-CORP-MEM-USERS-NL-Breda" }],
-    deviceGroups: [{ id: "gdb", displayName: "INT-SG-D-NLD-BREDA" }],
+    deviceGroups: [{ id: "gdb", displayName: "INT-SG-D-MDE-NLD-BREDA" }],
     usersByGroup: new Map([["gbr", mUsers.slice(0, 6)], ["gnl", mUsers]]),
     managed: mUsers.map((u, i) => ({ id: `mm${i}`, deviceName: `NL-${i}`, userId: u.id, azureADDeviceId: `AM${i}`, lastSyncDateTime: iso(now) })),
     entra: mUsers.map((u, i) => ({ id: `EM${i}`, deviceId: `AM${i}`, displayName: `NL-${i}` })),
@@ -395,18 +395,18 @@ async function run() {
   const rmU = mp.ops.find((o) => o.migrate && o.type === "remove"), unD = mp.ops.find((o) => o.migrate && o.type === "unnest");
   ok("🧪 NL goes live: NL's own steps first, then Breda migrated — its direct users out once NL's user group is read back in the wave",
     uNest >= 0 && dNest >= 0 && dAdd >= 0 && rmU && rmU.ids.sort().join() === "m0,m1" && rmU.memberKind === "user" && rmU.group.name === "INT-SG-U-WAVE-Euro" && rmU.needsOk.join() === String(uNest) && mp.ops.indexOf(rmU) > uNest);
-  ok("🧪 …and INT-SG-D-NLD-BREDA out of the device wave once INT-SG-D-NLD is filled and nested", unD && unD.kind === "device" && unD.child.name === "INT-SG-D-NLD-BREDA" && unD.needsOk.sort().join() === [dNest, dAdd].sort().join());
+  ok("🧪 …and INT-SG-D-MDE-NLD-BREDA out of the device wave once INT-SG-D-MDE-NLD is filled and nested", unD && unD.kind === "device" && unD.child.name === "INT-SG-D-MDE-NLD-BREDA" && unD.needsOk.sort().join() === [dNest, dAdd].sort().join());
   ok("🧪 …the waiting users said, typed REMOVE, the migration named for the screen", mp.warnings.some((w) => /4 NL Breda users not in a batch yet come in with Netherlands at once/.test(w)) && mp.hasRemoval
     && mp.migrate.length === 1 && mp.migrate[0].suffix === "NL-Breda" && mp.migrate[0].into === "Netherlands" && mp.migrate[0].ops.length === 2, JSON.stringify(mp.warnings));
   const mpNo = MM.planOps(mmod, new Set([mNL.key]), Object.assign({}, all, { nestUsers: false }), mcfgB);
   ok("🧪 NL's user group not going in: no migration, and why", !mpNo.ops.some((o) => o.migrate) && mpNo.skipped.some((x) => /migrated into the wave only when PVM-UG-CORP-MEM-USERS-NL goes into it/.test(x)) && !mpNo.migrate.length);
   // NL already live (the button on Breda's panel): the migration alone, with nothing to wait on
   mInput.waveChildren.get("wu").add("gnl");
-  mInput.deviceGroups.push({ id: "gnld", displayName: "INT-SG-D-NLD" }); mInput.deviceMembers.set("gnld", new Set(mUsers.map((u, i) => `em${i}`))); mInput.waveChildren.get("wd").add("gnld");
+  mInput.deviceGroups.push({ id: "gnld", displayName: "INT-SG-D-MDE-NLD" }); mInput.deviceMembers.set("gnld", new Set(mUsers.map((u, i) => `em${i}`))); mInput.waveChildren.get("wd").add("gnld");
   mmod = MM.compute(mcfgB, mInput, waves, now);
   const mp2 = MM.planOps(mmod, new Set([mmod.rows.find((r) => r.suffix === "NL").key]), all, mcfgB);
-  ok("🧪 NL already live (through its dynamic group): Breda's two steps with nothing to wait on, beside INT-SG-U-NLD created and filled (10680)", mp2.ops.filter((o) => o.migrate).length === 2 && mp2.ops.filter((o) => o.migrate).every((o) => !o.needsOk)
-    && mp2.ops.filter((o) => !o.migrate).map((o) => `${o.type}:${o.name || o.group.ref}`).join() === "create:INT-SG-U-NLD,add:INT-SG-U-NLD" && !mp2.warnings.some((w) => /not in a batch yet/.test(w)));
+  ok("🧪 NL already live (through its dynamic group): Breda's two steps with nothing to wait on, beside INT-SG-U-MDE-NLD created and filled (10680)", mp2.ops.filter((o) => o.migrate).length === 2 && mp2.ops.filter((o) => o.migrate).every((o) => !o.needsOk)
+    && mp2.ops.filter((o) => !o.migrate).map((o) => `${o.type}:${o.name || o.group.ref}`).join() === "create:INT-SG-U-MDE-NLD,add:INT-SG-U-MDE-NLD" && !mp2.warnings.some((w) => /not in a batch yet/.test(w)));
   const migCfg = MM.normConfig(Object.assign({}, mcfgB, { batched: [], migrated: ["NL-Breda"] }));
   const mm3 = MM.compute(migCfg, mInput, waves, now);
   ok("🧪 migrated: listed, never planned again", mm3.rows.find((r) => r.suffix === "NL-Breda").migrated && MM.planOps(mm3, new Set(mm3.rows.map((r) => r.key)), all, migCfg).skipped.some((x) => /migrated into Netherlands/.test(x))
@@ -454,10 +454,10 @@ async function run() {
     pilotsMissing: ["INT-SG-U-Win-Pre-Pilot"] });
   const pm = MM.compute(cfg, pIn, waves, now).pilots;
   const pmx = (kind, id) => pm.members.find((x) => x.kind === kind && x.id === id);
-  ok("🧪 a pilot device in its country device group, nested in the device wave: in, through INT-SG-D-NLD, both pilot groups named once",
-    pmx("device", "e1").state === "in" && pmx("device", "e1").waveName === "INT-SG-D-WAVE-Euro" && /INT-SG-D-NLD/.test(pmx("device", "e1").via) && pmx("device", "e1").groups.map((g) => g.name).join() === "INT-SG-D-Win-Pilot,INT-SG-U-Win-Pilot");
-  ok("🧪 a device its group wants but does not hold yet: waiting, the next Apply adds it", pmx("device", "e2").state === "wait" && /not in INT-SG-D-NLD yet — the next 👥 Apply adds it/.test(pmx("device", "e2").why));
-  ok("🧪 a device whose country has no device group: waiting, said", pmx("device", "e3").state === "wait" && /INT-SG-D-DEU does not exist yet/.test(pmx("device", "e3").why));
+  ok("🧪 a pilot device in its country device group, nested in the device wave: in, through INT-SG-D-MDE-NLD, both pilot groups named once",
+    pmx("device", "e1").state === "in" && pmx("device", "e1").waveName === "INT-SG-D-WAVE-Euro" && /INT-SG-D-MDE-NLD/.test(pmx("device", "e1").via) && pmx("device", "e1").groups.map((g) => g.name).join() === "INT-SG-D-Win-Pilot,INT-SG-U-Win-Pilot");
+  ok("🧪 a device its group wants but does not hold yet: waiting, the next Apply adds it", pmx("device", "e2").state === "wait" && /not in INT-SG-D-MDE-NLD yet — the next 👥 Apply adds it/.test(pmx("device", "e2").why));
+  ok("🧪 a device whose country has no device group: waiting, said", pmx("device", "e3").state === "wait" && /INT-SG-D-MDE-DEU does not exist yet/.test(pmx("device", "e3").why));
   ok("🧪 no primary user, or a nested group: no wave", pmx("device", "e6").state === "none" && /no Intune primary user/.test(pmx("device", "e6").why) && pmx("group", "gx").state === "none" && /nested group/.test(pmx("group", "gx").why));
   ok("🧪 users: in through the nested country group; waiting when it is not nested; none outside the table",
     pmx("user", "u1").state === "in" && /PVM-UG-CORP-MEM-USERS-NL/.test(pmx("user", "u1").via) && pmx("user", "u1").waveName === "INT-SG-U-WAVE-Euro"
@@ -471,12 +471,12 @@ async function run() {
     pm.people.map((p) => p.userId).sort().join() === "u1,u2,u3,u9" && pp1("p|u1").devices.map((d) => d.name).join() === "NL-1" && pp1("p|u1").devices[0].pilots.length === 2
     && pp1("p|u3").devices.map((d) => d.name).sort().join() === "DE-1,DE-NOENTRA" && pp1("p|u2").userPilots.length === 0 && pp1("p|u2").devices[0].pilots[0].name === "INT-SG-D-Win-Pilot");
   ok("🧪 a person with a country is ready; one in no country group stays; a device with no primary user and a nested group are loose",
-    pp1("p|u1").state === "ready" && pp1("p|u1").deviceGroupName === "INT-SG-D-NLD" && pp1("p|u3").state === "ready" && !pp1("p|u3").dg
+    pp1("p|u1").state === "ready" && pp1("p|u1").deviceGroupName === "INT-SG-D-MDE-NLD" && pp1("p|u3").state === "ready" && !pp1("p|u3").dg
     && pp1("p|u9").state === "none" && /no country group/.test(pp1("p|u9").why) && pm.loose.map((x) => x.id).sort().join() === "e6,gx");
   const pr = MM.planPilotsReady(pm, ["p|u1", "p|u2", "p|u3", "p|u9"], cfg);
   const prOp = (f) => pr.ops.findIndex(f);
-  const iAddNL = prOp((o) => o.type === "add" && o.group.name === "INT-SG-D-NLD"), iCreateDE = prOp((o) => o.type === "create" && o.name === "INT-SG-D-DEU"), iAddDE = prOp((o) => o.type === "add" && o.group.name === "INT-SG-D-DEU");
-  ok("🧪 ready for the wave: NL-2 into INT-SG-D-NLD; INT-SG-D-DEU created, then DE-1 into it; NL-1 already there is not added again",
+  const iAddNL = prOp((o) => o.type === "add" && o.group.name === "INT-SG-D-MDE-NLD"), iCreateDE = prOp((o) => o.type === "create" && o.name === "INT-SG-D-MDE-DEU"), iAddDE = prOp((o) => o.type === "add" && o.group.name === "INT-SG-D-MDE-DEU");
+  ok("🧪 ready for the wave: NL-2 into INT-SG-D-MDE-NLD; INT-SG-D-MDE-DEU created, then DE-1 into it; NL-1 already there is not added again",
     iAddNL >= 0 && pr.ops[iAddNL].ids.join() === "e2" && iCreateDE >= 0 && iAddDE > iCreateDE && pr.ops[iAddDE].ids.join() === "e3" && !pr.ops.some((o) => o.type === "add" && o.ids.includes("e1")));
   ok("🧪 …the devices leave their pilot groups after the adds, each waiting for its own country's add; NL-1 (already in) waits for nothing",
     pr.ops.filter((o) => o.type === "remove" && o.memberKind === "device").every((o) => pr.ops.indexOf(o) > iAddDE)
@@ -506,7 +506,7 @@ async function run() {
   ];
   const lg = MM.logonsFor(input, model.rows, [{ id: "x1", upn: "Jan.Smit@x.com", sid: "S-1-5-21-9", sam: "JSMIT" }, { id: "x3", upn: "nobody@x.com" }], hunt).get("x1");
   ok("🔎 one line per device (a SID and a name match on one device add up), newest first, nobody else's logons", lg.map((x) => x.device).join() === "nl-1,SHARED,old-us,lab-9" && lg[0].logons === 7 && lg[0].last === iso(now - day));
-  ok("🔎 a device in Intune under another primary user, already in the wave through its country's device group", lg[0].kind === "intune" && lg[0].inWave && /primary user .* \(Netherlands\), in the wave through INT-SG-D-NLD/.test(lg[0].what), lg[0].what);
+  ok("🔎 a device in Intune under another primary user, already in the wave through its country's device group", lg[0].kind === "intune" && lg[0].inWave && /primary user .* \(Netherlands\), in the wave through INT-SG-D-MDE-NLD/.test(lg[0].what), lg[0].what);
   ok("🔎 in Intune with no primary user: no wave", lg[1].kind === "intune" && /no primary user — no wave/.test(lg[1].what));
   ok("🔎 in Entra, not in Intune: no wave reaches it; Defender alone: no Entra object", lg[2].kind === "entra" && /not in Intune: no wave reaches it/.test(lg[2].what) && lg[3].kind === "defender" && /no Entra object/.test(lg[3].what));
   ok("🔎 a user with no logon found gets an empty list", MM.logonsFor(input, model.rows, [{ id: "x3", upn: "nobody@x.com" }], hunt).get("x3").length === 0);

@@ -20,7 +20,7 @@
 //   PVM-UG-CORP-MEM-USERS-<CC>[-site]   (source, transitive members)
 //           │  🔄 sync: source − INT-SG-*-MDE-Revert
 //           ▼
-//   INT-SG-U-<ISO3>  /  INT-SG-D-<ISO3>   (static, direct members, T28-owned)
+//   INT-SG-U-MDE-<ISO3>  /  INT-SG-D-MDE-<ISO3>   (static, direct members, T28-owned)
 //           │  nested
 //           ▼
 //   INT-SG-U-WAVE-<region>  /  INT-SG-D-WAVE-<region>
@@ -28,7 +28,7 @@
 // The ISO3 of a country is the one its device group already has —
 // MdeMembers.countryRows, the ⚙️ table and its suffix overrides (Mihai:
 // "just like the device groups, lookup in TUNO"), so NL-Breda's user
-// group is INT-SG-U-NLD-BREDA beside INT-SG-D-NLD-BREDA. The device rule is
+// group is INT-SG-U-MDE-NLD-BREDA beside INT-SG-D-MDE-NLD-BREDA. The device rule is
 // MdeMembers.compute's, untouched: this file reads its rows, never a second
 // join. A device or user in the Revert pair is HELD — never in the default
 // write set of a sync; re-including one takes a per-row tick and a confirm

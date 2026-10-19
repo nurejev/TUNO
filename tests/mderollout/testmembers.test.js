@@ -115,15 +115,15 @@ async function run() {
   test3.user.members = [{ id: "u9", name: "Old Tester", upn: "old@x.nl" }, { id: "u8", name: "Ahead Tester", upn: "ahead@x.nl" }];
   test3.device.members = [{ id: "d9", name: "PC9", upn: "" }];
   const rows = [
-    { country: "Netherlands", region: "Euro", userGroupStatic: "INT-SG-U-NLD", sug: { displayName: "INT-SG-U-NLD" }, ugNestedStatic: true, uHave: new Set(["u9"]), dg: { displayName: "INT-SG-D-NLD" }, dgNested: true, have: new Set(["d9"]) },
-    { country: "Belgium", region: "Euro", userGroupStatic: "INT-SG-U-BEL", sug: { displayName: "INT-SG-U-BEL" }, ugNestedStatic: false, uHave: new Set(["u8"]), dg: { displayName: "INT-SG-D-BEL" }, dgNested: false, have: new Set() },
+    { country: "Netherlands", region: "Euro", userGroupStatic: "INT-SG-U-MDE-NLD", sug: { displayName: "INT-SG-U-MDE-NLD" }, ugNestedStatic: true, uHave: new Set(["u9"]), dg: { displayName: "INT-SG-D-MDE-NLD" }, dgNested: true, have: new Set(["d9"]) },
+    { country: "Belgium", region: "Euro", userGroupStatic: "INT-SG-U-MDE-BEL", sug: { displayName: "INT-SG-U-MDE-BEL" }, ugNestedStatic: false, uHave: new Set(["u8"]), dg: { displayName: "INT-SG-D-MDE-BEL" }, dgNested: false, have: new Set() },
   ];
   const live = T.liveOf(test3, rows);
-  ok("liveOf: a member held by a nested country group is live; held by one not nested yet is not; the group is named", live.get("u9").live && live.get("u9").group === "INT-SG-U-NLD" && live.get("u9").country === "Netherlands" && live.get("d9").live && live.get("d9").group === "INT-SG-D-NLD" && live.get("u8").held && !live.get("u8").live && live.get("u8").group === "INT-SG-U-BEL");
+  ok("liveOf: a member held by a nested country group is live; held by one not nested yet is not; the group is named", live.get("u9").live && live.get("u9").group === "INT-SG-U-MDE-NLD" && live.get("u9").country === "Netherlands" && live.get("d9").live && live.get("d9").group === "INT-SG-D-MDE-NLD" && live.get("u8").held && !live.get("u8").live && live.get("u8").group === "INT-SG-U-MDE-BEL");
   ok("movable: the live ones only", T.movable(test3, live).sort().join() === "d9,u9");
   const P3 = T.plan(test3, [], new Set(), new Set(), "Euro", new Map([["u9", live.get("u9")], ["d9", live.get("d9")], ["u8", live.get("u8")]]));
   const rem3 = P3.ops.filter((o) => o.type === "remove");
-  ok("→ live: a removal from the test group marked live, labelled with the country group, for the live ones; the one not yet held by a nested group is skipped with the reason, the pilot's rule", rem3.length === 2 && rem3.every((o) => o.live) && rem3[0].ids.join() === "u9" && /live through INT-SG-U-NLD/.test(rem3[0].label) && /still in the wave/.test(rem3[0].label) && rem3[1].ids.join() === "d9" && /Ahead Tester: not in INT-SG-U-BEL yet — stays a test member/.test(P3.skipped.join()) && P3.hasLive && P3.hasRemoval);
+  ok("→ live: a removal from the test group marked live, labelled with the country group, for the live ones; the one not yet held by a nested group is skipped with the reason, the pilot's rule", rem3.length === 2 && rem3.every((o) => o.live) && rem3[0].ids.join() === "u9" && /live through INT-SG-U-MDE-NLD/.test(rem3[0].label) && /still in the wave/.test(rem3[0].label) && rem3[1].ids.join() === "d9" && /Ahead Tester: not in INT-SG-U-MDE-BEL yet — stays a test member/.test(P3.skipped.join()) && P3.hasLive && P3.hasRemoval);
   ok("…titled as a move to live", /Euro: 2 → live$/.test(P3.title), P3.title);
   const P4 = T.plan(test3, [], new Set(), new Set(["u8"]), "Euro", new Map([["u9", live.get("u9")]]));
   const r4 = P4.ops.filter((o) => o.type === "remove");

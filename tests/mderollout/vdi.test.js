@@ -30,7 +30,7 @@ ok("vdi without the dashes is not", !MM.isAvdName("NLDVDI01") && !MM.isAvdName("
 
 const input = {
   countryGroups: [{ id: "gnl", displayName: "PVM-UG-CORP-MEM-USERS-NL" }],
-  deviceGroups: [{ id: "dnl", displayName: "INT-SG-D-NLD" }],
+  deviceGroups: [{ id: "dnl", displayName: "INT-SG-D-MDE-NLD" }],
   usersByGroup: new Map([["gnl", [{ id: uNL, userPrincipalName: "nina@x" }]]]),
   managed: [
     { id: "m1", deviceName: "NLD5CD1", userId: uNL, userPrincipalName: "nina@x", azureADDeviceId: "a1", lastSyncDateTime: iso(now), operatingSystem: "Windows" },          // her laptop

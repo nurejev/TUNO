@@ -34,7 +34,7 @@ function run() {
       { id: G(2), displayName: "PVM-UG-CORP-MEM-USERS-DE", groupTypes: ["DynamicMembership"] },
       { id: G(5), displayName: "PVM-UG-CORP-MEM-USERS-IT", groupTypes: ["DynamicMembership"] },
     ],
-    deviceGroups: [{ id: G(10), displayName: "INT-SG-D-NLD" }, { id: G(12), displayName: "INT-SG-D-ITA" }],
+    deviceGroups: [{ id: G(10), displayName: "INT-SG-D-MDE-NLD" }, { id: G(12), displayName: "INT-SG-D-MDE-ITA" }],
     usersByGroup: new Map([[G(1), [{ id: "u1" }, { id: "u2" }]], [G(2), [{ id: "u3" }]], [G(5), [{ id: "u7" }, { id: "u8" }]]]),
     managed: [
       { id: "m1", deviceName: "NLD-1", userId: "u1", azureADDeviceId: "A1", lastSyncDateTime: iso(now) },
@@ -47,7 +47,7 @@ function run() {
       { id: "E7", deviceId: "A7", displayName: "ITA-1" }, { id: "E8", deviceId: "A8", displayName: "ITA-2" }, { id: "E9", deviceId: "A9", displayName: "ITA-OLD" }],
     deviceMembers: new Map([[G(10), new Set(["e1"])], [G(12), new Set(["e7", "e8", "e9"])]]),
     waveChildren: new Map([["wu", new Set([G(1)])], ["wd", new Set([G(10)])], ["wui", new Set()], ["wdi", new Set()]]),
-    userGroups: new Map([["int-sg-u-nld", { id: "su-nl", displayName: "INT-SG-U-NLD" }], ["int-sg-u-ita", { id: "su-it", displayName: "INT-SG-U-ITA" }]]),
+    userGroups: new Map([["int-sg-u-mde-nld", { id: "su-nl", displayName: "INT-SG-U-MDE-NLD" }], ["int-sg-u-mde-ita", { id: "su-it", displayName: "INT-SG-U-MDE-ITA" }]]),
     userMembers: new Map([["su-nl", new Set(["u1"])], ["su-it", new Set(["u7", "u8", "u9"])]]),
     revertUsers: new Map(), staticUnread: new Map(), unread: new Map(),
     failed: [], readAt: now,
@@ -97,10 +97,10 @@ function run() {
     inp.staticUnread.set("su-it", "503 Service Unavailable");
     const m = MM.compute(cfg, inp, waves, now);
     const it = row(m, "IT");
-    ok("static read failed: the ledger says so", it.read.static === "failed" && it.read.source === "ok" && /INT-SG-U-ITA: 503/.test(it.unread));
+    ok("static read failed: the ledger says so", it.read.static === "failed" && it.read.source === "ok" && /INT-SG-U-MDE-ITA: 503/.test(it.unread));
     ok("static read failed: no user adds (they may be in already) and no user removals; the devices are untouched too", it.uAdd.length === 0 && it.uRemove.length === 0 && it.add.length === 0 && it.remove.length === 0);
     const p = MM.planOps(m, new Set(["it"]), ALL, cfg);
-    ok("static read failed: named in the dry run, nothing planned", p.skipped.some((x) => /⚠ Italy.*INT-SG-U-ITA: 503/.test(x)) && !p.ops.some((o) => o.key === "it"));
+    ok("static read failed: named in the dry run, nothing planned", p.skipped.some((x) => /⚠ Italy.*INT-SG-U-MDE-ITA: 503/.test(x)) && !p.ops.some((o) => o.key === "it"));
     const X = { userGroups: inp.userGroups, userMembers: inp.userMembers, upn: new Map(), revert: {}, revertUsers: new Map(), revertDevices: new Map(), failed: [], unread: inp.staticUnread };
     const rit = MR.model(cfg, m, inp, X, { now }).rows.find((r) => r.suffix === "IT");
     ok("🔄 static read failed: no adds, no leavers", rit.user.add.length === 0 && rit.user.leave.length === 0 && /503/.test(rit.unread));
@@ -115,7 +115,7 @@ function run() {
     const it = row(m, "IT");
     ok("device group read failed: the ledger says so; the whole row waits for a new read (one unread group is enough)", it.read.devices === "failed" && it.read.static === "ok" && it.add.length === 0 && it.remove.length === 0 && it.uRemove.length === 0 && it.uAdd.length === 0);
     const p = MM.planOps(m, new Set(["it"]), ALL, cfg);
-    ok("device group read failed: named, nothing planned on the row", p.skipped.some((x) => /⚠ Italy.*INT-SG-D-ITA: timeout/.test(x)) && !p.ops.some((o) => o.key === "it"));
+    ok("device group read failed: named, nothing planned on the row", p.skipped.some((x) => /⚠ Italy.*INT-SG-D-MDE-ITA: timeout/.test(x)) && !p.ops.some((o) => o.key === "it"));
   }
 
   // ------------------------------------------- the WAVE read failed (R1) --
@@ -135,7 +135,7 @@ function run() {
     const inp = base();
     inp.heldUnread = "INT-SG-U-MDE-Exclusion: 429";
     const ctx = { users: new Set(), devices: new Set(), exempt: { ids: new Set(), names: new Set() }, hold: { ids: new Set(), names: new Set() }, unread: inp.heldUnread, nameOf: () => "" };
-    const g = MR.guardHeld([{ type: "add", key: "nl", group: { id: "su-nl", name: "INT-SG-U-NLD" }, ids: ["u2"], memberKind: "user", label: "1 user", objs: [{ id: "u2" }] }], ctx);
+    const g = MR.guardHeld([{ type: "add", key: "nl", group: { id: "su-nl", name: "INT-SG-U-MDE-NLD" }, ids: ["u2"], memberKind: "user", label: "1 user", objs: [{ id: "u2" }] }], ctx);
     ok("⊘ read failed (readInput's heldUnread feeds the guard): a plan that adds is refused", !!g.refused && /429/.test(g.refused));
   }
 

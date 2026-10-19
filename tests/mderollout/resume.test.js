@@ -96,7 +96,7 @@ async function run() {
   w.Graph.patch = async (p, body, o) => {
     const gid = p.split("/")[2];
     const g = w.TUNO_DEMO_GRAPH.T.GROUPS.find((x) => x.id === gid);
-    if (g && /INT-SG-D-DEU/.test(g.displayName) && body && body["members@odata.bind"]) { const e = new Error("The tenant is throttling this request — retry in 30s."); e.kind = "throttled"; e.status = 429; e.retryAfter = "30"; throw e; }
+    if (g && /INT-SG-D-MDE-DEU/.test(g.displayName) && body && body["members@odata.bind"]) { const e = new Error("The tenant is throttling this request — retry in 30s."); e.kind = "throttled"; e.status = 429; e.retryAfter = "30"; throw e; }
     return realPatch(p, body, o);
   };
   const r1 = await apply();
@@ -118,7 +118,7 @@ async function run() {
   // through the whole contract: backup, gates, apply
   const r2 = await apply();
   ok("the resume finishes the job: every step left done and verified, nothing done twice, the record names the run it resumed", r2.ok === left.length && r2.bad === 0 && !r2.stopped && r2.resumeOf === r1.id && /^Resume: /.test(r2.title), JSON.stringify(r2.lines));
-  ok("the tenant: Germany's device group filled, both countries' groups nested in the Euro waves", (G("INT-SG-D-DEU")._devices || []).length >= 1 && (G("INT-SG-D-DEU").memberOf || []).includes(G("INT-SG-D-WAVE-Euro").id) && (G("INT-SG-U-DEU").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id), JSON.stringify([G("INT-SG-D-DEU") && G("INT-SG-D-DEU")._devices, G("INT-SG-D-DEU") && G("INT-SG-D-DEU").memberOf]));
+  ok("the tenant: Germany's device group filled, both countries' groups nested in the Euro waves", (G("INT-SG-D-MDE-DEU")._devices || []).length >= 1 && (G("INT-SG-D-MDE-DEU").memberOf || []).includes(G("INT-SG-D-WAVE-Euro").id) && (G("INT-SG-U-MDE-DEU").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id), JSON.stringify([G("INT-SG-D-MDE-DEU") && G("INT-SG-D-MDE-DEU")._devices, G("INT-SG-D-MDE-DEU") && G("INT-SG-D-MDE-DEU").memberOf]));
   T._pane("changes"); await sleep(100);
   ok("a clean run offers no resume; the stopped run stops offering it once its resume read back clean (10728); ↶ Undo stays on both", !D.querySelector(`[data-mrresume="${idx + 1}"]`) && !D.querySelector(`[data-mrresume="${idx}"]`) && !!D.querySelector(`[data-mrundo="${idx + 1}"]`));
 

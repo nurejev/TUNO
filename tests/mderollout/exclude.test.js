@@ -58,7 +58,7 @@ const model = {
   oldP: [pol("o1", "PVM-DG-CORP-ENDSEC-WIN-AV-PRD", "old", [inc(G(1)), exc(G(21))]),
          pol("o2", "PVM-UG-CORP-EDGE-PRD", "old", [{ kind: "All users", groupId: null, name: "All users" }, exc(G(20))])],
 };
-const ctx = (ticks, keepOld) => ({ groups, ticks, keepOld, exUserId: G(90), exDeviceId: G(91), deviceWaveIds: new Set([G(21)]), deviceGroupPrefix: "INT-SG-D-",
+const ctx = (ticks, keepOld) => ({ groups, ticks, keepOld, exUserId: G(90), exDeviceId: G(91), deviceWaveIds: new Set([G(21)]), deviceGroupPrefix: "INT-SG-D-MDE-",
   skipIds: new Set([G(20), G(21), G(90), G(91)]) });
 
 async function run() {
@@ -111,8 +111,8 @@ async function run() {
   // ----------------------------------------------------------- lookup --
   w.Graph.readAll = async (p) => {
     if (p.startsWith(`/users/${encodeURIComponent(U(1))}/transitiveMemberOf`)) return [{ id: G(20), displayName: "INT-SG-U-WAVE-Euro" }, { id: G(22), displayName: "PVM-UG-CORP-MEM-USERS-NL" }];
-    if (p.startsWith(`/devices/${encodeURIComponent(O(1))}/transitiveMemberOf`)) return [{ id: G(1), displayName: "PVM-DG-CORP-ALL-WIN" }, { id: G(35), displayName: "INT-SG-D-NLD" }, { id: G(21), displayName: "INT-SG-D-WAVE-Euro" }];
-    if (p.startsWith(`/devices/${encodeURIComponent(O(1))}/memberOf`)) return [{ id: G(1), displayName: "PVM-DG-CORP-ALL-WIN" }, { id: G(35), displayName: "INT-SG-D-NLD" }];
+    if (p.startsWith(`/devices/${encodeURIComponent(O(1))}/transitiveMemberOf`)) return [{ id: G(1), displayName: "PVM-DG-CORP-ALL-WIN" }, { id: G(35), displayName: "INT-SG-D-MDE-NLD" }, { id: G(21), displayName: "INT-SG-D-WAVE-Euro" }];
+    if (p.startsWith(`/devices/${encodeURIComponent(O(1))}/memberOf`)) return [{ id: G(1), displayName: "PVM-DG-CORP-ALL-WIN" }, { id: G(35), displayName: "INT-SG-D-MDE-NLD" }];
     return [];
   };
   const card = await X.lookup(s.results.find((r) => r.type === "user"), base(), { now: NOW, staleDays: 30 });
@@ -120,7 +120,7 @@ async function run() {
   const d412 = card.devices.find((d) => d.name === "LT-NL-0412"), d388 = card.devices.find((d) => d.name === "LT-NL-0388"), dTest = card.devices.find((d) => d.name === "LT-JDV-TEST");
   ok("each device's Entra object is read by its device id", d412.objId === O(1).toLowerCase());
   ok("a device with no Entra object, or no device id, says it cannot be a member", /no Entra device object/.test(d388.problem) && /not joined to Entra/.test(dTest.problem));
-  ok("the user's and the device's groups are read (transitive, and the device's direct ones)", card.user.groups.has(G(20).toLowerCase()) && d412.groups.has(G(21).toLowerCase()) && d412.direct.map((g) => g.name).join() === "PVM-DG-CORP-ALL-WIN,INT-SG-D-NLD");
+  ok("the user's and the device's groups are read (transitive, and the device's direct ones)", card.user.groups.has(G(20).toLowerCase()) && d412.groups.has(G(21).toLowerCase()) && d412.direct.map((g) => g.name).join() === "PVM-DG-CORP-ALL-WIN,INT-SG-D-MDE-NLD");
   const ticks = X.defaultTicks(card);
   ok("default ticks: the user and the recent device with an Entra object", ticks.has(`u:${U(1).toLowerCase()}`) && ticks.has(d412.key) && !ticks.has(d388.key) && ticks.size === 2);
   const dcard = await X.lookup(s2.results.find((r) => r.name === "LT-NL-0412"), base(), { now: NOW });
@@ -136,8 +136,8 @@ async function run() {
   ok("…and so does the user — a dynamic group cannot be left", ru.between);
   const rows2 = X.assess(card, model, ctx(ticks, true));
   const rd2 = rows2.find((r) => r.kind === "device" && r.obj.name === "LT-NL-0412");
-  ok("kept on the old set: out of INT-SG-D-NLD, out of the wave, the old AV policy reaches it again", rd2.after.new.length === 0 && rd2.after.old.length === 1 && !rd2.between && rd2.leaves.map((g) => g.name).join() === "INT-SG-D-NLD");
-  ok("a country device group is a direct INT-SG-D- group — never a wave or a rollout group", X.countryGroupsOf({ direct: [{ id: G(21), name: "INT-SG-D-WAVE-Euro" }, { id: G(91), name: "INT-SG-D-MDE-Exclusion" }, { id: G(35), name: "INT-SG-D-NLD" }] }, ctx(ticks, true)).map((g) => g.name).join() === "INT-SG-D-NLD");
+  ok("kept on the old set: out of INT-SG-D-MDE-NLD, out of the wave, the old AV policy reaches it again", rd2.after.new.length === 0 && rd2.after.old.length === 1 && !rd2.between && rd2.leaves.map((g) => g.name).join() === "INT-SG-D-MDE-NLD");
+  ok("a country device group is a direct INT-SG-D- group — never a wave or a rollout group", X.countryGroupsOf({ direct: [{ id: G(21), name: "INT-SG-D-WAVE-Euro" }, { id: G(91), name: "INT-SG-D-MDE-Exclusion" }, { id: G(35), name: "INT-SG-D-MDE-NLD" }] }, ctx(ticks, true)).map((g) => g.name).join() === "INT-SG-D-MDE-NLD");
   const filt = X.reachOf({ newP: [pol("f", "x", "new", [Object.assign(inc(G(1)), { filterId: "f1" })])], oldP: [] }, new Set([G(1)]), "device");
   ok("a filtered include is said", filt.new[0].filtered === true);
   ok("All devices reaches a device, not a user", X.reachOf({ newP: [pol("a", "x", "new", [{ kind: "All devices" }])], oldP: [] }, new Set(), "device").new.length === 1
@@ -145,10 +145,10 @@ async function run() {
 
   // ------------------------------------------------------------ plans --
   const p = X.planAdd(card, ctx(ticks, true));
-  ok("the plan: the user into the user group, the laptop into the device group, then out of INT-SG-D-NLD", p.ops.length === 3
+  ok("the plan: the user into the user group, the laptop into the device group, then out of INT-SG-D-MDE-NLD", p.ops.length === 3
     && p.ops[0].type === "add" && p.ops[0].memberKind === "user" && p.ops[0].group.id === G(90).toLowerCase()
     && p.ops[1].type === "add" && p.ops[1].memberKind === "device" && p.ops[1].ids.join() === O(1).toLowerCase()
-    && p.ops[2].type === "remove" && p.ops[2].group.name === "INT-SG-D-NLD" && /back on the old set/.test(p.ops[2].label));
+    && p.ops[2].type === "remove" && p.ops[2].group.name === "INT-SG-D-MDE-NLD" && /back on the old set/.test(p.ops[2].label));
   ok("…an addition, confirmed by a tick (no typed REMOVE)", p.hasRemoval === false && p.exclusions === true);
   const t2 = new Set(ticks); t2.add(d388.key);
   ok("a ticked device with no Entra object is left out with the reason", /no Entra device object/.test(X.planAdd(card, ctx(t2, true)).skipped.join()));
@@ -176,7 +176,7 @@ async function run() {
   // ------------------------------------- 👥 holds excluded devices back --
   const mcfg = MM.normConfig({ countryMap: [{ region: "Euro", suffixes: ["NL"] }] });
   const input = {
-    countryGroups: [{ id: G(22), displayName: "PVM-UG-CORP-MEM-USERS-NL" }], deviceGroups: [{ id: G(35), displayName: "INT-SG-D-NLD" }],
+    countryGroups: [{ id: G(22), displayName: "PVM-UG-CORP-MEM-USERS-NL" }], deviceGroups: [{ id: G(35), displayName: "INT-SG-D-MDE-NLD" }],
     managed: [managed[0], managed[2]], entra: [{ id: O(1), deviceId: A(1), displayName: "LT-NL-0412" }, { id: O(3), deviceId: A(3), displayName: "WS-ENG-0308" }],
     usersByGroup: new Map([[G(22).toLowerCase(), [{ id: U(1) }, { id: U(2) }]]]),
     deviceMembers: new Map([[G(35).toLowerCase(), new Set([O(1).toLowerCase()])]]), waveChildren: new Map(),
@@ -224,7 +224,7 @@ async function run() {
     if (p.startsWith("/users?")) { const v = inList(q, "userPrincipalName"), m = inList(q, "mail"); return users.filter((u) => v.includes(u.userPrincipalName.toLowerCase()) || m.includes(u.mail.toLowerCase())); }
     if (p.startsWith("/devices?")) { const v = inList(q, "displayName"); return entra.filter((d) => v.includes(d.displayName.toLowerCase())); }
     if (p.startsWith(`/users/${encodeURIComponent(U(1))}/memberOf`)) return [{ id: G(22), displayName: "PVM-UG-CORP-MEM-USERS-NL" }];
-    if (/\/devices\/[^/]+\/memberOf/.test(p)) return [{ id: G(35), displayName: "INT-SG-D-NLD" }];
+    if (/\/devices\/[^/]+\/memberOf/.test(p)) return [{ id: G(35), displayName: "INT-SG-D-MDE-NLD" }];
     if (/transitiveMemberOf/.test(p)) throw new Error("a list reads direct groups only");
     return [];
   };
@@ -254,7 +254,7 @@ async function run() {
   ok("a device that is also under its user's line says so", it("LT-NL-0412").kind === "listed" && it("LT-NL-0412").note === "jan.devries@contoso.com" && !it("LT-NL-0412").card);
   const jc = it("jan.devries@contoso.com").card;
   ok("light: the user's and each device's DIRECT groups only (no transitive read)", jc.user.direct.map((g) => g.name).join() === "PVM-UG-CORP-MEM-USERS-NL" && !jc.user.groups
-    && jc.devices.find((d) => d.name === "LT-NL-0412").direct.map((g) => g.name).join() === "INT-SG-D-NLD" && !lcalls.some((p) => /transitiveMemberOf/.test(p)));
+    && jc.devices.find((d) => d.name === "LT-NL-0412").direct.map((g) => g.name).join() === "INT-SG-D-MDE-NLD" && !lcalls.some((p) => /transitiveMemberOf/.test(p)));
   ok("the progress is said", status.some((m) => /Looking up users/.test(m)) && status.some((m) => /Reading groups/.test(m)));
   const lt = X.listTicks(L);
   const n412 = jc.devices.find((d) => d.name === "LT-NL-0412"), n388 = jc.devices.find((d) => d.name === "LT-NL-0388");
@@ -264,17 +264,17 @@ async function run() {
   ok("one plan, merged per group: users, then devices, then out of the country device group", mp.ops.length === 3 && mp.bulk && mp.exclusions && !mp.hasRemoval
     && mp.ops[0].type === "add" && mp.ops[0].memberKind === "user" && mp.ops[0].ids.join() === U(1).toLowerCase()
     && mp.ops[1].type === "add" && mp.ops[1].memberKind === "device" && mp.ops[1].ids.length === 4 && mp.ops[1].objs.length === 4 && mp.ops[1].who === "4 devices"
-    && mp.ops[2].type === "remove" && mp.ops[2].group.name === "INT-SG-D-NLD" && mp.ops[2].ids.length === 4 && mp.ops[2].label === "LT-NL-0412, WS-ENG-0308, LT-NL-0233, HYB-NL-9 — out of the wave, back on the old set");
+    && mp.ops[2].type === "remove" && mp.ops[2].group.name === "INT-SG-D-MDE-NLD" && mp.ops[2].ids.length === 4 && mp.ops[2].label === "LT-NL-0412, WS-ENG-0308, LT-NL-0233, HYB-NL-9 — out of the wave, back on the old set");
   ok("…its counts are the bar's", mp.counts.users === 1 && mp.counts.devices === 4 && mp.counts.out === 4);
   const five = X.planAddMany(["A", "B", "C", "D", "E"].map((n, i) => ({ pick: { type: "device" }, user: null, devices: [{ key: `k${i}`, name: `PC-${n}`, objId: O(60 + i).toLowerCase(), deviceId: "", excluded: false, direct: [] }] })), ctx(new Set(["k0", "k1", "k2", "k3", "k4"]), true));
   ok("…a long step names three and counts the rest", five.ops.length === 1 && five.ops[0].label === "PC-A, PC-B, PC-C and 2 more" && five.ops[0].ids.length === 5);
   ok("the kiosk, already in, is skipped with the reason if ticked", /KIOSK-NL-01: already in/.test(X.planAddMany([it("KIOSK-NL-01").card], ctx(new Set(["m:m4"]), true)).skipped.join()));
   // the run moves the list
   X.patchList(L, mp.ops.map((o) => Object.assign({}, o)), groups);
-  ok("after the run: Jan and the four devices excluded, out of INT-SG-D-NLD, nothing ticked by default", jc.user.excluded && n412.excluded && !n412.direct.some((g) => g.name === "INT-SG-D-NLD")
+  ok("after the run: Jan and the four devices excluded, out of INT-SG-D-MDE-NLD, nothing ticked by default", jc.user.excluded && n412.excluded && !n412.direct.some((g) => g.name === "INT-SG-D-MDE-NLD")
     && X.listTicks(L).size === 0);
   X.patchList(L, MM.inverseOf(mp.ops).ops, groups);
-  ok("…and the undo moves it back", !jc.user.excluded && !n412.excluded && n412.direct.some((g) => g.name === "INT-SG-D-NLD") && X.listTicks(L).size === lt.size);
+  ok("…and the undo moves it back", !jc.user.excluded && !n412.excluded && n412.direct.some((g) => g.name === "INT-SG-D-MDE-NLD") && X.listTicks(L).size === lt.size);
 
   // ------------------------------------------- ⚙️ leave out (10639) --
   const cfg = M.normConfig({ leaveOut: ["  Win - OIB - ES - Defender Antivirus - D - AV Test - v1  ", ""], leaveOutSeed: M.DEFAULTS.leaveOutSeed });

@@ -118,7 +118,7 @@ async function run() {
   $("mvMemDry").click();
   await until(() => st().plan && st().plan.members && st().plan.ops.length, 5000, "members plan");
   const r2 = await apply();
-  ok("👥 created and filled the wave's country groups, removals included, every step verified; the Netherlands' user group waits for the ⇄ swap (its dynamic group still carries the wave)", r2.bad === 0 && r2.ok >= 6 && G("INT-SG-U-NLD") && (G("INT-SG-U-NLD")._users || []).length === 2 && (G("INT-SG-U-DEU").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id), JSON.stringify(r2.lines));
+  ok("👥 created and filled the wave's country groups, removals included, every step verified; the Netherlands' user group waits for the ⇄ swap (its dynamic group still carries the wave)", r2.bad === 0 && r2.ok >= 6 && G("INT-SG-U-MDE-NLD") && (G("INT-SG-U-MDE-NLD")._users || []).length === 2 && (G("INT-SG-U-MDE-DEU").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id), JSON.stringify(r2.lines));
   // the pilot: NL Breda overlaps the Netherlands, so the 👥 run migrated it into its country (10656) — the spine must say so, not ask for batches
   const openRow = D.querySelector('[data-mrmemopen="nl-breda"]'); if (openRow) { openRow.click(); await sleep(150); }
   ok("the pilot's panel says it was migrated into the Netherlands, with the way back in 📜", /Migrated into Netherlands/.test($("mvBody").textContent) && /puts the pilot back in its batches/.test($("mvBody").textContent));
@@ -130,7 +130,7 @@ async function run() {
   if ($("mvCsRead")) { $("mvCsRead").click(); await until(() => st().cs.extra && st().mem.model && !st().mem.loading, 15000, "cs read"); }
   const swap = D.querySelector('[data-mrcsswap="Euro"]');
   ok("🔄 offers ⇄ Swap Euro", !!swap && !swap.disabled);
-  if (swap) { swap.click(); await until(() => st().plan && st().plan.ops && st().plan.ops.length, 5000, "swap plan"); const r5 = await apply(); ok("⇄ swapped: the static Netherlands group nested, the dynamic one out", r5.bad === 0 && (G("INT-SG-U-NLD").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id), JSON.stringify(r5.lines)); }
+  if (swap) { swap.click(); await until(() => st().plan && st().plan.ops && st().plan.ops.length, 5000, "swap plan"); const r5 = await apply(); ok("⇄ swapped: the static Netherlands group nested, the dynamic one out", r5.bad === 0 && (G("INT-SG-U-MDE-NLD").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id), JSON.stringify(r5.lines)); }
   D.querySelector('.mr-navigation [data-mrpane="wavehome"]').click(); await sleep(150);
   const mLines = stage("members").lines;
   ok("the spine agrees without a refresh: the Netherlands, Germany and France ✓, the pilot ✓ 'in the wave through Netherlands', the countries with nobody to place ✓, nothing left open", mLines.filter((l) => /Netherlands|Germany|France/.test(l.text)).every((l) => l.ok) && mLines.some((l) => /NL Breda/.test(l.text) && l.ok && /through Netherlands/.test(l.text)) && mLines.every((l) => l.ok), JSON.stringify(mLines));

@@ -257,7 +257,7 @@ async function run() {
   const LM = st().ld.model;
   const byName = (re) => LM.policies.find((p) => re.test(p.name));
   const av = byName(/Defender Antivirus - D - AV Configuration/), audit = byName(/Audit and Event Logging/), edge = byName(/Microsoft Edge - D - Security/);
-  ok("the demo's Euro device wave holds Eva's and Alex's laptops (through INT-SG-D-NLD): 2 devices; no user-scoped policy in the new set, so no users are read", LM.summary.devices === 2 && LM.summary.users === 0 && LM.regions.join() === "Euro" && LM.members.every((e) => e.kind === "device"));
+  ok("the demo's Euro device wave holds Eva's and Alex's laptops (through INT-SG-D-MDE-NLD): 2 devices; no user-scoped policy in the new set, so no users are read", LM.summary.devices === 2 && LM.summary.users === 0 && LM.regions.join() === "Euro" && LM.members.every((e) => e.kind === "device"));
   ok("antivirus: both in Conflict (as T12's report says), WS-ENG-0308 reported but in no wave — an extra", av && av.cells.get("Euro").expected === 2 && av.cells.get("Euro").conflict === 2 && av.extras.length === 1 && /WS-ENG-0308/.test(av.extras[0].name));
   ok("audit: Eva's in Error, Alex's has NO status at all", audit && audit.cells.get("Euro").error === 1 && audit.cells.get("Euro").none === 1);
   ok("the staged Edge policy expects nobody", edge && edge.total.expected === 0 && !edge.assigned);

@@ -26,7 +26,7 @@
 // Keep it on the old set: ⚔️ action ③ takes the waves OUT of the old
 // policies, so a wave device that also goes into the exclusion group gets
 // neither set. Excluding a device therefore also takes it out of its
-// country device group (INT-SG-D-<ISO3>): it leaves the wave, and the old
+// country device group (INT-SG-D-MDE-<ISO3>): it leaves the wave, and the old
 // device policies reach it again. The 👥 sync keeps it out (MdeMembers,
 // held). A USER cannot be taken out — the country user groups are dynamic
 // — so the card says what that leaves.

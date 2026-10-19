@@ -188,7 +188,7 @@ const TUNO_DEMO = (() => {
     { id: G(37), displayName: "PVM-UG-MDE-Exclusion", description: "MDE rollout exclusion — members stay off the new MDE policies.",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(3 * DAY), memberCount: 1, _kind: "user", _users: [U(7)] },
-    { id: G(35), displayName: "INT-SG-D-NLD", description: "Windows devices whose Intune primary user is in PVM-UG-CORP-MEM-USERS-NL.",
+    { id: G(35), displayName: "INT-SG-D-MDE-NLD", description: "Windows devices whose Intune primary user is in PVM-UG-CORP-MEM-USERS-NL.",
       groupTypes: [], securityEnabled: true, mailEnabled: false, isAssignableToRole: false,
       membershipRule: null, createdDateTime: ago(5 * DAY), memberCount: 2, _devices: [D(101), D(107)], memberOf: [G(21)] },
   ];
@@ -1158,7 +1158,7 @@ const TUNO_DEMO = (() => {
 
   // T28 📡 Landing (10689): Intune's check-in status for the new set, per
   // device — the rows a cached DeviceStatusesByConfigurationProfile report
-  // answers with. Eva's laptop (D(1), in INT-SG-D-NLD → the Euro device
+  // answers with. Eva's laptop (D(1), in INT-SG-D-MDE-NLD → the Euro device
   // wave) is in Conflict on the antivirus policy (so says T12's report,
   // above) and reports the audit policy in Error; Alex's WS-ENG-0221 (D(7),
   // in the Dutch device group although he is a US user) is in Conflict on
