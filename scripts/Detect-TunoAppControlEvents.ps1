@@ -1,4 +1,4 @@
-# Detect-TunoAppControlEvents.ps1  v1.0.0  (TUNO build 10730)
+# Detect-TunoAppControlEvents.ps1  v1.0.0  (TUNO build 10731)
 #Requires -Version 5.1
 <#
 .SYNOPSIS
@@ -27,7 +27,7 @@ Replaces  : Detect_ACB.ps1 v3.9 - same always-trigger design, house conventions.
 #>
 
 $script:ScriptVersion = '1.0.0'
-$script:TunoBuild = 10730
+$script:TunoBuild = 10731
 
 $LogFolder = "$env:ProgramData\IT-TOOLS\LOGS"
 $LogFile   = Join-Path $LogFolder 'AppControlEvents-Detect.log'

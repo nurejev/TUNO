@@ -433,6 +433,29 @@ const MdeRevert = (() => {
     const R = (ctx && ctx.routes) || new Map();
     return (list || []).filter((g) => { const k = lc(g.name); if (map.has(k)) return true; const r = R.get(k); return !!(r && r.kind === kind); });
   }
+  // 10731 (Mihai, 19 Oct 2026, PVM: Polish users pasted into ⏸ The list
+  // "getting read, but are not added"): a member in NO static route was
+  // "nothing to hold back" — ticked, greyed, never counted. The hold-back is
+  // also how a member is kept OUT of a wave not filled yet (8 Oct: a batch
+  // pasted into ⏸ is skipped by every later 🔄 sync and by the next wave's
+  // create & fill), so such a member is held back AHEAD of the wave: into the
+  // pair, nothing to take out of. Only when T28 can tell they are in no wave
+  // at all — the waves read, their own groups read transitively, no wave
+  // among them. In a wave anyway (a dynamic source still nested, a group
+  // nested deeper) stays refused: the pair alone would not hold them back.
+  function aheadOf(obj, kind, ctx) {
+    const U = kind === "user";
+    const what = U ? "in no static route into a user wave (country group, pilot, 🧪 test group, the wave itself)" : "in no static route into a device wave (country group, 🧪 test group, 📌 pin, the wave itself)";
+    const given = U ? ctx.userWaveIds : ctx.deviceWaveIds;
+    const names = new Map();
+    for (const r of ctx.rows || []) { const w = r.wave && (U ? r.wave.user : r.wave.device); if (w && w.id) names.set(lc(w.id), w.displayName || (U ? r.wave.userName : r.wave.deviceName) || w.id); }
+    if (!given && !names.size) return { ok: false, why: `${what}, and the waves were not read — nothing to hold back` };
+    if (!obj.groups) return { ok: false, why: `${what}, and ${U ? "their" : "its"} wave membership could not be read — not held back ahead of the wave` };
+    const W = new Set([...(given || [])].map(lc).concat([...names.keys()]));
+    const inW = [...obj.groups].map(lc).filter((id) => W.has(id));
+    if (inW.length) return { ok: false, why: `in ${names.get(inW[0]) || `a ${kind} wave`} through a group nested deeper than T28 manages — take ${U ? "them" : "it"} out of that group first (👥's 🔎 Is this user in a wave? names it)` };
+    return { ok: true, why: "in no wave yet — held back ahead of it" };
+  }
   const routeLabel = (g, N, ctx) => { const k = lc(g.name); if (N.user.has(k) || N.device.has(k)) return "country group"; const r = ctx && ctx.routes ? ctx.routes.get(k) : null; return (r && r.label) || "group"; };
   function planRevert(card, ctx) {
     const cfg = ctx.cfg;
@@ -450,40 +473,59 @@ const MdeRevert = (() => {
     const dyn = new Map();
     for (const r of ctx.rows || []) if (r.ug && (r.ugNestedSrc === undefined ? r.ugNested : r.ugNestedSrc)) dyn.set(lc(r.ug.id), r);
     let uDone = false, dDone = false;
+    // 10731: where each ticked member stands — one answer for the plan, the
+    // list's rows and the card: route (out of its routes), ahead (in no wave
+    // yet, into the pair only) or skip, with the reason
+    const status = new Map();
+    const say = (k, state, why) => status.set(k, { state, why: why || "" });
     if (uTick) {
-      const u = card.user;
+      const u = card.user, uk = `u:${u.id}`;
       const groups = routesOf(u.direct, "user", N, ctx);
-      if (RU.has(u.id)) skipped.push(`${u.displayName}: already in ${cfg.revertUser}`);
-      else if (!u.direct) skipped.push(`${u.displayName}: their direct groups could not be read`);
+      let ahead = null;
+      if (RU.has(u.id)) { skipped.push(`${u.displayName}: already in ${cfg.revertUser}`); say(uk, "held", `already in ${cfg.revertUser}`); }
+      else if (!u.direct) { skipped.push(`${u.displayName}: their direct groups could not be read`); say(uk, "skip", "their direct groups could not be read"); }
       else if (!groups.length) {
         const via = [...(u.groups || new Set())].map((id) => dyn.get(id)).filter(Boolean);
-        skipped.push(via.length ? `${u.displayName}: reaches ${via[0].wave.userName || "the user wave"} through ${via[0].ug.displayName} (dynamic) — ⇄ swap ${via[0].region} to ${userGroupName(via[0], cfg) || "its static group"} in 🔄 first`
-          : `${u.displayName}: in no static route into a user wave (country group, pilot, 🧪 test group, the wave itself) — nothing to hold back`);
-      } else {
+        if (via.length) {
+          const why = `reaches ${via[0].wave.userName || "the user wave"} through ${via[0].ug.displayName} (dynamic) — ⇄ swap ${via[0].region} to ${userGroupName(via[0], cfg) || "its static group"} in 🔄 first`;
+          skipped.push(`${u.displayName}: ${why}`); say(uk, "skip", why);
+        } else {
+          const a = aheadOf(u, "user", ctx);
+          if (a.ok) ahead = a; else { skipped.push(`${u.displayName}: ${a.why}`); say(uk, "skip", a.why); }
+        }
+      }
+      if (!status.has(uk)) {
         let ref = rev.user ? { id: lc(rev.user.id), name: rev.user.displayName } : null;
         if (!ref) { ops.push({ type: "create", key, name: cfg.revertUser, who, description: cfg.revertDescription }); ref = { ref: cfg.revertUser, name: cfg.revertUser }; }
         const addIdx = ops.length;
-        ops.push({ type: "add", key, group: ref, ids: [u.id], memberKind: "user", who, label: u.displayName, reason, objs: [{ id: u.id, displayName: u.displayName, userPrincipalName: u.upn }] });
+        ops.push({ type: "add", key, group: ref, ids: [u.id], memberKind: "user", who, label: ahead ? `${u.displayName} — in no wave yet, held back ahead of it` : u.displayName, reason, objs: [{ id: u.id, displayName: u.displayName, userPrincipalName: u.upn }], aheadIds: ahead ? [u.id] : [] });
+        say(uk, ahead ? "ahead" : "route", ahead ? ahead.why : `out of ${groups.map((g) => g.name).join(", ")}`);
         for (const g of groups) ops.push({ type: "remove", key, group: { id: g.id, name: g.name }, ids: [u.id], memberKind: "user", who, label: `${u.displayName} — out of the ${routeLabel(g, N, ctx)}, back on the old set`, reason, needsOk: [addIdx],
           objs: [{ id: u.id, displayName: u.displayName, userPrincipalName: u.upn }] });
         uDone = true;
       }
     }
-    const dAdd = [], dOut = new Map();
+    const dAdd = [], dOut = new Map(), dAhead = [];
     for (const d of devs) {
-      if (!d.objId) { skipped.push(`${d.name}: ${d.problem || "no Entra device object"}`); continue; }
-      if (RD.has(d.objId)) { skipped.push(`${d.name}: already in ${cfg.revertDevice}`); continue; }
-      if (!d.direct) { skipped.push(`${d.name}: its groups could not be read`); continue; }
+      const no = (why, state) => { skipped.push(`${d.name}: ${why}`); say(d.key, state || "skip", why); };
+      if (!d.objId) { no(d.problem || "no Entra device object"); continue; }
+      if (RD.has(d.objId)) { no(`already in ${cfg.revertDevice}`, "held"); continue; }
+      if (!d.direct) { no("its groups could not be read"); continue; }
       const groups = routesOf(d.direct, "device", N, ctx);
-      if (!groups.length) { skipped.push(`${d.name}: in no static route into a device wave (country group, 🧪 test group, 📌 pin, the wave itself) — nothing to hold back`); continue; }
-      dAdd.push(d);
+      if (!groups.length) {
+        const a = aheadOf(d, "device", ctx);
+        if (!a.ok) { no(a.why); continue; }
+        dAdd.push(d); dAhead.push(d.objId); say(d.key, "ahead", a.why);
+        continue;
+      }
+      dAdd.push(d); say(d.key, "route", `out of ${groups.map((g) => g.name).join(", ")}`);
       for (const g of groups) { if (!dOut.has(g.id)) dOut.set(g.id, { g, list: [] }); dOut.get(g.id).list.push(d); }
     }
     if (dAdd.length) {
       let ref = rev.device ? { id: lc(rev.device.id), name: rev.device.displayName } : null;
       if (!ref) { ops.push({ type: "create", key, name: cfg.revertDevice, who, description: cfg.revertDescription }); ref = { ref: cfg.revertDevice, name: cfg.revertDevice }; }
       const addIdx = ops.length;
-      ops.push({ type: "add", key, group: ref, ids: dAdd.map((d) => d.objId), memberKind: "device", who, label: dAdd.map((d) => d.name).join(", "), reason, objs: dAdd.map((d) => ({ id: d.objId, deviceId: d.deviceId, displayName: d.name })) });
+      ops.push({ type: "add", key, group: ref, ids: dAdd.map((d) => d.objId), memberKind: "device", who, label: `${dAdd.map((d) => d.name).join(", ")}${dAhead.length ? ` — ${dAhead.length === dAdd.length ? "" : `${dAhead.length} of them `}in no wave yet, held back ahead of it` : ""}`, reason, objs: dAdd.map((d) => ({ id: d.objId, deviceId: d.deviceId, displayName: d.name })), aheadIds: dAhead });
       for (const { g, list } of dOut.values()) ops.push({ type: "remove", key, group: { id: g.id, name: g.name }, ids: list.map((d) => d.objId), memberKind: "device", who, label: `${list.map((d) => d.name).join(", ")} — out of the ${routeLabel(g, N, ctx)}, back on the old set`, reason, needsOk: [addIdx],
         objs: list.map((d) => ({ id: d.objId, deviceId: d.deviceId, displayName: d.name })) });
       dDone = true;
@@ -497,7 +539,9 @@ const MdeRevert = (() => {
     const both = [uDone && card.user.excluded ? card.user.displayName : "", ...(dDone ? dAdd.filter((d) => d.excluded).map((d) => d.name) : [])].filter(Boolean);
     if (both.length) warnings.push(`${both.join(", ")} ${both.length === 1 ? "is" : "are"} also in the ⊘ exclusion group. The hold-back takes over: ⊘→⏸ Migrate exclusions takes ${both.length === 1 ? "it" : "them"} out of ⊘ together with everyone else there.`);
     if ((uDone || dDone) && !reason) warnings.push("No reason given — it is kept with the run and shown in the 🔄 sync preview. Add one.");
-    return { ops, skipped, warnings, hasRemoval: ops.some((x) => x.type === "remove"), runKind: "revert", reason };
+    const aheadN = ops.filter((o) => o.type === "add").reduce((a, o) => a + (o.aheadIds || []).length, 0);
+    if (aheadN) warnings.push(`${plural(aheadN, "member")} in no wave yet: into the hold-back only, nothing to take ${aheadN === 1 ? "it" : "them"} out of — the next wave's create & fill and every 🔄 sync leave ${aheadN === 1 ? "it" : "them"} out.`);
+    return { ops, skipped, warnings, status, hasRemoval: ops.some((x) => x.type === "remove"), runKind: "revert", reason };
   }
   // ------------------------------------------------- ↩ the list (10685) --
   // Mihai (6 Oct 2026): "revert should also be possible in bulk" — option C
@@ -542,11 +586,15 @@ const MdeRevert = (() => {
     const skipped = [], warnings = [];
     const creates = new Map(), adds = new Map(), removes = new Map(), order = [];
     const seen = new Set();
+    // 10731: each entry's members as planRevert saw them, and who goes in ahead of a wave
+    const status = new Map(), ahead = { user: new Set(), device: new Set() };
     for (const e of entries || []) {
       const p = planRevert(e.card, Object.assign({}, ctx, { ticks: e.ticks }));
       skipped.push(...p.skipped);
-      // the one-side and Revert-vs-⊘ notes are per person; "no reason" once
-      p.warnings.filter((w) => !/^No reason given/.test(w)).forEach((w) => warnings.push(w));
+      status.set(e.key, p.status);
+      for (const op of p.ops) if (op.type === "add") (op.aheadIds || []).forEach((id) => ahead[op.memberKind].add(id));
+      // the one-side and Revert-vs-⊘ notes are per person; "no reason" and "in no wave yet" once
+      p.warnings.filter((w) => !/^No reason given/.test(w) && !/ in no wave yet: into the hold-back only/.test(w)).forEach((w) => warnings.push(w));
       for (const op of p.ops) {
         if (op.type === "create") { if (!creates.has(lc(op.name))) creates.set(lc(op.name), Object.assign({}, op, { key: "revert-list", who: "⏸ the list" })); continue; }
         const bag = op.type === "add" ? adds : removes;
@@ -569,7 +617,8 @@ const MdeRevert = (() => {
       for (const [k, m] of adds) {
         if (!k.endsWith(`|${kind}`)) continue;
         addIdx[kind] = ops.length;
-        ops.push({ type: "add", key: "revert-list", group: m.op.group, ids: m.ids, memberKind: kind, who: plural(m.ids.length, kind), label: short(m.names), reason: ctx.reason ? String(ctx.reason).trim() : "", objs: m.objs });
+        const ah = m.ids.filter((id) => ahead[kind].has(id));
+        ops.push({ type: "add", key: "revert-list", group: m.op.group, ids: m.ids, memberKind: kind, who: plural(m.ids.length, kind), label: `${short(m.names)}${ah.length ? ` — ${ah.length === m.ids.length ? "" : `${ah.length} of them `}in no wave yet, held back ahead of it` : ""}`, reason: ctx.reason ? String(ctx.reason).trim() : "", objs: m.objs, aheadIds: ah });
       }
     }
     const waves = new Set();
@@ -586,17 +635,26 @@ const MdeRevert = (() => {
     }
     const count = (kind) => ops.filter((o) => o.type === "add" && o.memberKind === kind).reduce((a, o) => a + o.ids.length, 0);
     const counts = { users: count("user"), devices: count("device") };
+    const aheadCount = (kind) => ops.filter((o) => o.type === "add" && o.memberKind === kind).reduce((a, o) => a + (o.aheadIds || []).length, 0);
+    if (aheadCount("user") || aheadCount("device")) counts.ahead = { users: aheadCount("user"), devices: aheadCount("device") };
     const wl = [...waves].sort();
     const confirmLine = counts.users || counts.devices ? bulkLine(counts, wl) : "";
     if ((counts.users || counts.devices) && !String(ctx.reason || "").trim()) warnings.push("No reason given — it is kept with the run and shown in the 🔄 sync preview. Add one.");
-    return { ops, skipped, warnings: [...new Set(warnings)], hasRemoval: ops.some((x) => x.type === "remove"), runKind: "revert", reason: String(ctx.reason || "").trim(),
+    if (counts.ahead) { const n = counts.ahead.users + counts.ahead.devices; warnings.push(`${plural(n, "member")} in no wave yet: into the hold-back only, nothing to take ${n === 1 ? "it" : "them"} out of — the next wave's create & fill and every 🔄 sync leave ${n === 1 ? "it" : "them"} out.`); }
+    return { ops, skipped, warnings: [...new Set(warnings)], status, hasRemoval: ops.some((x) => x.type === "remove"), runKind: "revert", reason: String(ctx.reason || "").trim(),
       bulk: true, counts, waves: wl, confirmLine, entryKeys: (entries || []).map((e) => e.key) };
   }
   // The confirm line (Mihai's pick: "confirm line always"), worded like the
-  // 🔄 re-include line so the two read alike.
+  // 🔄 re-include line so the two read alike. 10731: members in no wave yet
+  // lose nothing — the line says so instead of "they lose the new policies".
   function bulkLine(counts, waves) {
-    const who = [counts.users ? plural(counts.users, "user") : "", counts.devices ? plural(counts.devices, "device") : ""].filter(Boolean).join(" and ");
-    return `hold back ${who}${waves.length ? ` in wave${waves.length === 1 ? "" : "s"} ${waves.join(", ")}` : ""}; they lose the new MDE policies`;
+    const two = (u, d) => [u ? plural(u, "user") : "", d ? plural(d, "device") : ""].filter(Boolean).join(" and ");
+    const who = two(counts.users, counts.devices);
+    const A = counts.ahead || { users: 0, devices: 0 }, aN = A.users + A.devices, all = counts.users + counts.devices;
+    const inWaves = waves.length ? ` in wave${waves.length === 1 ? "" : "s"} ${waves.join(", ")}` : "";
+    if (!aN) return `hold back ${who}${inWaves}; they lose the new MDE policies`;
+    if (aN >= all) return `hold back ${who} ahead of their wave; the next wave's fill and every 🔄 sync leave them out`;
+    return `hold back ${who}${inWaves}; ${two(A.users, A.devices)} of them, in no wave yet, ${aN === 1 ? "is" : "are"} kept out of it — the rest lose the new MDE policies`;
   }
   // The dry run's per-policy view of the whole list, counted, not per person:
   // per policy how many users / devices it drops off and how many it takes

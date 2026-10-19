@@ -169,6 +169,31 @@ async function run() {
   $("mvRvListClear").click();
   ok("Clear empties the list and the browser's copy", !st().rv.list.length && !JSON.parse(store.get([...store.keys()].find((k) => /^tuno\.t28\.revert\.list\./.test(k)))).lines.length);
 
+  // ⏸ 10731 (PVM, 19 Oct 2026: Polish users pasted into the list "getting read, but are not added" — ticked, greyed, never counted):
+  // someone in no wave yet is held back AHEAD of it, and the row says so
+  D.querySelector('[data-mrrvsrc="paste"]').click();
+  type($("mvRvListText"), "sam@contoso.com\npriya@contoso.com");
+  $("mvRvListGo").click();
+  ok("10731 two people in no wave: on the list, each row says ahead of its wave, the ticks are live", await until(() => !st().rv.listBusy && st().rv.list.length === 2, 15000, "ahead list")
+    && [...$("mvRvList").querySelectorAll("tbody tr")].filter((r) => /👤/.test(r.textContent)).every((r) => /in no static country group/.test(r.textContent) && /ahead of its wave/.test(r.textContent) && r.classList.contains("mr-selrow") && !r.querySelector("[data-mrrvltick]").disabled));
+  ok("…the bar counts them and names where they go — no 'tick a user or a device', ② Dry run enabled", /2 users → INT-SG-U-MDE-HoldBack \/ INT-SG-D-MDE-HoldBack, ahead of their wave/.test($("mvRvListBar").textContent) && !$("mvRvListDry").disabled, $("mvRvListBar").textContent);
+  type($("mvRvReason"), "Poland not in a wave yet — keep out, ticket 4811");
+  $("mvRvListDry").click();
+  const pa = st().plan;
+  const sigA = pa && pa.ops.map((o) => `${o.type}:${o.name || o.group.name}:${(o.ids || []).length}`).join(" ");
+  ok("…the plan: one add into the hold-back, nothing removed", pa && pa.bulk && sigA === "add:INT-SG-U-MDE-HoldBack:2" && !pa.hasRemoval, sigA);
+  ok("…the confirm line says ahead of their wave, not that they lose the new policies", /hold back 2 users ahead of their wave; the next wave's fill and every 🔄 sync leave them out/.test($("mvPlan").textContent) && !/they lose the new MDE policies/.test($("mvPlan").textContent));
+  const ra = await apply();
+  ok("…applied: both in INT-SG-U-MDE-HoldBack, the run a revert with the reason, the list emptied", ra.runKind === "revert" && ra.ok === 1 && /ticket 4811/.test(ra.reason)
+    && G("INT-SG-U-MDE-HoldBack")._users.includes(U("Sam Sysadmin")) && G("INT-SG-U-MDE-HoldBack")._users.includes(U("Priya Patel")) && await until(() => !st().rv.list.length, 5000, "ahead list empty"));
+
+  // ⏸ 10731: "6 of 6 in" and still spinning — the strip names what still runs
+  const S = st();
+  S.ld.busy = true; S.ld.status = "Asking Intune for WIN-SEC ASR — throttled, waiting";
+  const strip = S.projectStrip();
+  S.ld.busy = false; S.ld.status = "";
+  ok("10731 every source in but a read still busy: the strip says what, never a bare spinner", /6 of 6 in/.test(strip) && /Reading the tenant — still: <span data-prjstill>Asking Intune for WIN-SEC ASR — throttled, waiting<\/span>/.test(strip), strip.slice(0, 400));
+
   console.log(`T28 revert — the list: ${passed} passed, ${failed} failed`);
   process.exitCode = failed ? 1 : 0;
   w.close();
