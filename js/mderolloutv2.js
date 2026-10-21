@@ -408,7 +408,7 @@ const MdeRolloutV2Tool = (() => {
     if (mem.model) {
       const drift = mem.model.rows.filter((r) => r.ug && (!r.inSync || r.ugNested === false || r.dgNested === false)).length;
       if (drift) items.push({ id: "membership", title: `${drift} countries need membership review`, detail: "Review proposed additions, removals, held members and routes into the wave.", to: "members" });
-      if (mem.model.unmapped.length) items.push({ id: "unmapped", title: `${mem.model.unmapped.length} source groups have no wave mapping`, detail: "Confirm the mapping or leave them out of scope. Names alone do not authorise placement.", to: "members", unmapped: true });
+      if (mem.model.unmapped.filter((u) => !u.retired).length) items.push({ id: "unmapped", title: `${mem.model.unmapped.filter((u) => !u.retired).length} source groups have no wave mapping`, detail: "Confirm the mapping or leave them out of scope. Names alone do not authorise placement.", to: "members", unmapped: true });
     }
     if (ex.scan && ex.scan.rows.length) {
       const n = ex.scan.rows.length;
@@ -511,7 +511,7 @@ const MdeRolloutV2Tool = (() => {
     const X = cs.extra;
     const project = { holdBack: X ? !!(X.revert && X.revert.user && X.revert.device) : undefined, state: state28.status === "browser" ? false : state28.group ? true : undefined };
     const C = mcfg();
-    const rows = mem.model ? mem.model.rows.filter((r) => r.region === region).map((r) => ({ country: r.country, ugNested: !!r.ugNested, dgNested: !!r.dgNested, uInSync: r.uInSync, inSync: r.inSync, unread: r.unread || "", pilot: !!r.pilot, batched: !!(r.batch && !r.batch.finished), migrated: !!r.migrated || C.migrated.some((m) => lc(m) === lc(r.suffix)), parentCountry: r.parentCountry || "", users: r.uWant.size, devices: r.want.size, uAdd: r.uAdd.length, add: r.add.length, uRemove: r.uRemove.length, remove: r.remove.length, dynamicNested: !!(r.ugNestedSrc && !r.ugNestedStatic) })) : [];
+    const rows = mem.model ? mem.model.rows.filter((r) => r.region === region).map((r) => ({ country: r.country, ugNested: !!r.ugNested, dgNested: !!r.dgNested, uInSync: r.uInSync, inSync: r.inSync, unread: r.unread || "", pilot: !!r.pilot, batched: !!(r.batch && !r.batch.finished), migrated: !!r.migrated || C.migrated.some((m) => lc(m) === lc(r.suffix)), parentCountry: r.parentCountry || "", parentLive: !!(r.parentKey && mem.model.rows.some((x) => x.key === r.parentKey && x.ugNested)), canMigrate: !!(r.pilot && r.parentKey && !r.migrated && !(r.outsideParent || []).length), users: r.uWant.size, devices: r.want.size, uAdd: r.uAdd.length, add: r.add.length, uRemove: r.uRemove.length, remove: r.remove.length, dynamicNested: !!(r.ugNestedSrc && !r.ugNestedStatic) })) : [];
     let assign = null;
     if (model && found) {
       const ctx = Object.assign(rolloutCtx(), { regions: new Set([region]) });
@@ -710,7 +710,7 @@ const MdeRolloutV2Tool = (() => {
   // moves it into the tenant. Without it everything is as it was.
   const PROJECT_FILE = "t28-project.json";
   const STATE_KEYS = ["fixWith", "pilotGroupsOff"];               // kept per browser for now
-  const STATE_MEMBER_KEYS = ["batched", "migrated"];
+  const STATE_MEMBER_KEYS = ["batched", "migrated", "retired"];   // retired: 10733
   let projectFile = { status: "none", rules: null, meta: null, why: "" };   // none | loaded | mismatch | invalid | unreachable
   const fileRules = () => projectFile.status === "loaded";
   async function loadProjectFile() {
@@ -822,7 +822,7 @@ const MdeRolloutV2Tool = (() => {
     const body = S.status === "tenant" ? `<b>🗂 Project state — in the tenant.</b> ${esc(S.group.name)} · ${S.at ? `written ${esc(S.at.replace("T", " ").slice(0, 16))}` : ""}${S.by ? ` by ${esc(S.by)}` : ""} · ${esc(T28State.line(S.last))}. Every browser on this tenant reads the same state.`
       : S.status === "empty" ? `<b>🗂 Project state — ${esc(S.group.name)} is there, nothing written yet.</b> This browser's state is being written to it now.`
       : S.status === "error" ? `<b>🗂 Project state — ${esc(S.why)}.</b>`
-      : `<b>🗂 Project state — in this browser only.</b> The batched and migrated pilots, the hold-back reasons, the sync stamps and the Edge list live here; another browser starts without them. Create <b>${esc(name)}</b> with ⚡ ⓪ and every browser shares one state.`;
+      : `<b>🗂 Project state — in this browser only.</b> The batched, migrated and retired pilots, the hold-back reasons, the sync stamps and the Edge list live here; another browser starts without them. Create <b>${esc(name)}</b> with ⚡ ⓪ and every browser shares one state.`;
     return `<div id="mvStateCard" class="${S.status === "tenant" ? "gu-ok" : S.status === "error" ? "gu-fail" : "gu-warn"}" style="margin:0 0 12px"><span class="mini" style="line-height:1.5">${body}</span></div>`;
   }
 
@@ -3256,11 +3256,23 @@ const MdeRolloutV2Tool = (() => {
   // straight into the user wave a batch at a time, its device group follows
   // them, and Finish nests the group. The plan opens under this panel.
   const upnShort = (u) => String(u.upn || u.id).split("@")[0];
+  // 🧪 Migrate (10656) and 🗑 Retire (10733): shown in EVERY state of the
+  // panel — before 10733 the migrate button lived only in the unfinished
+  // batches, so once NL-Breda's batches were finished it was gone
+  // (Mihai, 21 Oct: "i could not find the migrate breda").
+  function migrateHtml(r) {
+    if (!r.parentKey || r.migrated) return "";
+    const b = r.batch, left = b && !b.finished ? b.N - b.inCount : 0;
+    if (r.outsideParent && r.outsideParent.length) return `<div class="mr-migrate"><span class="mini" style="color:var(--report)">🧪 Not migratable into ${esc(r.parentCountry)}: ${plural(r.outsideParent.length, "user of the pilot is", "users of the pilot are")} not in ${esc(r.parentCountry)} (${esc(r.outsideParent.slice(0, 3).join(", "))}${r.outsideParent.length > 3 ? " …" : ""}) — they would leave the wave.</span></div>`;
+    return `<div class="mr-migrate"><button class="btn${parentLive(r) ? " primary" : ""}" data-mrmigrate="${esc(r.key)}"${busy || !r.wave.user ? " disabled" : ""}>🧪 Migrate to the wave with ${esc(r.parentCountry)} →</button><span class="mini muted">${parentLive(r) ? `${esc(r.parentCountry)} is live: ` : `${esc(r.parentCountry)} goes live and `}the pilot ends — everyone in ${esc(r.country)} comes in through ${esc(r.parentCountry)}${left > 0 ? ` (${left} not in a batch yet, at once)` : ""}; ${esc(r.ugNestedStatic ? r.userGroupStatic : r.userGroupName)} leaves the user wave${r.dgNested ? ` and ${esc(r.deviceGroupName)} the device wave` : ""}, each once ${esc(r.parentCountry)}'s step is read back. Then 🗑 Retire deletes the pilot's groups.</span></div>`;
+  }
+  const parentLive = (r) => { const P = mem.model && mem.model.rows.find((x) => x.key === r.parentKey); return !!(P && P.ugNested); };
   function batchPanel(r) {
-    if (r.migrated) return `<div class="mr-batch" id="mvBatch-${esc(r.key)}"><b>🧪 Migrated into ${esc(r.parentCountry || "its country")}</b><p class="mini muted" style="margin:4px 0 0">Its users and devices are in the wave through ${esc(r.parentCountry || "their country")}. ${r.dg ? `<code>${esc(r.dg.displayName)}</code> is left in place, out of the wave. ` : ""}An undo of that run in 📜 puts the pilot back in its batches.</p></div>`;
+    if (r.migrated) return `<div class="mr-batch" id="mvBatch-${esc(r.key)}"><b>🧪 Migrated into ${esc(r.parentCountry || "its country")}</b><p class="mini muted" style="margin:4px 0 0">Its users and devices are in the wave through ${esc(r.parentCountry || "their country")}. ${[r.sug, r.dg].filter(Boolean).length ? `${[r.sug, r.dg].filter(Boolean).map((g) => `<code>${esc(g.displayName)}</code>`).join(" and ")} ${[r.sug, r.dg].filter(Boolean).length === 1 ? "is" : "are"} left in place, out of the wave. ` : ""}An undo of that run in 📜 puts the pilot back.</p>
+      <div class="mr-migrate"><button class="btn primary" data-mrretire="${esc(r.key)}"${busy ? " disabled" : ""}>🗑 Retire ${esc(r.country)} →</button><span class="mini muted">Decommission the pilot: its groups are emptied and deleted once every member is in ${esc(r.parentCountry || "its country")} or held back, and the table forgets it. The hold-back is not touched — a held-back user stays held back and resumes into ${esc(r.parentCountry || "its country")}.</span></div></div>`;
     const on = !!r.batch;
     const toggle = `<label class="chk" style="margin:0"><input type="checkbox" data-mrbatchtoggle="${esc(r.suffix)}"${on ? " checked" : ""}${r.batch && r.batch.finished ? " disabled" : ""}> add this pilot in ${mcfg().batchCount} batches</label>`;
-    if (!on) return `<div class="mr-batch" id="mvBatch-${esc(r.key)}"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><b>🧪 Pilot</b>${toggle}<span class="mini muted">Off: the whole group goes into the wave at once (nest user group).</span></div></div>`;
+    if (!on) return `<div class="mr-batch" id="mvBatch-${esc(r.key)}"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><b>🧪 Pilot</b>${toggle}<span class="mini muted">Off: the whole group goes into the wave at once (nest user group).</span></div>${migrateHtml(r)}</div>`;
     const b = r.batch;
     const pct = b.N ? Math.round(100 * b.inCount / b.N) : 100;
     const stateChip = (x) => x.state === "in" ? chip("au-op create", "in") : x.state === "next" ? chip("gu-how priv", x.inHere ? `next · ${x.inHere} of ${x.size} in` : "next") : x.state === "empty" ? `<span class="muted">—</span>` : `<span class="muted">waiting</span>`;
@@ -3272,13 +3284,12 @@ const MdeRolloutV2Tool = (() => {
     const allIn = !b.next;
     return `<div class="mr-batch" id="mvBatch-${esc(r.key)}">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between"><b>🧪 Pilot in ${b.K} batches</b>${toggle}</div>
-      ${b.finished ? `<p class="mini" style="margin:6px 0 0">${chip("au-op create", "finished")} ${esc(r.ugNestedStatic ? r.userGroupStatic : r.userGroupName)} is nested in ${esc(r.wave.userName)} — new users come in with the 🔄 sync.</p>` : `
+      ${b.finished ? `<p class="mini" style="margin:6px 0 0">${chip("au-op create", "finished")} ${esc(r.ugNestedStatic ? r.userGroupStatic : r.userGroupName)} is nested in ${esc(r.wave.userName)} — new users come in with the 🔄 sync.</p>${migrateHtml(r)}` : `
       <p class="mini muted" style="margin:4px 0 8px">Each batch is an even part of the users not yet in the wave, sorted by UPN, and each user's Windows devices go with them. The next batch is cut from whoever is still left, so users who join or leave the group in between are counted in. The users go into <code>${esc(r.userGroupStatic || "the static user group")}</code> (created on batch 1 and nested in <code>${esc(r.wave.userName || "the user wave")}</code>) — never straight into the wave; <code>${esc(r.deviceGroupName || "the device group")}</code> holds only the devices of users already in.${b.direct.length ? ` ${plural(b.direct.length, "user")} put in directly by an earlier build move into the static group with the next batch.` : ""}</p>
       <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px"><div><div class="mini muted">Progress</div><b>${b.inCount} of ${b.N} users</b> <span class="mini muted">· ${b.batches.filter((x) => x.state === "in").length} of ${b.batches.filter((x) => x.size).length} batches</span><div class="mr-meter"><i style="width:${pct}%"></i></div></div>
         ${b.inOther ? `<div class="mini muted">${plural(b.inOther, "user is", "users are")} in the wave already through ${esc(b.viaNames.join(", ") || "another group")} — not in the batches</div>` : ""}</div>
       ${b.N ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:56px"><col><col style="width:18%"><col style="width:18%"><col style="width:170px"></colgroup><thead><tr><th>Batch</th><th>Users</th><th>Devices</th><th>State</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">No user of this group is left to batch.</p>`}
-      ${r.parentKey && r.outsideParent && r.outsideParent.length ? `<div class="mr-migrate"><span class="mini" style="color:var(--report)">🧪 Not migratable into ${esc(r.parentCountry)}: ${plural(r.outsideParent.length, "user of the pilot is", "users of the pilot are")} not in ${esc(r.parentCountry)} (${esc(r.outsideParent.slice(0, 3).join(", "))}${r.outsideParent.length > 3 ? " …" : ""}) — they would leave the wave.</span></div>` : ""}
-      ${r.parentKey && !(r.outsideParent && r.outsideParent.length) ? `<div class="mr-migrate"><button class="btn" data-mrmigrate="${esc(r.key)}"${busy || !r.wave.user ? " disabled" : ""}>🧪 Migrate to the wave with ${esc(r.parentCountry)} →</button><span class="mini muted">${esc(r.parentCountry)} goes live and the pilot ends: everyone in ${esc(r.country)} comes in through ${esc(r.parentCountry)}${b.N - b.inCount > 0 ? ` (${b.N - b.inCount} not in a batch yet, at once)` : ""}; the users put in directly come out${r.dgNested ? ` and ${esc(r.deviceGroupName)} leaves the device wave` : ""}, each once ${esc(r.parentCountry)}'s step is read back.</span></div>` : ""}
+      ${migrateHtml(r)}
       <div class="tb-actions" style="margin-top:8px"><button class="btn" data-mrbatchcsv="${esc(r.key)}">⭳ CSV of the batches</button>
         ${allIn ? `<button class="btn primary" data-mrbatchfin="${esc(r.key)}"${busy || !r.wave.user ? " disabled" : ""}>🧪 Finish →</button><span class="mini muted">puts everyone left in ${esc(r.userGroupStatic || "the static user group")}, nests it if needed, and takes the users put in directly out once it read back</span>` : `<span class="mini muted">The last batch finishes the pilot: everyone is in ${esc(r.userGroupStatic || "the static user group")}.</span>`}</div>`}
     </div>`;
@@ -3294,6 +3305,17 @@ const MdeRolloutV2Tool = (() => {
     const par = mem.model.rows.find((x) => x.key === c.parentKey);
     const p = MdeMembers.planOps(mem.model, new Set([c.parentKey]), { fill: true, nestUsers: true, nestDevices: true, removals: false }, mcfg());
     plan = Object.assign(p, { members: true, title: `${par ? par.country : "Its country"} goes live · 🧪 ${c.country} migrated to the wave` });
+    renderMemPlan();
+  }
+  // 🗑 (10733) retire a migrated pilot: its groups emptied and deleted, the
+  // rules forget it once both read back gone. The plan opens under the panel.
+  function retireDryRun(key) {
+    if (busy || !mem.model) return;
+    const c = mem.model.rows.find((x) => x.key === key);
+    if (!c) return;
+    planAnchor = `mvBatch-${key}`; clearPlan(); seatPlan();
+    const p = MdeMembers.planRetire(mem.model, mem.input, key, model, mcfg());
+    plan = Object.assign(p, { members: true, title: `🗑 Retire the pilot ${c.country} — ${c.parentCountry || "its country"} carries it` });
     renderMemPlan();
   }
   function batchDryRun(key, finish) {
@@ -3675,14 +3697,14 @@ const MdeRolloutV2Tool = (() => {
     const m = mem.model;
     const regionChip = (rg) => fchip("data-mrmemregion", rg.region, `🌊 ${rg.region} · ${rg.rows.length}`, undefined, !mem.unmapped && mem.region === rg.region);
     const lo = leftCounts(m);
-    const chips = `<div class="toolbar">${m.regions.map(regionChip).join("")}<span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>${fchip("data-mrmemunmapped", "1", `⚠ Not in any wave · ${m.unmapped.length}`, undefined, mem.unmapped)}${fchip("data-mrmemleft", "1", `🕳 Left out · ${lo.total.toLocaleString()}`, undefined, mem.left && !mem.unmapped && !mem.pil)}${m.pilots ? fchip("data-mrpilview", "1", `🧪 Pilots · ${(m.pilots.people || []).length.toLocaleString()}`, undefined, mem.pil) : ""}<button class="btn" id="mvMemRead" style="margin-left:auto">↻ Read again</button><button class="btn" id="mvMemCsv">⭳ CSV</button></div>${wcHtml()}`;
+    const chips = `<div class="toolbar">${m.regions.map(regionChip).join("")}<span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>${fchip("data-mrmemunmapped", "1", `⚠ Not in any wave · ${m.unmapped.filter((u) => !u.retired).length}`, undefined, mem.unmapped)}${fchip("data-mrmemleft", "1", `🕳 Left out · ${lo.total.toLocaleString()}`, undefined, mem.left && !mem.unmapped && !mem.pil)}${m.pilots ? fchip("data-mrpilview", "1", `🧪 Pilots · ${(m.pilots.people || []).length.toLocaleString()}`, undefined, mem.pil) : ""}<button class="btn" id="mvMemRead" style="margin-left:auto">↻ Read again</button><button class="btn" id="mvMemCsv">⭳ CSV</button></div>${wcHtml()}`;
     const top = `${m.failed.length ? `<div class="gu-fail" style="margin-bottom:10px"><b>Partly read:</b><span class="why">${m.failed.map(esc).join("<br>")}</span></div>` : ""}`;
     if (mem.pil && m.pilots) return `${chips}${top}${pilotsHtml(m)}`;
     if (mem.left && !mem.unmapped) return `${chips}${top}${leftOutHtml(m, lo)}`;
     if (mem.unmapped) {
       const suffixOf = (g) => g.displayName.slice(mcfg().countryPrefix.length);
       const regionOpts = m.regions.map((x) => `<option value="${esc(x.region)}">${esc(x.region)}</option>`).join("");
-      const rows = m.unmapped.map((u, i) => `<tr><td><b>${esc(u.group.displayName)}</b><div class="mini muted">${esc(u.group.membershipRule || "")}</div></td><td class="mini">${u.dynamic ? "dynamic" : "assigned"}</td><td class="mini">${u.overlaps ? `<span style="color:var(--report)">overlaps ${esc(u.overlaps)} — as a pilot that is expected; otherwise nesting both counts people twice</span>` : `<span class="muted">not in the country table</span>`}</td>
+      const rows = m.unmapped.map((u, i) => `<tr><td><b>${esc(u.group.displayName)}</b><div class="mini muted">${esc(u.group.membershipRule || "")}</div></td><td class="mini">${u.dynamic ? "dynamic" : "assigned"}</td><td class="mini">${u.retired ? `<span class="muted">🗑 a retired pilot — its users and devices are in through ${esc(u.overlaps || "its country")}; adding it as a pilot again starts it over, empty</span>` : u.overlaps ? `<span style="color:var(--report)">overlaps ${esc(u.overlaps)} — as a pilot that is expected; otherwise nesting both counts people twice</span>` : `<span class="muted">not in the country table</span>`}</td>
         <td class="mini"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><select id="mvPilotRegion${i}" aria-label="wave">${regionOpts}</select><button class="btn" data-mrmempilot="${esc(suffixOf(u.group))}" data-mrpilotsel="mvPilotRegion${i}">🧪 Add as pilot</button></div><div class="muted" style="margin-top:3px">device group ${esc(mcfg().deviceGroupPrefix + MdeMembers.suggestDeviceSuffix(suffixOf(u.group)))}</div></td></tr>`).join("");
       return `${chips}${top}<div class="list-card" style="margin-top:0"><p class="mini muted" style="margin:0 0 10px">Groups starting with <code>${esc(mcfg().countryPrefix)}</code> that the country table does not name. They are listed, never nested. <b>🧪 Add as pilot</b> puts one at the head of a wave (its own device group, named below) — for a pilot that goes in before the rest of the region. The table stays editable under ⚙️ Naming rules.</p>
         ${rows ? `<div style="overflow-x:auto"><table class="cg-table"><colgroup><col style="width:36%"><col style="width:9%"><col style="width:25%"><col></colgroup><thead><tr><th>Group · rule</th><th>Type</th><th>Why it is here</th><th>Put it in a wave</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="mini muted" style="margin:0">None — every group with the prefix is in a wave.</p>`}</div>`;
@@ -3700,7 +3722,7 @@ const MdeRolloutV2Tool = (() => {
     const rows = testRow + inTenant.map((r) => {
       const done = r.inSync && r.ugNested && r.dgNested;
       return `<tr class="${memRowSel(r) ? "mr-selrow" : ""}"><td>${r.migrated ? `<span title="Migrated into ${esc(r.parentCountry)} — in the wave through it">—</span>` : done ? `<span title="In sync and in both waves">✓</span>` : `<input type="checkbox" data-mrmemsel="${esc(r.key)}"${memRowSel(r) ? " checked" : ""} aria-label="select">`}</td>
-        <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a>${r.pilot ? ` <span class="gu-how priv" title="A pilot group: it goes into the wave before the rest of the region. It may overlap a country group; its devices then sit in both device groups.">${r.migrated ? `🧪 migrated into ${esc(r.parentCountry)}` : `🧪 pilot${r.batch && !r.batch.finished ? " · in batches" : ""}`}</span>` : ""}${(() => { const kids = r.pilot ? [] : inTenant.filter((c) => c.pilot && c.parentKey === r.key && c.batch && !c.migrated && !(c.outsideParent || []).length); return kids.length ? ` <span class="gu-how" title="Going live brings every user of the pilot in through this group; the plan then takes the pilot's own route down">🧪 going live migrates ${esc(kids.map((c) => c.country).join(", "))}</span>` : ""; })()}<div class="mini muted">${esc(r.userGroupName)}</div></td>
+        <td><a href="#" data-mrmemopen="${esc(r.key)}"><b>${esc(r.country)}</b></a>${r.pilot ? ` <span class="gu-how priv" title="A pilot group: it goes into the wave before the rest of the region. It may overlap a country group; its devices then sit in both device groups.">${r.migrated ? `🧪 migrated into ${esc(r.parentCountry)} · 🗑 retire` : `🧪 pilot${r.batch && !r.batch.finished ? " · in batches" : ""}${r.parentKey && parentLive(r) ? ` · ${esc(r.parentCountry)} live — migrate` : ""}`}</span>` : ""}${(() => { const kids = r.pilot ? [] : inTenant.filter((c) => c.pilot && c.parentKey === r.key && !c.migrated && !(c.outsideParent || []).length); return kids.length ? ` <span class="gu-how" title="${r.ugNested ? "Open the pilot and use 🧪 Migrate: its own route leaves the wave, this group carries its users" : "Going live brings every user of the pilot in through this group; the plan then takes the pilot's own route down"}">🧪 ${r.ugNested ? "live — migrate" : "going live migrates"} ${esc(kids.map((c) => c.country).join(", "))}</span>` : ""; })()}<div class="mini muted">${esc(r.userGroupName)}</div></td>
         <td class="mini" style="text-align:right">${r.users.toLocaleString()}</td>
         <td class="mini" style="text-align:right">${r.devices.length.toLocaleString()}${r.usersNoDevice ? `<div class="muted"><a href="#" data-mrmemleftrow="${esc(r.key)}" title="🕳 who they are, and what Intune has for them">${plural(r.usersNoDevice, "user has", "users have")} none</a></div>` : ""}${r.problems.noEntra || r.problems.multi ? `<div style="color:var(--report)">${r.problems.noEntra + r.problems.multi} to look at</div>` : ""}</td>
         <td class="mini">${memUserCell(r)}</td>
@@ -3902,6 +3924,16 @@ const MdeRolloutV2Tool = (() => {
         saveCfg(Object.assign({}, cfg, { members: Object.assign({}, c, {
           batched: c.batched.filter((x) => !has(outOf, x)).concat(back.filter((x) => !has(c.batched, x))),
           migrated: c.migrated.filter((x) => !has(back, x)).concat(outOf.filter((x) => !has(c.migrated, x))) }) }));
+        memCompute();
+      }
+      // 🗑 a pilot retired (10733): once both deletions read back gone the
+      // rules list it under retired (the tenant state carries it) and the
+      // table forgets it; the hold-back is not touched
+      if (p.retire && p.retire.ops.length && p.retire.ops.every(clean)) {
+        const c = mcfg(), has = (list, x) => list.some((y) => lc(y) === lc(x)), sfx = p.retire.suffix;
+        saveCfg(Object.assign({}, cfg, { members: Object.assign({}, c, {
+          batched: c.batched.filter((x) => lc(x) !== lc(sfx)), migrated: c.migrated.filter((x) => lc(x) !== lc(sfx)),
+          retired: has(c.retired || [], sfx) ? c.retired : (c.retired || []).concat(sfx) }) }));
         memCompute();
       }
       const okN = r.results.filter((x) => x.ok && x.verified).length;
@@ -5537,6 +5569,7 @@ const MdeRolloutV2Tool = (() => {
       const bt = t.closest("[data-mrbatch]"); if (bt) { batchDryRun(bt.dataset.mrbatch, false); return; }
       const bf = t.closest("[data-mrbatchfin]"); if (bf) { batchDryRun(bf.dataset.mrbatchfin, true); return; }
       const mg = t.closest("[data-mrmigrate]"); if (mg) { migrateDryRun(mg.dataset.mrmigrate); return; }
+      const rt = t.closest("[data-mrretire]"); if (rt) { retireDryRun(rt.dataset.mrretire); return; }
       const bc = t.closest("[data-mrbatchcsv]"); if (bc) { const r = mem.model && mem.model.rows.find((x) => x.key === bc.dataset.mrbatchcsv); if (r) download(`MDE-pilot-batches-${r.suffix}-${stamp()}.csv`, MdeMembers.batchCsv(r), "text/csv"); return; }
       // 🔄 / ↩ (10679)
       if (t.id === "mvCsRead") { csRead(); return; }

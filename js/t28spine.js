@@ -31,7 +31,7 @@ const T28Spine = (() => {
   //   waves             { user: { exists }, device: { exists } } for this region
   //   tests             { user: { exists, nested }, device: { exists, nested } } | null (not read)
   //   project           { holdBack: bool, state: bool }     the ⏸ pair and the anchor group exist
-  //   rows              the members model rows of this region: { country, ugNested, dgNested, uInSync, inSync, unread, pilot, batched, migrated, uWant, want }
+  //   rows              the members model rows of this region: { country, ugNested, dgNested, uInSync, inSync, unread, pilot, batched, migrated, parentLive, canMigrate (10733), uWant, want }
   //   membersRead       bool
   //   assign            { include: n, excludeOld: n, filter: n } steps the ⚡ card would plan for this wave (0 = in place), or null when unread
   //   landing           { devices, ok, problems, read: bool } for this wave, or null
@@ -97,6 +97,15 @@ const T28Spine = (() => {
         }
         else if (batched.length) { s.state = "todo"; s.detail = `${done.length} of ${rows.length} nested · ${batched.map((r) => r.country).join(", ")} in batches`; s.next = { text: `Run the next batch of ${batched.map((r) => r.country).join(", ")} (👥)`, pane: "members" }; }
         else { s.state = "ok"; s.detail = `${rows.length} of ${rows.length} countries nested and in sync`; }
+        // 10733 (Mihai, 21 Oct: NL live, "the pilot-breda should now be fully
+        // decommissioned and onboarded in nl"): a pilot whose country is live
+        // is migrated, then retired — said as the next step once the rest is done
+        if (!unread.length && !open.length && !batched.length) {
+          const toMigrate = rows.filter((r) => r.pilot && r.canMigrate && r.parentLive && !r.unread);
+          const toRetire = rows.filter((r) => r.pilot && r.migrated && !r.unread);
+          if (toMigrate.length) { s.state = "todo"; s.detail += ` · ${plural(toMigrate.length, "pilot")} to migrate`; s.next = { text: `🧪 Migrate ${toMigrate.map((r) => r.country).join(", ")} into ${toMigrate.map((r) => r.parentCountry).join(", ")} — its country is live (👥 → open the pilot)`, pane: "members" }; }
+          else if (toRetire.length) { s.state = "todo"; s.detail += ` · ${plural(toRetire.length, "pilot")} to retire`; s.next = { text: `🗑 Retire ${toRetire.map((r) => r.country).join(", ")} — migrated; delete its groups (👥 → open the pilot)`, pane: "members" }; }
+        }
         // 3.2: one line per country — the counts 👥 computes
         for (const r of rows) {
           const cnt = `${plural(r.users || 0, "user")}, ${plural(r.devices || 0, "device")}`;

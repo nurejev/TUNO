@@ -50,7 +50,7 @@ const T28State = (() => {
   }
   // the keys of the rules blob that are state, not rules (10714 STATE_KEYS)
   const RULE_STATE = ["fixWith", "pilotGroupsOff", "exclusionDevice", "exclusionUser"];
-  const RULE_MEMBER_STATE = ["batched", "migrated"];
+  const RULE_MEMBER_STATE = ["batched", "migrated", "retired"];   // retired: 10733
 
   const readLS = (k) => { try { const r = window.localStorage.getItem(k); return r == null ? null : JSON.parse(r); } catch { return null; } };
   const writeLS = (k, v) => { try { if (v == null) window.localStorage.removeItem(k); else window.localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
@@ -152,6 +152,7 @@ const T28State = (() => {
     const parts = [];
     if (st.members && n(st.members.batched)) parts.push(`${n(st.members.batched)} batched`);
     if (st.members && n(st.members.migrated)) parts.push(`${n(st.members.migrated)} migrated`);
+    if (st.members && n(st.members.retired)) parts.push(`${n(st.members.retired)} retired`);
     if (st.rulesState && st.rulesState.exclusionDevice === "" && st.rulesState.exclusionUser === "") parts.push("⊘ retired");
     if (n(st.reasons)) parts.push(`${n(st.reasons)} hold-back reasons`);
     if (n(st.groupsync)) parts.push(`${n(st.groupsync)} sync stamps`);

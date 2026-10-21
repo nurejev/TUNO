@@ -752,7 +752,7 @@ async function run() {
   await idle();
   if (!$("mvBatch-nl-breda")) D.querySelector('[data-mrmemopen="nl-breda"]').click();
   ok("the pilot knows its country, the panel offers the migration, and NL's row says going live migrates it", br().parentKey === "nl" && !!D.querySelector('[data-mrmigrate="nl-breda"]')
-    && /Migrate to the wave with Netherlands/.test($("mvBatch-nl-breda").textContent) && /going live migrates NL Breda/.test($("mvBody").textContent));
+    && /Migrate to the wave with Netherlands/.test($("mvBatch-nl-breda").textContent) && /(going live migrates|Netherlands live — migrate|live — migrate) NL Breda/.test($("mvBody").textContent));
   D.querySelector('[data-mrmigrate="nl-breda"]').click();
   const migOps = () => st().plan.ops.filter((o) => o.migrate);
   ok("the plan: INT-SG-U-MDE-NLD-BREDA out of the user wave (Alex in through NL), INT-SG-D-MDE-NLD-BREDA out of the device wave — typed, under the panel",

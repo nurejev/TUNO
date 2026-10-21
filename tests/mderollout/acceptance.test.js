@@ -121,7 +121,7 @@ async function run() {
   ok("👥 created and filled the wave's country groups, removals included, every step verified; the Netherlands' user group waits for the ⇄ swap (its dynamic group still carries the wave)", r2.bad === 0 && r2.ok >= 6 && G("INT-SG-U-MDE-NLD") && (G("INT-SG-U-MDE-NLD")._users || []).length === 2 && (G("INT-SG-U-MDE-DEU").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id), JSON.stringify(r2.lines));
   // the pilot: NL Breda overlaps the Netherlands, so the 👥 run migrated it into its country (10656) — the spine must say so, not ask for batches
   const openRow = D.querySelector('[data-mrmemopen="nl-breda"]'); if (openRow) { openRow.click(); await sleep(150); }
-  ok("the pilot's panel says it was migrated into the Netherlands, with the way back in 📜", /Migrated into Netherlands/.test($("mvBody").textContent) && /puts the pilot back in its batches/.test($("mvBody").textContent));
+  ok("the pilot's panel says it was migrated into the Netherlands, with the way back in 📜", /Migrated into Netherlands/.test($("mvBody").textContent) && /puts the pilot back/.test($("mvBody").textContent));
   // the Netherlands: ⇄ swap the dynamic group for the static one (🔄 Sync country groups)
   D.querySelector('.mr-navigation [data-mrpane="wavehome"]').click(); await sleep(150);
   const nlLine = stage("members").lines.find((l) => /^Netherlands/.test(l.text));
@@ -134,7 +134,31 @@ async function run() {
   D.querySelector('.mr-navigation [data-mrpane="wavehome"]').click(); await sleep(150);
   const mLines = stage("members").lines;
   ok("the spine agrees without a refresh: the Netherlands, Germany and France ✓, the pilot ✓ 'in the wave through Netherlands', the countries with nobody to place ✓, nothing left open", mLines.filter((l) => /Netherlands|Germany|France/.test(l.text)).every((l) => l.ok) && mLines.some((l) => /NL Breda/.test(l.text) && l.ok && /through Netherlands/.test(l.text)) && mLines.every((l) => l.ok), JSON.stringify(mLines));
-  ok("Members is ✓ and Assign is current", stage("members").state === "ok" && spine().current === "assign", JSON.stringify(spine().stages.map((s) => [s.id, s.state, s.detail])));
+  // 🗑 10733 (Mihai, 21 Oct: "the pilot-breda should now be fully decommissioned and onboarded in nl. the hold backs stays"):
+  // with the Netherlands live and the pilot migrated, the spine's next step is retiring the pilot
+  ok("the spine's next step: 🗑 Retire NL Breda (migrated, its groups still in the tenant)", stage("members").state === "todo" && /🗑 Retire NL Breda/.test(spine().next.text) && /1 pilot to retire/.test(stage("members").detail), JSON.stringify([stage("members").state, stage("members").detail, spine().next]));
+  const holdU = () => (G("INT-SG-U-MDE-HoldBack")._users || []).slice().sort().join(), holdD = () => (G("INT-SG-D-MDE-HoldBack")._devices || G("INT-SG-D-MDE-HoldBack")._members || []).slice().sort().join();
+  const holdBefore = [holdU(), holdD()];
+  await openStage();
+  ok("Open stage opened 👥 Country groups for the retire", st().pane === "members");
+  if (!$("mvBatch-nl-breda")) { const o = D.querySelector('[data-mrmemopen="nl-breda"]'); if (o) { o.click(); await sleep(150); } }
+  const ret = D.querySelector('[data-mrretire="nl-breda"]');
+  ok("the pilot's panel offers 🗑 Retire NL Breda", !!ret && !ret.disabled && /Retire NL Breda/.test(ret.textContent));
+  if (ret) {
+    ret.click();
+    await until(() => st().plan && st().plan.retire, 5000, "retire plan");
+    const rp = st().plan;
+    // the demo's pilot has a device group only (no static user group was made for it): that one is taken out of the device wave the migration left it in, emptied and deleted
+    ok("the retire plan: the pilot's device group out of the wave, emptied, deleted — a confirm line naming it, nothing else written", rp && rp.retire && rp.ops.every((o) => o.retire) && rp.ops.map((o) => o.type).join() === "unnest,remove,deletegroup" && rp.ops.filter((o) => o.type === "deletegroup").map((o) => o.group.name).join() === "INT-SG-D-MDE-NLD-BREDA"
+      && /retire the pilot NL Breda: delete INT-SG-D-MDE-NLD-BREDA/.test(rp.confirmLine) && rp.ops.every((o) => /MDE-NLD-BREDA$/.test((o.group || o.child).name)), rp && JSON.stringify({ ops: rp.ops.map((o) => [o.type, (o.group || o.child).name]), skipped: rp.skipped, c: rp.confirmLine }));
+    const r6 = await apply();
+    ok("🗑 applied: both pilot groups deleted and read back gone, every step verified", r6.bad === 0 && !G("INT-SG-U-MDE-NLD-BREDA") && !G("INT-SG-D-MDE-NLD-BREDA"), JSON.stringify(r6.lines));
+    ok("…the rules list NL-Breda as retired, no longer migrated or batched; the table forgets it", st().cfg.members.retired.includes("NL-Breda") && !st().cfg.members.migrated.includes("NL-Breda") && !st().cfg.members.batched.includes("NL-Breda")
+      && !st().mem.model.rows.some((r) => r.key === "nl-breda") && st().mem.model.unmapped.some((u) => u.retired && /NL-Breda$/.test(u.group.displayName)));
+    ok("…the hold-back pair untouched, the Netherlands still live", holdU() === holdBefore[0] && holdD() === holdBefore[1] && (G("INT-SG-U-MDE-NLD").memberOf || []).includes(G("INT-SG-U-WAVE-Euro").id));
+  }
+  D.querySelector('.mr-navigation [data-mrpane="wavehome"]').click(); await sleep(150);
+  ok("Members is ✓ and Assign is current", stage("members").state === "ok" && spine().current === "assign" && !stage("members").lines.some((l) => /NL Breda/.test(l.text)), JSON.stringify(spine().stages.map((s) => [s.id, s.state, s.detail])));
 
   // ----------------------------------------------- stage 3 · Assign --
   ok("Assign says how many new policies still lack the wave", stage("assign").lines.some((l) => /① include/.test(l.text)), JSON.stringify(stage("assign")));
@@ -175,7 +199,8 @@ async function run() {
     const r5 = await apply();
     ok("⏸ held Eva back: out of every route into the wave, into the hold-back pair, verified", r5.bad === 0 && r5.ok > 0 && (G("INT-SG-U-MDE-HoldBack")._users || []).length === 1, JSON.stringify(r5.lines));
     D.querySelector('.mr-navigation [data-mrpane="wavehome"]').click(); await sleep(150);
-    ok("the spine's Exceptions counts her and her device", /3 members held back/.test(stage("exceptions").detail) && /1 member held back/.test(before), stage("exceptions").detail + " (was: " + before + ")");
+    // 10733: 2, not 3 — with NL Breda retired Eva is counted once (NL), no longer again through the pilot's source
+    ok("the spine's Exceptions counts her and her device", /2 members held back/.test(stage("exceptions").detail) && /1 member held back/.test(before), stage("exceptions").detail + " (was: " + before + ")");
   } else ok("the hold-back pane offers the dry run", false, D.body.textContent.slice(0, 200));
 
   // ----------------------------------------------------- the journal --

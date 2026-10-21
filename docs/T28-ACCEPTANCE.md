@@ -43,7 +43,16 @@ Phase 2 (10721–10725), Phase 3 (10726–10727). Lab: devcf, prefix P2719.
       nothing; nothing is removed anywhere.
 - [ ] A country group that still holds a held-back member is **not nested**;
       the dry run says why.
-- [ ] After the last batch, **Finish** nests the user group; the spine's
+- [ ] After the last batch, **Finish** nests the user group.
+- [ ] When the pilot's country goes live (or is live already), the pilot's
+      panel offers **🧪 Migrate to the wave with <country>** — in batches,
+      finished or not batched — and the spine says so; the run takes the
+      pilot's own groups out of the waves.
+- [ ] Migrated, the panel and the spine offer **🗑 Retire <pilot>** (10733):
+      the pilot's groups emptied and deleted, refused while a member the
+      country's sync would take in is not in the country's group yet, or a
+      group sits on an assignment; the rules list it as retired and the
+      table forgets it. The hold-back pair is not touched. The spine's
       Members turns ✓.
 
 ## Stage 3 · Assign (⚡ Rollout actions)

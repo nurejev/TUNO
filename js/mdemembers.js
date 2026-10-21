@@ -85,6 +85,13 @@ const MdeMembers = (() => {
     // the country it overlaps goes live, the pilot's own route into the
     // wave is taken down and the pilot is listed as migrated, not planned.
     migrated: [],
+    // A pilot retired (10733, Mihai 21 Oct 2026: "we are now live with the
+    // netherland, so the pilot-breda should now be fully decommissioned and
+    // onboarded in nl. the hold backs stays"): once migrated, its static
+    // user and device groups are emptied and deleted, and the table forgets
+    // it — countryRows skips a retired suffix. The hold-back pair is never
+    // touched; a held-back user resumes into the country's group.
+    retired: [],
     deviceGroupDescription: "Windows devices whose Intune primary user is in {userGroup}. Kept in sync by TUNO (T28 MDE rollout · wave members).",
     staleDays: 30,
     largeNest: 500,
@@ -174,6 +181,7 @@ const MdeMembers = (() => {
       pilots: uniq((Array.isArray(o.pilots) ? o.pilots : DEFAULTS.pilots).map((x) => String(x || "").trim()).filter(Boolean)),
       batched: uniq((Array.isArray(o.batched) ? o.batched : DEFAULTS.batched).map((x) => String(x || "").trim()).filter(Boolean)),
       migrated: uniq((Array.isArray(o.migrated) ? o.migrated : DEFAULTS.migrated).map((x) => String(x || "").trim()).filter(Boolean)),
+      retired: uniq((Array.isArray(o.retired) ? o.retired : DEFAULTS.retired).map((x) => String(x || "").trim()).filter(Boolean)),
       batchCount: Number.isInteger(+o.batchCount) && +o.batchCount >= 2 && +o.batchCount <= 10 ? +o.batchCount : DEFAULTS.batchCount,
       staleDays: Number.isFinite(+o.staleDays) && +o.staleDays > 0 ? +o.staleDays : DEFAULTS.staleDays,
       largeNest: DEFAULTS.largeNest,
@@ -227,6 +235,9 @@ const MdeMembers = (() => {
     r.suffixes.unshift(suffix);
     if (!/^[A-Za-z]{2}$/.test(suffix) && !Object.keys(c.deviceSuffixes).some((k) => lc(k) === lc(suffix))) c.deviceSuffixes[suffix] = suggestDeviceSuffix(suffix);
     if (!c.pilots.some((p) => lc(p) === lc(suffix))) c.pilots.push(suffix);
+    // a retired pilot added again starts over (10733)
+    c.retired = (c.retired || []).filter((x) => lc(x) !== lc(suffix));
+    c.migrated = (c.migrated || []).filter((x) => lc(x) !== lc(suffix));
     return normConfig(c);
   }
   function parseOverrides(text) {
@@ -263,8 +274,12 @@ const MdeMembers = (() => {
   // regions is kept in the first and said.
   function countryRows(cfg) {
     const out = [], seen = new Map();
+    const retired = new Set((cfg.retired || []).map(lc));
     for (const r of cfg.countryMap) {
       for (const suffix of r.suffixes) {
+        // 🗑 a retired pilot (10733) is no row any more — its source group
+        // is listed with the unmapped ones, as an overlap of its country
+        if (retired.has(lc(suffix))) continue;
         if (seen.has(lc(suffix))) { seen.get(lc(suffix)).notes.push(`also listed under ${r.region} — kept in ${seen.get(lc(suffix)).region}`); continue; }
         const iso = iso3Of(suffix, cfg.deviceSuffixes);
         const row = {
@@ -956,7 +971,7 @@ const MdeMembers = (() => {
     const mappedNames = new Set(rows.map((r) => lc(r.userGroupName)));
     const unmapped = (input.countryGroups || []).filter((g) => !mappedNames.has(lc(g.displayName))).map((g) => {
       const parent = rows.find((r) => lc(g.displayName).startsWith(lc(r.userGroupName) + "-"));
-      return { group: g, dynamic: (g.groupTypes || []).includes("DynamicMembership"), overlaps: parent ? parent.userGroupName : "" };
+      return { group: g, dynamic: (g.groupTypes || []).includes("DynamicMembership"), overlaps: parent ? parent.userGroupName : "", retired: (cfg.retired || []).some((x) => lc(`${cfg.countryPrefix}${x}`) === lc(g.displayName)) };
     }).sort((a, b) => a.group.displayName.localeCompare(b.group.displayName));
     const regions = uniq(rows.map((r) => r.region)).map((region) => {
       const rs = rows.filter((r) => r.region === region);
@@ -1439,7 +1454,9 @@ const MdeMembers = (() => {
     const migrate = [];
     for (const P of pick) {
       if (P.pilot || !P.ug) continue;
-      for (const C of model.rows.filter((x) => x.pilot && !x.migrated && x.parentKey === P.key && x.batch)) {
+      // 10733: any pilot of the country, in batches or not, finished or not
+      // (the button vanished once NL-Breda's batches were finished)
+      for (const C of model.rows.filter((x) => x.pilot && !x.migrated && x.parentKey === P.key)) {
         const tag = `🧪 ${C.country} (${C.userGroupName})`;
         const who = `${C.country} · migrate`;
         const idx = at.get(P.key) || {};
@@ -1448,10 +1465,10 @@ const MdeMembers = (() => {
         if (!userIn) { skipped.push(`${tag}: migrated into the wave only when ${P.userGroupName} goes into it — tick "nest user groups"`); continue; }
         const needU = idx.userNest != null ? [idx.userNest] : undefined;
         const mine = [];
-        const b = C.batch;
+        const b = C.batch || { finished: true, N: 0, inCount: 0, direct: [] };
         const waiting = b.finished ? 0 : Math.max(0, b.N - b.inCount);
         if (waiting) warnings.push(`${waiting} ${C.country} user${waiting === 1 ? "" : "s"} not in a batch yet come in with ${P.country} at once — the remaining batches are skipped`);
-        if (b.direct.length && C.wave.user) {
+        if (b.direct && b.direct.length && C.wave.user) {
           ops.push({ type: "remove", key: C.key, group: { id: lc(C.wave.user.id), name: C.wave.user.displayName }, ids: b.direct.slice(), label: `${b.direct.length} ${C.country} user${b.direct.length === 1 ? "" : "s"} put in directly — in through ${P.ug.displayName} now`, memberKind: "user", who, needsOk: needU, migrate: true });
           mine.push(ops.length - 1);
         }
@@ -1475,6 +1492,91 @@ const MdeMembers = (() => {
       }
     }
     return { ops, skipped, warnings, migrate, hasRemoval: ops.some((x) => x.type === "remove" || x.type === "unnest") };
+  }
+  // 🗑 Retire a migrated pilot (10733, Mihai 21 Oct 2026: "we are now live
+  // with the netherland, so the pilot-breda should now be fully
+  // decommissioned and onboarded in nl. the hold backs stays"). The pilot's
+  // own static user group and device group are emptied and deleted; once
+  // both read back gone the rules list it under `retired` and the table
+  // forgets it. Refused, with the reason, while the pilot is not migrated,
+  // its country is not in the wave, a group is still in a wave or on an
+  // assignment of an in-scope policy, or a member the country's 🔄 sync
+  // would take in is not in the country's group yet. The hold-back pair is
+  // never written: a held-back member stays held back, and a resume puts
+  // them into the country's group.
+  // input: the members input (revertUsers / excludedUsers / held / reverted)
+  // pmodel: T28's policy model (newP / oldP with item.assignments), or null
+  function planRetire(model, input, key, pmodel, cfg) {
+    const ops = [], skipped = [], warnings = [];
+    const C = model && model.rows.find((r) => r.key === key);
+    const out = (why) => ({ ops: [], skipped: why ? [why] : skipped, warnings: [], hasRemoval: false, retire: null });
+    if (!C) return out("That pilot is not in the table any more — read the members again");
+    const tag = `🧪 ${C.country}`;
+    if (!C.pilot) return out(`${C.country} is a country, not a pilot — only a pilot retires`);
+    const P = model.rows.find((r) => r.key === C.parentKey);
+    if (!P) return out(`${tag}: no country in the table holds it (${C.userGroupName} extends none) — nothing to retire into`);
+    if (C.unread || P.unread) return out(`${tag}: ${C.unread ? C.unread : P.unread} — read the members again before retiring`);
+    if (!C.migrated) return out(`${tag}: not migrated into ${P.country} yet — 🧪 Migrate first`);
+    if (!P.ugNested) return out(`${tag}: ${P.userGroupStatic || P.userGroupName} is not in ${P.wave.userName || "the user wave"} — ${P.country} is not live yet`);
+    // a route the migration left up (its device group stays in the device
+    // wave while the country's device group is not in it — the acceptance
+    // walk's case) is taken down here, once the country's side is live
+    if (C.dgNested && !P.dgNested) return out(`${tag}: ${C.deviceGroupName} is still in ${C.wave.deviceName || "the device wave"} and ${P.deviceGroupName || "the country's device group"} is not — nest ${P.deviceGroupName || "the country's device group"} in it first (👥)`);
+    const groups = [C.sug ? { g: C.sug, kind: "user" } : null, C.dg ? { g: C.dg, kind: "device" } : null].filter(Boolean);
+    if (!groups.length) return out(`${tag}: ${[C.userGroupStatic, C.deviceGroupName].filter(Boolean).join(" and ")} ${C.userGroupStatic && C.deviceGroupName ? "do" : "does"} not exist — nothing left to delete`);
+    const refs = (id) => [].concat((pmodel && pmodel.newP) || [], (pmodel && pmodel.oldP) || []).filter((Q) => ((Q.item && Q.item.assignments) || []).some((a) => a.groupId && lc(a.groupId) === lc(id)));
+    if (pmodel) for (const { g } of groups) { const on = refs(g.id); if (on.length) skipped.push(`${g.displayName}: still on ${on.length} assignment${on.length === 1 ? "" : "s"} (${on.slice(0, 3).map((Q) => Q.name).join(", ")}${on.length > 3 ? " …" : ""}) — take it off first`); }
+    else warnings.push("The policies are not read — the plan cannot check that no assignment names these groups. Read the policies first to be sure.");
+    // who the pilot's groups still hold, and whether the country holds them
+    const revU = input && input.revertUsers || new Map(), exU = input && input.excludedUsers || new Map();
+    const heldU = (id) => revU.has(id) || exU.has(id);
+    const heldD = new Set([...((input && input.held) || []), ...((input && input.reverted) || [])]);
+    const users = C.sug ? [...(C.uHave || [])] : [], devices = C.dg ? [...(C.have || [])] : [];
+    const uMap = new Map();
+    if (input && input.usersByGroup) for (const list of input.usersByGroup.values()) for (const u of list || []) if (u && u.id && !uMap.has(lc(u.id))) uMap.set(lc(u.id), u.userPrincipalName || u.displayName || u.id);
+    const uName = (id) => uMap.get(lc(id)) || id;
+    const dName = (id) => { const d = (C.devices || []).find((x) => x.objId === id) || (P.devices || []).find((x) => x.objId === id); return d ? d.name : id; };
+    const waitU = users.filter((id) => !P.uHave.has(id) && !heldU(id) && P.uWant.has(id));
+    const waitD = devices.filter((id) => !P.have.has(id) && !heldD.has(id) && P.want.has(id));
+    if (waitU.length) skipped.push(`${tag}: ${waitU.length} user${waitU.length === 1 ? " is" : "s are"} in ${C.userGroupStatic} but not yet in ${P.userGroupStatic} (${waitU.slice(0, 3).map(uName).join(", ")}${waitU.length > 3 ? " …" : ""}) — fill ${P.country} first (👥 or 🔄)`);
+    if (waitD.length) skipped.push(`${tag}: ${waitD.length} device${waitD.length === 1 ? " is" : "s are"} in ${C.deviceGroupName} but not yet in ${P.deviceGroupName} (${waitD.slice(0, 3).map(dName).join(", ")}${waitD.length > 3 ? " …" : ""}) — fill ${P.country} first (👥)`);
+    if (skipped.length) return { ops: [], skipped, warnings, hasRemoval: false, retire: null };
+    const goneU = users.filter((id) => !P.uHave.has(id) && !heldU(id));
+    const goneD = devices.filter((id) => !P.have.has(id) && !heldD.has(id));
+    if (goneU.length) warnings.push(`${goneU.length} user${goneU.length === 1 ? "" : "s"} in ${C.userGroupStatic} ${goneU.length === 1 ? "is" : "are"} in no ${P.country} source any more (left, or moved country) — already out of the wave since the migration; ${goneU.length === 1 ? "it goes" : "they go"} with the group`);
+    if (goneD.length) warnings.push(`${goneD.length} device${goneD.length === 1 ? "" : "s"} in ${C.deviceGroupName} ${goneD.length === 1 ? "is" : "are"} not placed in ${P.deviceGroupName} by its rules (another country, or nobody's) — already out of the wave since the migration; ${goneD.length === 1 ? "it goes" : "they go"} with the group`);
+    const heldN = users.filter(heldU).length + devices.filter((id) => heldD.has(id)).length;
+    if (heldN) warnings.push(`${heldN} held-back member${heldN === 1 ? " is" : "s are"} still in a pilot group (an old route) — taken out of it; the hold-back keeps them`);
+    const who = `${C.country} · retire`;
+    const dels = [];
+    // the routes still up: out of the waves first (P carries its side)
+    const unU = [], unD = [];
+    for (const g of [C.ugNestedStatic ? C.sug : null, C.ugNestedSrc ? C.ug : null].filter(Boolean)) {
+      if (!C.wave.user) break;
+      ops.push({ type: "unnest", key: C.key, parent: { id: lc(C.wave.user.id), name: C.wave.user.displayName }, child: { id: lc(g.id), name: g.displayName }, kind: "user", who, retire: true });
+      unU.push(ops.length - 1);
+    }
+    if (C.dgNested && C.dg && C.wave.device) {
+      ops.push({ type: "unnest", key: C.key, parent: { id: lc(C.wave.device.id), name: C.wave.device.displayName }, child: { id: lc(C.dg.id), name: C.dg.displayName }, kind: "device", who, retire: true });
+      unD.push(ops.length - 1);
+    }
+    if (unU.length || unD.length) warnings.push(`${[unU.length ? C.wave.userName : "", unD.length ? C.wave.deviceName : ""].filter(Boolean).join(" and ")} still ${unU.length && unD.length ? "carry" : "carries"} the pilot's own group — taken out first; the groups of ${P.country} carry the same people`);
+    for (const { g, kind } of groups) {
+      const ids = kind === "user" ? users : devices;
+      const after = kind === "user" ? unU : unD;
+      let rm = null;
+      if (ids.length) {
+        ops.push({ type: "remove", key: C.key, group: { id: lc(g.id), name: g.displayName }, ids: ids.slice(), memberKind: kind, who, batch: ids.length > 1, label: `${ids.length} ${kind}${ids.length === 1 ? "" : "s"} — ${kind === "user" ? P.userGroupStatic : P.deviceGroupName} carries ${ids.length === 1 ? "it" : "them"} now`, needsOk: after.length ? after.slice() : undefined, retire: true });
+        rm = ops.length - 1;
+      }
+      const need = rm != null ? [rm] : after.slice();
+      ops.push({ type: "deletegroup", key: C.key, who, group: { id: lc(g.id), name: g.displayName }, needsOk: need.length ? need : undefined, retire: true });
+      dels.push(ops.length - 1);
+    }
+    warnings.push(`Deleting a group is permanent — 📜 cannot undo it. Way back: add ${C.suffix} again as a pilot (⚠ Not in any wave → 🧪 Add as pilot) and 👥 creates its groups again. The groups of ${P.country}, the waves and the hold-back pair are not touched.`);
+    const counts = { users: users.length, devices: devices.length, groups: groups.length };
+    const confirmLine = `retire the pilot ${C.country}: delete ${groups.map((x) => x.g.displayName).join(" and ")}${users.length + devices.length ? ` (${[users.length ? `${users.length} user${users.length === 1 ? "" : "s"}` : "", devices.length ? `${devices.length} device${devices.length === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ")}, all in ${P.country} or held back)` : ""}; ${P.country} carries its users and devices`;
+    return { ops, skipped, warnings, hasRemoval: true, counts, confirmLine, retire: { suffix: C.suffix, country: C.country, into: P.country, ops: dels } };
   }
   // The next batch of a pilot (10640): its users straight into the user
   // wave, then the device group (created if need be) filled with their
@@ -1674,7 +1776,11 @@ const MdeMembers = (() => {
   // The inverse of what a run DID (not of what it planned), for undo.
   function inverseOf(done) {
     const out = [];
+    // 10733: a step on a group this run deleted (a retired pilot's members
+    // taken out, its own route out of a wave) has nothing to go back into
+    const gone = new Set((done || []).filter((d) => d.type === "deletegroup").map((d) => lc(d.group.id)));
     for (const d of (done || []).slice().reverse()) {
+      if (gone.size && ((d.group && gone.has(lc(d.group.id)) && d.type !== "rename") || (d.child && gone.has(lc(d.child.id))))) continue;
       const what = (n) => `${n} ${d.memberKind === "user" ? "user" : "device"}${n === 1 ? "" : "s"}`;
       const kin = { memberKind: d.memberKind || "device", who: d.who || null, fromExclusion: !!d.fromExclusion, objs: d.objs };
       if (d.type === "add" && d.ids.length) out.push(Object.assign({ type: "remove", key: d.key, group: d.group, ids: d.ids.slice(), label: `${what(d.ids.length)} this run added` }, kin));
@@ -2100,7 +2206,7 @@ const MdeMembers = (() => {
   return {
     DEFAULTS, normConfig, parseMap, formatMap, parseOverrides, formatOverrides, planHoldGroups, planWaves, planRenameWaves,
     iso3Of, countryName, countryRows, realUpnOf, isAvdName, avdIdsOf, AVD_WHY, parsePilots, suggestDeviceSuffix, addPilot, readInput, compute, planOps, inverseOf,
-    addMembers, removeMembers, applyOps, patchInput, csv, VIA_TEXT, sidToObjectId, deviceLogonKql, planPin, planUnpin, planSkip, batchOf, planBatch, planFinish, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
+    addMembers, removeMembers, applyOps, patchInput, csv, VIA_TEXT, sidToObjectId, deviceLogonKql, planPin, planUnpin, planSkip, batchOf, planBatch, planFinish, planRetire, batchCsv, leftOutCsv, pilotsOf, planPilotsReady, logonKql, readLogons, logonsFor,
     _setWait: (fn) => { wait = fn; }, HOLD_OLD, THROTTLE_TRIES,
   };
 })();
